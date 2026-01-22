@@ -9,11 +9,13 @@ import {
   externalTriggers,
   stepBackActions,
   proceedResponses,
-  getMindfulResponse,
-  getRandomAffirmation
+  getCopingSkillsForEmotion,
+  getCopingSkills,
+  getRandomAffirmation,
+  CopingSkill
 } from '@/lib/adhderData'
 
-type Step = 'start' | 'stop' | 'step_back' | 'observe' | 'affirmation' | 'proceed' | 'complete'
+type Step = 'start' | 'stop' | 'step_back' | 'observe' | 'affirmation' | 'coping' | 'proceed' | 'complete'
 
 export default function BrakePage() {
   const router = useRouter()
@@ -39,9 +41,14 @@ export default function BrakePage() {
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([])
   const [thoughtStory, setThoughtStory] = useState('')
   
+  // Coping Skills
+  const [suggestedCopingSkills, setSuggestedCopingSkills] = useState<CopingSkill[]>([])
+  const [selectedCopingSkill, setSelectedCopingSkill] = useState<CopingSkill | null>(null)
+  const [copingFilter, setCopingFilter] = useState<'all' | 'distraction' | 'expression' | 'grounding' | 'physical'>('all')
+  const [usedCopingSkill, setUsedCopingSkill] = useState(false)
+  
   // Proceed
   const [chosenResponse, setChosenResponse] = useState<string | null>(null)
-  const [mindfulSuggestion, setMindfulSuggestion] = useState<string>('')
   
   // Completion
   const [intensityAfter, setIntensityAfter] = useState<number | null>(null)
@@ -49,7 +56,6 @@ export default function BrakePage() {
   
   // Affirmation (shown if shame detected)
   const [affirmation, setAffirmation] = useState<string>('')
-  const [needsAffirmation, setNeedsAffirmation] = useState(false)
 
   useEffect(() => {
     const checkUser = async () => {
@@ -71,7 +77,7 @@ export default function BrakePage() {
     
     holdTimerRef.current = setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000
-      const progress = Math.min((elapsed / 10) * 100, 100) // 10 second hold
+      const progress = Math.min((elapsed / 10) * 100, 100)
       setStopProgress(progress)
       setStopDuration(Math.floor(elapsed))
       
@@ -87,7 +93,6 @@ export default function BrakePage() {
     if (holdTimerRef.current) {
       clearInterval(holdTimerRef.current)
     }
-    // Don't reset if completed
     if (stopProgress < 100) {
       setStopProgress(0)
     }
@@ -102,22 +107,43 @@ export default function BrakePage() {
   }
 
   const handleObserveComplete = () => {
-    // Check for shame - show affirmation if detected
+    // Check for shame - show affirmation first
     if (selectedEmotions.includes('shame') || selectedEmotions.includes('rejection')) {
       setAffirmation(getRandomAffirmation())
-      setNeedsAffirmation(true)
       setStep('affirmation')
     } else {
-      // Generate mindful suggestion based on selections
-      const suggestion = getMindfulResponse(selectedEmotions, selectedTriggers)
-      setMindfulSuggestion(suggestion.text)
-      setStep('proceed')
+      // Generate coping skills based on emotions
+      const skills = getCopingSkillsForEmotion(selectedEmotions)
+      setSuggestedCopingSkills(skills)
+      setStep('coping')
     }
   }
 
   const handleAffirmationContinue = () => {
-    const suggestion = getMindfulResponse(selectedEmotions, selectedTriggers)
-    setMindfulSuggestion(suggestion.text)
+    const skills = getCopingSkillsForEmotion(selectedEmotions)
+    setSuggestedCopingSkills(skills)
+    setStep('coping')
+  }
+
+  const handleFilterChange = (filter: typeof copingFilter) => {
+    setCopingFilter(filter)
+    if (filter === 'all') {
+      setSuggestedCopingSkills(getCopingSkillsForEmotion(selectedEmotions))
+    } else {
+      setSuggestedCopingSkills(getCopingSkills(filter).slice(0, 4))
+    }
+  }
+
+  const handleCopingSkillSelect = (skill: CopingSkill) => {
+    setSelectedCopingSkill(skill)
+  }
+
+  const handleUsedCopingSkill = () => {
+    setUsedCopingSkill(true)
+    setStep('proceed')
+  }
+
+  const handleSkipCoping = () => {
     setStep('proceed')
   }
 
@@ -148,6 +174,25 @@ export default function BrakePage() {
     setSaving(false)
   }
 
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'distraction': return '🎯'
+      case 'expression': return '💨'
+      case 'grounding': return '🌱'
+      case 'physical': return '💪'
+      default: return '✨'
+    }
+  }
+
+  const getDurationLabel = (duration: string) => {
+    switch (duration) {
+      case 'quick': return '< 2 min'
+      case 'medium': return '2-10 min'
+      case 'long': return '10+ min'
+      default: return ''
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
@@ -158,7 +203,7 @@ export default function BrakePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100">
-      {/* Header - minimal during crisis */}
+      {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4 flex justify-between items-center">
           <button 
@@ -235,7 +280,6 @@ export default function BrakePage() {
                 {isHolding ? `Hold... ${10 - stopDuration}s` : 'Press & Hold'}
               </button>
               
-              {/* Progress ring */}
               <div 
                 className="absolute bottom-0 left-0 h-2 bg-amber-500 rounded-b-2xl transition-all"
                 style={{ width: `${stopProgress}%` }}
@@ -398,6 +442,89 @@ export default function BrakePage() {
           </div>
         )}
 
+        {/* COPING SKILLS (New step) */}
+        {step === 'coping' && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 space-y-5 animate-fadeIn">
+            <div className="text-center space-y-2">
+              <span className="text-4xl">🛠️</span>
+              <h2 className="text-xl font-bold text-slate-800">Coping Toolkit</h2>
+              <p className="text-slate-600 text-sm">Try one of these before deciding what to do next.</p>
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {[
+                { id: 'all', label: 'All', icon: '✨' },
+                { id: 'distraction', label: 'Distract', icon: '🎯' },
+                { id: 'expression', label: 'Express', icon: '💨' },
+                { id: 'grounding', label: 'Ground', icon: '🌱' },
+                { id: 'physical', label: 'Move', icon: '💪' }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleFilterChange(cat.id as typeof copingFilter)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    copingFilter === cat.id
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  }`}
+                >
+                  {cat.icon} {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Coping Skills List */}
+            <div className="grid gap-2">
+              {suggestedCopingSkills.map((skill) => (
+                <button
+                  key={skill.id}
+                  onClick={() => handleCopingSkillSelect(skill)}
+                  className={`p-4 rounded-xl transition-all text-left border-2 ${
+                    selectedCopingSkill?.id === skill.id
+                      ? 'bg-amber-100 border-amber-500'
+                      : 'bg-slate-50 border-transparent hover:bg-amber-50'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">{getCategoryIcon(skill.category)}</span>
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-800 text-sm">{skill.text}</div>
+                      <div className="text-xs text-slate-500 mt-1">{skill.why}</div>
+                      <div className="flex gap-2 mt-2">
+                        <span className="text-xs px-2 py-0.5 bg-slate-200 rounded-full text-slate-600">
+                          {getDurationLabel(skill.duration)}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 bg-slate-200 rounded-full text-slate-600 capitalize">
+                          {skill.intensity} energy
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-2">
+              {selectedCopingSkill && (
+                <button
+                  onClick={handleUsedCopingSkill}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3.5 rounded-xl transition"
+                >
+                  ✓ I did this → Continue
+                </button>
+              )}
+              <button
+                onClick={handleSkipCoping}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-3 rounded-xl transition text-sm"
+              >
+                Skip for now →
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* P - Proceed Mindfully */}
         {step === 'proceed' && (
           <div className="bg-white rounded-2xl shadow-lg p-6 space-y-5 animate-fadeIn">
@@ -407,11 +534,12 @@ export default function BrakePage() {
               <p className="text-slate-600 text-sm">You have a choice. What aligns with your goals?</p>
             </div>
 
-            {/* Suggestion */}
-            {mindfulSuggestion && (
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
-                <p className="text-xs text-amber-600 font-medium mb-1">SUGGESTED:</p>
-                <p className="text-amber-800">{mindfulSuggestion}</p>
+            {/* Show if they used a coping skill */}
+            {usedCopingSkill && selectedCopingSkill && (
+              <div className="bg-green-50 p-3 rounded-xl border border-green-200">
+                <p className="text-green-700 text-sm">
+                  ✓ You used: <strong>{selectedCopingSkill.text}</strong>
+                </p>
               </div>
             )}
 
@@ -478,6 +606,18 @@ export default function BrakePage() {
                   Intensity: <strong>{intensityBefore}</strong> → <strong>{intensityAfter}</strong>
                   {intensityAfter < intensityBefore && ' 🎉'}
                 </p>
+                {intensityAfter < intensityBefore && (
+                  <p className="text-amber-600 text-xs mt-1">
+                    You reduced the intensity by {intensityBefore - intensityAfter} points!
+                  </p>
+                )}
+              </div>
+            )}
+
+            {usedCopingSkill && selectedCopingSkill && (
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <p className="text-blue-800 font-medium text-sm">Coping skill used:</p>
+                <p className="text-blue-700 mt-1 text-sm">{selectedCopingSkill.text}</p>
               </div>
             )}
 
