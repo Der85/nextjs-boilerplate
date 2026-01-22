@@ -29,6 +29,15 @@ interface BurnoutLog {
   created_at: string
 }
 
+interface Goal {
+  id: string
+  title: string
+  category: string
+  progress_percent: number
+  plant_type: string
+  status: string
+}
+
 interface WeeklyStats {
   moodAvg: number | null
   moodCount: number
@@ -36,6 +45,15 @@ interface WeeklyStats {
   impulseCount: number
   impulseSuccessRate: number | null
   focusPlansCompleted: number
+  goalsCompleted: number
+}
+
+const plantEmojis: Record<string, string> = {
+  seedling: '🌱',
+  sprout: '🌿',
+  growing: '🪴',
+  budding: '🌷',
+  blooming: '🌸'
 }
 
 export default function Dashboard() {
@@ -46,6 +64,7 @@ export default function Dashboard() {
   const [entries, setEntries] = useState<MoodEntry[]>([])
   const [activePlans, setActivePlans] = useState<FocusPlan[]>([])
   const [latestBurnout, setLatestBurnout] = useState<BurnoutLog | null>(null)
+  const [activeGoals, setActiveGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({
@@ -54,7 +73,8 @@ export default function Dashboard() {
     allyCount: 0,
     impulseCount: 0,
     impulseSuccessRate: null,
-    focusPlansCompleted: 0
+    focusPlansCompleted: 0,
+    goalsCompleted: 0
   })
 
   useEffect(() => {
@@ -71,7 +91,8 @@ export default function Dashboard() {
         fetchEntries(),
         fetchWeeklyStats(session.user.id),
         fetchActivePlans(session.user.id),
-        fetchLatestBurnout(session.user.id)
+        fetchLatestBurnout(session.user.id),
+        fetchActiveGoals(session.user.id)
       ])
       setLoading(false)
     }
@@ -117,6 +138,19 @@ export default function Dashboard() {
     }
   }
 
+  const fetchActiveGoals = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('goals')
+      .select('id, title, category, progress_percent, plant_type, status')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(4)
+
+    if (!error && data) {
+      setActiveGoals(data)
+    }
+  }
+
   const fetchWeeklyStats = async (userId: string) => {
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
@@ -143,6 +177,12 @@ export default function Dashboard() {
       .eq('is_completed', true)
       .gte('created_at', weekAgoISO)
 
+    const { count: goalsCount } = await supabase
+      .from('goals')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'completed')
+      .gte('updated_at', weekAgoISO)
+
     const moodScores = moodData?.map(m => m.mood_score) || []
     const moodAvg = moodScores.length > 0 
       ? Math.round((moodScores.reduce((a, b) => a + b, 0) / moodScores.length) * 10) / 10
@@ -160,7 +200,8 @@ export default function Dashboard() {
       allyCount: allyCount || 0,
       impulseCount: impulseData?.length || 0,
       impulseSuccessRate,
-      focusPlansCompleted: focusCount || 0
+      focusPlansCompleted: focusCount || 0,
+      goalsCompleted: goalsCount || 0
     })
   }
 
@@ -362,7 +403,6 @@ export default function Dashboard() {
           </h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* Track Mood - Teal */}
             <button
               onClick={() => document.getElementById('mood-section')?.scrollIntoView({ behavior: 'smooth' })}
               className="flex flex-col items-center p-4 bg-gradient-to-br from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 rounded-xl border-2 border-teal-200 transition-all hover:scale-[1.02]"
@@ -372,7 +412,6 @@ export default function Dashboard() {
               <span className="text-xs text-teal-600 mt-0.5">Log mood</span>
             </button>
 
-            {/* Stuck/Paralysed - Purple */}
             <button
               onClick={() => router.push('/ally')}
               className="flex flex-col items-center p-4 bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 rounded-xl border-2 border-purple-200 transition-all hover:scale-[1.02]"
@@ -382,7 +421,6 @@ export default function Dashboard() {
               <span className="text-xs text-purple-600 mt-0.5">Can't start</span>
             </button>
 
-            {/* Focus Foundry - Blue */}
             <button
               onClick={() => router.push('/focus')}
               className="flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 rounded-xl border-2 border-blue-200 transition-all hover:scale-[1.02]"
@@ -392,7 +430,6 @@ export default function Dashboard() {
               <span className="text-xs text-blue-600 mt-0.5">Plan a task</span>
             </button>
 
-            {/* Crisis/Reactive - Amber */}
             <button
               onClick={() => router.push('/brake')}
               className="flex flex-col items-center p-4 bg-gradient-to-br from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 rounded-xl border-2 border-amber-200 transition-all hover:scale-[1.02]"
@@ -402,6 +439,59 @@ export default function Dashboard() {
               <span className="text-xs text-amber-600 mt-0.5">About to react</span>
             </button>
           </div>
+        </div>
+
+        {/* Goal Garden Preview */}
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">🌱 Goal Garden</h2>
+            <button
+              onClick={() => router.push('/goals')}
+              className="text-sm text-green-600 hover:text-green-700 font-medium"
+            >
+              View all →
+            </button>
+          </div>
+          
+          {activeGoals.length === 0 ? (
+            <button
+              onClick={() => router.push('/goals')}
+              className="w-full p-6 bg-green-50 hover:bg-green-100 rounded-xl border-2 border-dashed border-green-300 transition-all text-center"
+            >
+              <span className="text-4xl">🌱</span>
+              <p className="text-green-700 font-medium mt-2">Plant your first goal</p>
+              <p className="text-green-600 text-sm">Set SMART goals and watch them grow</p>
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {activeGoals.map((goal) => (
+                <button
+                  key={goal.id}
+                  onClick={() => router.push('/goals')}
+                  className="p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-all text-center"
+                >
+                  <span className="text-3xl">{plantEmojis[goal.plant_type]}</span>
+                  <p className="text-sm font-medium text-slate-800 mt-2 truncate">{goal.title}</p>
+                  <div className="mt-2 h-1.5 bg-green-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500"
+                      style={{ width: `${goal.progress_percent}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">{goal.progress_percent}%</p>
+                </button>
+              ))}
+              {activeGoals.length < 4 && (
+                <button
+                  onClick={() => router.push('/goals')}
+                  className="p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all text-center border-2 border-dashed border-slate-200"
+                >
+                  <span className="text-2xl text-slate-400">+</span>
+                  <p className="text-sm text-slate-500 mt-2">Add goal</p>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Active Focus Plans */}
@@ -421,28 +511,16 @@ export default function Dashboard() {
                       {plan.steps_completed} of {plan.total_steps} steps done
                     </p>
                   </div>
-                  <div className="w-16 h-16 relative">
-                    <svg className="w-16 h-16 transform -rotate-90">
+                  <div className="w-14 h-14 relative">
+                    <svg className="w-14 h-14 transform -rotate-90">
+                      <circle cx="28" cy="28" r="24" stroke="#e2e8f0" strokeWidth="5" fill="none" />
                       <circle
-                        cx="32"
-                        cy="32"
-                        r="28"
-                        stroke="#e2e8f0"
-                        strokeWidth="6"
-                        fill="none"
-                      />
-                      <circle
-                        cx="32"
-                        cy="32"
-                        r="28"
-                        stroke="#3b82f6"
-                        strokeWidth="6"
-                        fill="none"
-                        strokeDasharray={`${(plan.steps_completed / plan.total_steps) * 176} 176`}
+                        cx="28" cy="28" r="24" stroke="#3b82f6" strokeWidth="5" fill="none"
+                        strokeDasharray={`${(plan.steps_completed / plan.total_steps) * 151} 151`}
                         strokeLinecap="round"
                       />
                     </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-blue-600">
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-blue-600">
                       {Math.round((plan.steps_completed / plan.total_steps) * 100)}%
                     </span>
                   </div>
@@ -457,34 +535,39 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">Your Week</h2>
             
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
               <div className="bg-teal-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-teal-700">
+                <div className="text-lg font-bold text-teal-700">
                   {weeklyStats.moodAvg !== null ? weeklyStats.moodAvg : '—'}
                 </div>
-                <div className="text-xs text-teal-600">Avg Mood</div>
+                <div className="text-xs text-teal-600">Mood</div>
               </div>
 
               <div className="bg-purple-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-purple-700">{weeklyStats.allyCount}</div>
-                <div className="text-xs text-purple-600">Ally Sessions</div>
+                <div className="text-lg font-bold text-purple-700">{weeklyStats.allyCount}</div>
+                <div className="text-xs text-purple-600">Ally</div>
               </div>
 
               <div className="bg-blue-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-blue-700">{weeklyStats.focusPlansCompleted}</div>
-                <div className="text-xs text-blue-600">Tasks Done</div>
+                <div className="text-lg font-bold text-blue-700">{weeklyStats.focusPlansCompleted}</div>
+                <div className="text-xs text-blue-600">Tasks</div>
               </div>
 
               <div className="bg-amber-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-amber-700">{weeklyStats.impulseCount}</div>
-                <div className="text-xs text-amber-600">Brakes Hit</div>
+                <div className="text-lg font-bold text-amber-700">{weeklyStats.impulseCount}</div>
+                <div className="text-xs text-amber-600">Brakes</div>
               </div>
 
               <div className="bg-green-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-green-700">
+                <div className="text-lg font-bold text-green-700">{weeklyStats.goalsCompleted}</div>
+                <div className="text-xs text-green-600">Goals</div>
+              </div>
+
+              <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                <div className="text-lg font-bold text-emerald-700">
                   {weeklyStats.impulseSuccessRate !== null ? `${weeklyStats.impulseSuccessRate}%` : '—'}
                 </div>
-                <div className="text-xs text-green-600">Success Rate</div>
+                <div className="text-xs text-emerald-600">Success</div>
               </div>
             </div>
           </div>
