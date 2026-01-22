@@ -146,6 +146,24 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        
+        {/* Attuned Ally Card - NEW */}
+        <button
+          onClick={() => router.push('/ally')}
+          className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-2xl shadow-lg p-6 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-4">
+            <span className="text-4xl">💜</span>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-white">Stuck? Let's Untangle This</h2>
+              <p className="text-purple-100 text-sm mt-1">
+                Your Attuned Ally is here to help shift from self-criticism to self-support
+              </p>
+            </div>
+            <span className="text-white text-2xl">→</span>
+          </div>
+        </button>
+
         {/* Mood Input Card */}
         <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">How are you feeling?</h2>
