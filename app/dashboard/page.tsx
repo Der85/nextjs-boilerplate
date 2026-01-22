@@ -341,11 +341,11 @@ export default function Dashboard() {
             <p className="text-sm text-slate-500">{getGreeting()}</p>
           </div>
           <button
-            onClick={handleLogout}
-            className="text-slate-500 hover:text-slate-700 text-sm font-medium"
-          >
-            Sign out
-          </button>
+  onClick={handleLogout}
+  className="btn text-slate-600 hover:text-slate-900"
+>
+  Sign out
+</button>
         </div>
       </header>
 
