@@ -709,18 +709,6 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <style jsx>{`
-        input[type='range']::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: white;
-          cursor: pointer;
-          border: 3px solid #14b8a6;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        }
-      `}</style>
     </div>
   )
 }
