@@ -7,8 +7,10 @@ import {
   executiveBlocks, 
   drillSergeantThoughts, 
   getRandomActions, 
-  getAttunedReframe,
-  MicroAction 
+  getCompassionReframe,
+  getRandomAffirmation,
+  MicroAction,
+  CompassionReframe
 } from '@/lib/adhderData'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
@@ -23,11 +25,13 @@ export default function AllyPage() {
   const [challengeBefore, setChallengeBefore] = useState<number | null>(null)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
   const [selectedThought, setSelectedThought] = useState<string | null>(null)
+  const [compassionReframe, setCompassionReframe] = useState<CompassionReframe | null>(null)
   const [microActionsOptions, setMicroActionsOptions] = useState<MicroAction[]>([])
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
   const [customAction, setCustomAction] = useState('')
   const [challengeAfter, setChallengeAfter] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showAffirmation, setShowAffirmation] = useState(false)
 
   useEffect(() => {
     const checkUser = async () => {
@@ -50,6 +54,11 @@ export default function AllyPage() {
 
   const handleThoughtSelect = (thoughtText: string) => {
     setSelectedThought(thoughtText)
+    // Get the specific reframe for this thought and block
+    if (selectedBlock) {
+      const reframe = getCompassionReframe(thoughtText, selectedBlock)
+      setCompassionReframe(reframe)
+    }
     setStep(4)
   }
 
@@ -91,9 +100,11 @@ export default function AllyPage() {
     setChallengeBefore(null)
     setSelectedBlock(null)
     setSelectedThought(null)
+    setCompassionReframe(null)
     setSelectedAction(null)
     setCustomAction('')
     setChallengeAfter(null)
+    setShowAffirmation(false)
   }
 
   if (loading) {
@@ -218,35 +229,61 @@ export default function AllyPage() {
           </div>
         )}
 
-        {/* Step 4: Reframe */}
+        {/* Step 4: Enhanced Reframe */}
         {step === 4 && selectedBlock && (
           <div className="bg-white rounded-2xl shadow-lg p-6 space-y-5 animate-fadeIn">
             <div className="text-center space-y-2">
               <span className="text-4xl">💚</span>
               <h2 className="text-xl font-bold text-slate-800">Switch to Attuned</h2>
               <p className="text-slate-600 text-sm">
-                That was the Drill Sergeant—controlling and rigid. Let's try something different.
+                That was the Drill Sergeant—controlling and rigid. Here's the truth:
               </p>
             </div>
 
+            {/* The Drill Sergeant said... */}
+            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+              <p className="text-xs text-red-600 font-medium mb-1 uppercase tracking-wide">The Drill Sergeant said:</p>
+              <p className="text-slate-700 italic">"{selectedThought}"</p>
+            </div>
+
+            {/* The Attuned Response */}
             <div className="bg-gradient-to-br from-green-50 to-teal-50 p-5 rounded-xl border-2 border-green-200">
-              <p className="text-xs text-green-700 font-medium mb-2 uppercase tracking-wide">Read this aloud:</p>
-              <p className="text-slate-800 leading-relaxed italic">
-                "{getAttunedReframe(selectedBlock)}"
+              <p className="text-xs text-green-700 font-medium mb-2 uppercase tracking-wide">The truth is:</p>
+              <p className="text-slate-800 leading-relaxed">
+                {compassionReframe?.attunedResponse || 
+                  "You have a neurodivergent brain. This challenge isn't a character flaw; it's a difference in how your brain works. You don't need to be neurotypical to be enough."}
               </p>
             </div>
 
-            <div className="bg-purple-50 p-4 rounded-xl">
-              <p className="text-sm text-purple-700">
-                <strong>High warmth, high expectations.</strong> You're learning to work <em>with</em> your brain.
+            {/* Affirmation Card */}
+            <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+              <p className="text-xs text-purple-600 font-medium mb-2 uppercase tracking-wide">Say this to yourself:</p>
+              <p className="text-purple-800 font-medium text-center text-lg">
+                "{compassionReframe?.affirmation || getRandomAffirmation()}"
               </p>
             </div>
+
+            {/* Optional: Show more affirmation */}
+            {!showAffirmation ? (
+              <button
+                onClick={() => setShowAffirmation(true)}
+                className="w-full text-purple-600 text-sm hover:text-purple-800 transition"
+              >
+                + Show me another affirmation
+              </button>
+            ) : (
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 animate-fadeIn">
+                <p className="text-purple-800 font-medium text-center">
+                  "{getRandomAffirmation()}"
+                </p>
+              </div>
+            )}
 
             <button
               onClick={handleContinueToActions}
               className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3.5 rounded-xl transition"
             >
-              I've read it → Continue
+              I hear this → What can I do?
             </button>
           </div>
         )}
@@ -336,12 +373,24 @@ export default function AllyPage() {
                   Stuck level: <strong>{challengeBefore}</strong> → <strong>{challengeAfter}</strong>
                   {challengeAfter < challengeBefore && ' 🎉'}
                 </p>
+                {challengeAfter < challengeBefore && (
+                  <p className="text-purple-600 text-xs mt-1">
+                    You reduced your stuck feeling by {challengeBefore - challengeAfter} points!
+                  </p>
+                )}
               </div>
             )}
 
             <div className="bg-green-50 p-4 rounded-xl border border-green-200">
               <p className="text-green-800 font-medium text-sm">Your action:</p>
               <p className="text-green-700 mt-1 text-sm">{selectedAction || customAction}</p>
+            </div>
+
+            {/* Reminder of the reframe */}
+            <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+              <p className="text-purple-700 text-sm italic">
+                Remember: "{compassionReframe?.affirmation || "I don't need to be neurotypical to be enough."}"
+              </p>
             </div>
 
             <div className="flex gap-3 pt-2">
