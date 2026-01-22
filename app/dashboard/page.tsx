@@ -22,6 +22,13 @@ interface FocusPlan {
   created_at: string
 }
 
+interface BurnoutLog {
+  id: string
+  total_score: number
+  severity_level: 'green' | 'yellow' | 'red'
+  created_at: string
+}
+
 interface WeeklyStats {
   moodAvg: number | null
   moodCount: number
@@ -38,6 +45,7 @@ export default function Dashboard() {
   const [note, setNote] = useState('')
   const [entries, setEntries] = useState<MoodEntry[]>([])
   const [activePlans, setActivePlans] = useState<FocusPlan[]>([])
+  const [latestBurnout, setLatestBurnout] = useState<BurnoutLog | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({
@@ -62,7 +70,8 @@ export default function Dashboard() {
       await Promise.all([
         fetchEntries(),
         fetchWeeklyStats(session.user.id),
-        fetchActivePlans(session.user.id)
+        fetchActivePlans(session.user.id),
+        fetchLatestBurnout(session.user.id)
       ])
       setLoading(false)
     }
@@ -95,30 +104,39 @@ export default function Dashboard() {
     }
   }
 
+  const fetchLatestBurnout = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('burnout_logs')
+      .select('id, total_score, severity_level, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!error && data) {
+      setLatestBurnout(data)
+    }
+  }
+
   const fetchWeeklyStats = async (userId: string) => {
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     const weekAgoISO = weekAgo.toISOString()
 
-    // Fetch mood stats
     const { data: moodData } = await supabase
       .from('mood_entries')
       .select('mood_score')
       .gte('created_at', weekAgoISO)
 
-    // Fetch ally sessions count
     const { count: allyCount } = await supabase
       .from('ally_sessions')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', weekAgoISO)
 
-    // Fetch impulse events
     const { data: impulseData } = await supabase
       .from('impulse_events')
       .select('acted_on_impulse')
       .gte('created_at', weekAgoISO)
 
-    // Fetch completed focus plans
     const { count: focusCount } = await supabase
       .from('focus_plans')
       .select('*', { count: 'exact', head: true })
@@ -212,6 +230,46 @@ export default function Dashboard() {
     return 'Good evening'
   }
 
+  const getBurnoutColor = (level: string) => {
+    switch (level) {
+      case 'green': return 'bg-green-500'
+      case 'yellow': return 'bg-yellow-500'
+      case 'red': return 'bg-red-500'
+      default: return 'bg-slate-400'
+    }
+  }
+
+  const getBurnoutBgColor = (level: string) => {
+    switch (level) {
+      case 'green': return 'from-green-50 to-emerald-50 border-green-200'
+      case 'yellow': return 'from-yellow-50 to-amber-50 border-yellow-200'
+      case 'red': return 'from-red-50 to-orange-50 border-red-200'
+      default: return 'from-slate-50 to-slate-100 border-slate-200'
+    }
+  }
+
+  const getBurnoutLabel = (level: string) => {
+    switch (level) {
+      case 'green': return 'Manageable'
+      case 'yellow': return 'Warning'
+      case 'red': return 'Burnout'
+      default: return ''
+    }
+  }
+
+  const daysSinceLastBurnoutCheck = () => {
+    if (!latestBurnout) return null
+    const lastCheck = new Date(latestBurnout.created_at)
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - lastCheck.getTime()) / (1000 * 60 * 60 * 24))
+    return diff
+  }
+
+  const shouldPromptBurnoutCheck = () => {
+    const days = daysSinceLastBurnoutCheck()
+    return days === null || days >= 7
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -240,7 +298,64 @@ export default function Dashboard() {
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         
-        {/* Smart State Selector - "How are you right now?" */}
+        {/* Burnout Check Prompt */}
+        {shouldPromptBurnoutCheck() && (
+          <button
+            onClick={() => router.push('/burnout')}
+            className={`w-full p-4 rounded-2xl border-2 transition-all hover:scale-[1.01] ${
+              latestBurnout?.severity_level === 'red' 
+                ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-300'
+                : 'bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🔋</span>
+              <div className="flex-1 text-left">
+                <p className="font-semibold text-slate-800">
+                  {latestBurnout ? 'Weekly Battery Check' : 'Check Your Burnout Level'}
+                </p>
+                <p className="text-sm text-slate-500">
+                  {latestBurnout 
+                    ? `Last check: ${daysSinceLastBurnoutCheck()} days ago`
+                    : "Take 2 minutes to check in with yourself"
+                  }
+                </p>
+              </div>
+              <span className="text-slate-400">→</span>
+            </div>
+          </button>
+        )}
+
+        {/* Current Burnout Status (if recent) */}
+        {latestBurnout && !shouldPromptBurnoutCheck() && (
+          <div className={`p-4 rounded-2xl border-2 bg-gradient-to-r ${getBurnoutBgColor(latestBurnout.severity_level)}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/50 flex items-center justify-center">
+                  <span className="text-2xl">🔋</span>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Battery Level</p>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${getBurnoutColor(latestBurnout.severity_level)}`}></div>
+                    <span className="font-semibold text-slate-800">
+                      {getBurnoutLabel(latestBurnout.severity_level)}
+                    </span>
+                    <span className="text-slate-500">({latestBurnout.total_score}/24)</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/burnout')}
+                className="text-sm text-slate-600 hover:text-slate-800 font-medium"
+              >
+                Recheck →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Smart State Selector */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <h2 className="text-lg font-semibold text-slate-800 mb-4 text-center">
             What do you need right now?
@@ -343,7 +458,6 @@ export default function Dashboard() {
             <h2 className="text-lg font-semibold text-slate-800 mb-4">Your Week</h2>
             
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {/* Mood Average */}
               <div className="bg-teal-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-teal-700">
                   {weeklyStats.moodAvg !== null ? weeklyStats.moodAvg : '—'}
@@ -351,25 +465,21 @@ export default function Dashboard() {
                 <div className="text-xs text-teal-600">Avg Mood</div>
               </div>
 
-              {/* Ally Sessions */}
               <div className="bg-purple-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-purple-700">{weeklyStats.allyCount}</div>
                 <div className="text-xs text-purple-600">Ally Sessions</div>
               </div>
 
-              {/* Focus Plans */}
               <div className="bg-blue-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-blue-700">{weeklyStats.focusPlansCompleted}</div>
                 <div className="text-xs text-blue-600">Tasks Done</div>
               </div>
 
-              {/* Impulse Events */}
               <div className="bg-amber-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-amber-700">{weeklyStats.impulseCount}</div>
                 <div className="text-xs text-amber-600">Brakes Hit</div>
               </div>
 
-              {/* Success Rate */}
               <div className="bg-green-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-green-700">
                   {weeklyStats.impulseSuccessRate !== null ? `${weeklyStats.impulseSuccessRate}%` : '—'}
@@ -385,7 +495,6 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-slate-800 mb-4">How are you feeling?</h2>
           
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Mood Slider */}
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-4xl">{getMoodEmoji(moodScore)}</span>
@@ -410,7 +519,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Note Input */}
             <div>
               <textarea
                 value={note}
@@ -511,7 +619,6 @@ export default function Dashboard() {
 
       </main>
 
-      {/* Custom slider styles */}
       <style jsx>{`
         input[type='range']::-webkit-slider-thumb {
           -webkit-appearance: none;
