@@ -13,8 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ADHDer",
-  description: "Tools for adults with ADHD. Check in, get unstuck, and hit the brake.",
+  title: {
+    default: "ADHDer",
+    template: "%s · ADHDer",
+  },
+  description: "Tools for ADHD adults: check-ins, getting unstuck, and impulse braking.",
+  applicationName: "ADHDer",
+  themeColor: "#0ea5a4",
 };
 
 export default function RootLayout({
@@ -23,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
