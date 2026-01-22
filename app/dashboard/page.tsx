@@ -13,12 +13,22 @@ interface MoodEntry {
   created_at: string
 }
 
+interface FocusPlan {
+  id: string
+  task_name: string
+  steps_completed: number
+  total_steps: number
+  is_completed: boolean
+  created_at: string
+}
+
 interface WeeklyStats {
   moodAvg: number | null
   moodCount: number
   allyCount: number
   impulseCount: number
   impulseSuccessRate: number | null
+  focusPlansCompleted: number
 }
 
 export default function Dashboard() {
@@ -27,6 +37,7 @@ export default function Dashboard() {
   const [moodScore, setMoodScore] = useState(5)
   const [note, setNote] = useState('')
   const [entries, setEntries] = useState<MoodEntry[]>([])
+  const [activePlans, setActivePlans] = useState<FocusPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({
@@ -34,7 +45,8 @@ export default function Dashboard() {
     moodCount: 0,
     allyCount: 0,
     impulseCount: 0,
-    impulseSuccessRate: null
+    impulseSuccessRate: null,
+    focusPlansCompleted: 0
   })
 
   useEffect(() => {
@@ -49,7 +61,8 @@ export default function Dashboard() {
       setUser(session.user)
       await Promise.all([
         fetchEntries(),
-        fetchWeeklyStats(session.user.id)
+        fetchWeeklyStats(session.user.id),
+        fetchActivePlans(session.user.id)
       ])
       setLoading(false)
     }
@@ -66,6 +79,19 @@ export default function Dashboard() {
 
     if (!error && data) {
       setEntries(data)
+    }
+  }
+
+  const fetchActivePlans = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('focus_plans')
+      .select('id, task_name, steps_completed, total_steps, is_completed, created_at')
+      .eq('is_completed', false)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    if (!error && data) {
+      setActivePlans(data)
     }
   }
 
@@ -92,6 +118,13 @@ export default function Dashboard() {
       .select('acted_on_impulse')
       .gte('created_at', weekAgoISO)
 
+    // Fetch completed focus plans
+    const { count: focusCount } = await supabase
+      .from('focus_plans')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_completed', true)
+      .gte('created_at', weekAgoISO)
+
     const moodScores = moodData?.map(m => m.mood_score) || []
     const moodAvg = moodScores.length > 0 
       ? Math.round((moodScores.reduce((a, b) => a + b, 0) / moodScores.length) * 10) / 10
@@ -108,7 +141,8 @@ export default function Dashboard() {
       moodCount: moodScores.length,
       allyCount: allyCount || 0,
       impulseCount: impulseData?.length || 0,
-      impulseSuccessRate
+      impulseSuccessRate,
+      focusPlansCompleted: focusCount || 0
     })
   }
 
@@ -212,75 +246,135 @@ export default function Dashboard() {
             What do you need right now?
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Track Mood - Teal */}
             <button
               onClick={() => document.getElementById('mood-section')?.scrollIntoView({ behavior: 'smooth' })}
-              className="flex flex-col items-center p-5 bg-gradient-to-br from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 rounded-xl border-2 border-teal-200 transition-all hover:scale-[1.02]"
+              className="flex flex-col items-center p-4 bg-gradient-to-br from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 rounded-xl border-2 border-teal-200 transition-all hover:scale-[1.02]"
             >
-              <span className="text-3xl mb-2">📊</span>
-              <span className="font-semibold text-teal-700">Check In</span>
-              <span className="text-sm text-teal-600 mt-1">Log how I'm feeling</span>
+              <span className="text-2xl mb-1">📊</span>
+              <span className="font-semibold text-teal-700 text-sm">Check In</span>
+              <span className="text-xs text-teal-600 mt-0.5">Log mood</span>
             </button>
 
             {/* Stuck/Paralysed - Purple */}
             <button
               onClick={() => router.push('/ally')}
-              className="flex flex-col items-center p-5 bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 rounded-xl border-2 border-purple-200 transition-all hover:scale-[1.02]"
+              className="flex flex-col items-center p-4 bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 rounded-xl border-2 border-purple-200 transition-all hover:scale-[1.02]"
             >
-              <span className="text-3xl mb-2">💜</span>
-              <span className="font-semibold text-purple-700">I'm Stuck</span>
-              <span className="text-sm text-purple-600 mt-1">Can't start or focus</span>
+              <span className="text-2xl mb-1">💜</span>
+              <span className="font-semibold text-purple-700 text-sm">I'm Stuck</span>
+              <span className="text-xs text-purple-600 mt-0.5">Can't start</span>
+            </button>
+
+            {/* Focus Foundry - Blue */}
+            <button
+              onClick={() => router.push('/focus')}
+              className="flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 rounded-xl border-2 border-blue-200 transition-all hover:scale-[1.02]"
+            >
+              <span className="text-2xl mb-1">🔨</span>
+              <span className="font-semibold text-blue-700 text-sm">Break It Down</span>
+              <span className="text-xs text-blue-600 mt-0.5">Plan a task</span>
             </button>
 
             {/* Crisis/Reactive - Amber */}
             <button
               onClick={() => router.push('/brake')}
-              className="flex flex-col items-center p-5 bg-gradient-to-br from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 rounded-xl border-2 border-amber-200 transition-all hover:scale-[1.02]"
+              className="flex flex-col items-center p-4 bg-gradient-to-br from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 rounded-xl border-2 border-amber-200 transition-all hover:scale-[1.02]"
             >
-              <span className="text-3xl mb-2">🛑</span>
-              <span className="font-semibold text-amber-700">Hit the Brake</span>
-              <span className="text-sm text-amber-600 mt-1">About to react</span>
+              <span className="text-2xl mb-1">🛑</span>
+              <span className="font-semibold text-amber-700 text-sm">Hit the Brake</span>
+              <span className="text-xs text-amber-600 mt-0.5">About to react</span>
             </button>
           </div>
         </div>
 
+        {/* Active Focus Plans */}
+        {activePlans.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">📋 Active Plans</h2>
+            <div className="space-y-3">
+              {activePlans.map((plan) => (
+                <button
+                  key={plan.id}
+                  onClick={() => router.push('/focus')}
+                  className="w-full flex items-center gap-4 p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all text-left"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-800">{plan.task_name}</p>
+                    <p className="text-sm text-slate-500">
+                      {plan.steps_completed} of {plan.total_steps} steps done
+                    </p>
+                  </div>
+                  <div className="w-16 h-16 relative">
+                    <svg className="w-16 h-16 transform -rotate-90">
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="28"
+                        stroke="#e2e8f0"
+                        strokeWidth="6"
+                        fill="none"
+                      />
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="28"
+                        stroke="#3b82f6"
+                        strokeWidth="6"
+                        fill="none"
+                        strokeDasharray={`${(plan.steps_completed / plan.total_steps) * 176} 176`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-blue-600">
+                      {Math.round((plan.steps_completed / plan.total_steps) * 100)}%
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Weekly Insights */}
-        {(weeklyStats.moodCount > 0 || weeklyStats.allyCount > 0 || weeklyStats.impulseCount > 0) && (
+        {(weeklyStats.moodCount > 0 || weeklyStats.allyCount > 0 || weeklyStats.impulseCount > 0 || weeklyStats.focusPlansCompleted > 0) && (
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">Your Week</h2>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {/* Mood Average */}
-              <div className="bg-teal-50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-teal-700">
+              <div className="bg-teal-50 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-teal-700">
                   {weeklyStats.moodAvg !== null ? weeklyStats.moodAvg : '—'}
                 </div>
-                <div className="text-sm text-teal-600">Avg Mood</div>
-                <div className="text-xs text-teal-500 mt-1">{weeklyStats.moodCount} check-ins</div>
+                <div className="text-xs text-teal-600">Avg Mood</div>
               </div>
 
               {/* Ally Sessions */}
-              <div className="bg-purple-50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-purple-700">{weeklyStats.allyCount}</div>
-                <div className="text-sm text-purple-600">Ally Sessions</div>
-                <div className="text-xs text-purple-500 mt-1">times unstuck</div>
+              <div className="bg-purple-50 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-purple-700">{weeklyStats.allyCount}</div>
+                <div className="text-xs text-purple-600">Ally Sessions</div>
+              </div>
+
+              {/* Focus Plans */}
+              <div className="bg-blue-50 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-blue-700">{weeklyStats.focusPlansCompleted}</div>
+                <div className="text-xs text-blue-600">Tasks Done</div>
               </div>
 
               {/* Impulse Events */}
-              <div className="bg-amber-50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-amber-700">{weeklyStats.impulseCount}</div>
-                <div className="text-sm text-amber-600">Brakes Hit</div>
-                <div className="text-xs text-amber-500 mt-1">impulses caught</div>
+              <div className="bg-amber-50 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-amber-700">{weeklyStats.impulseCount}</div>
+                <div className="text-xs text-amber-600">Brakes Hit</div>
               </div>
 
               {/* Success Rate */}
-              <div className="bg-green-50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-green-700">
+              <div className="bg-green-50 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-green-700">
                   {weeklyStats.impulseSuccessRate !== null ? `${weeklyStats.impulseSuccessRate}%` : '—'}
                 </div>
-                <div className="text-sm text-green-600">Success Rate</div>
-                <div className="text-xs text-green-500 mt-1">impulses managed</div>
+                <div className="text-xs text-green-600">Success Rate</div>
               </div>
             </div>
           </div>
