@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getMoodEmoji, getMoodColor } from '@/lib/adhderData'
+import { getMoodEmoji } from '@/lib/adhderData'
 
 interface MoodEntry {
   id: string
@@ -16,18 +16,6 @@ interface Goal {
   id: string
   title: string
   progress_percent: number
-  plant_type: string
-}
-
-interface FocusPlan {
-  id: string
-  task_name: string
-  steps_completed: number
-  total_steps: number
-}
-
-const plantEmojis: Record<string, string> = {
-  seedling: '🌱', sprout: '🌿', growing: '🪴', budding: '🌷', blooming: '🌸'
 }
 
 export default function Dashboard() {
@@ -36,13 +24,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
-  const [moodScore, setMoodScore] = useState(5)
+  const [moodScore, setMoodScore] = useState<number | null>(null)
   const [note, setNote] = useState('')
-  const [showNote, setShowNote] = useState(false)
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([])
   const [activeGoals, setActiveGoals] = useState<Goal[]>([])
-  const [activePlans, setActivePlans] = useState<FocusPlan[]>([])
-  const [villageCount, setVillageCount] = useState(0)
   const [weeklyAvg, setWeeklyAvg] = useState<number | null>(null)
 
   useEffect(() => {
@@ -51,12 +36,7 @@ export default function Dashboard() {
       if (!session) { router.push('/login'); return }
       
       setUser(session.user)
-      await Promise.all([
-        fetchMoods(),
-        fetchGoals(),
-        fetchPlans(),
-        fetchVillage()
-      ])
+      await Promise.all([fetchMoods(), fetchGoals()])
       setLoading(false)
     }
     init()
@@ -67,7 +47,7 @@ export default function Dashboard() {
       .from('mood_entries')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(7)
+      .limit(5)
     
     if (data) {
       setRecentMoods(data)
@@ -81,33 +61,15 @@ export default function Dashboard() {
   const fetchGoals = async () => {
     const { data } = await supabase
       .from('goals')
-      .select('id, title, progress_percent, plant_type')
+      .select('id, title, progress_percent')
       .eq('status', 'active')
       .order('updated_at', { ascending: false })
       .limit(3)
     if (data) setActiveGoals(data)
   }
 
-  const fetchPlans = async () => {
-    const { data } = await supabase
-      .from('focus_plans')
-      .select('id, task_name, steps_completed, total_steps')
-      .eq('is_completed', false)
-      .order('created_at', { ascending: false })
-      .limit(2)
-    if (data) setActivePlans(data)
-  }
-
-  const fetchVillage = async () => {
-    const { count } = await supabase
-      .from('village_contacts')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_archived', false)
-    if (count) setVillageCount(count)
-  }
-
   const handleSubmit = async () => {
-    if (!user) return
+    if (!user || moodScore === null) return
     setSaving(true)
     await supabase.from('mood_entries').insert({
       user_id: user.id,
@@ -115,8 +77,7 @@ export default function Dashboard() {
       note: note || null,
     })
     setNote('')
-    setShowNote(false)
-    setMoodScore(5)
+    setMoodScore(null)
     await fetchMoods()
     setSaving(false)
   }
@@ -124,279 +85,225 @@ export default function Dashboard() {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
-    const hours = Math.floor((now.getTime() - date.getTime()) / 3600000)
-    if (hours < 1) return 'Now'
+    const diff = now.getTime() - date.getTime()
+    const mins = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    
+    if (mins < 1) return 'now'
+    if (mins < 60) return `${mins}m`
     if (hours < 24) return `${hours}h`
-    if (hours < 48) return 'Yesterday'
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-  }
-
-  const getGreeting = () => {
-    const h = new Date().getHours()
-    if (h < 12) return 'Good morning'
-    if (h < 18) return 'Good afternoon'
-    return 'Good evening'
+    if (days < 7) return `${days}d`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
   if (loading) {
     return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      <div className="app-container flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#1da1f2] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="app-shell">
-      {/* Header */}
-      <header className="sticky top-0 z-50 -mx-4 px-4 glass border-b border-slate-200/50">
-        <div className="app-max py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-500">{getGreeting()}</p>
-            <h1 className="text-xl font-bold text-gradient bg-gradient-to-r from-teal-600 to-cyan-600">
-              ADHDer
-            </h1>
-          </div>
-          <button
+    <div className="app-container">
+      {/* Top Bar */}
+      <div className="top-bar">
+        <div className="top-bar-inner">
+          <h1 style={{ fontSize: '19px', fontWeight: 800, color: '#1da1f2' }}>
+            ADHDer.io
+          </h1>
+          <button 
             onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
-            className="btn btn-ghost text-sm"
+            className="btn btn-ghost"
+            style={{ height: '32px', padding: '0 12px', fontSize: '14px' }}
           >
-            Sign out
+            Log out
           </button>
         </div>
-      </header>
+      </div>
 
-      <main className="app-max py-6 space-y-6">
-        
+      <div className="main-content">
         {/* Quick Actions */}
-        <section>
-          <h2 className="text-sm font-medium text-slate-500 mb-3">Quick help</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => router.push('/ally')}
-              className="surface card-hover p-5 text-left bg-gradient-to-br from-purple-500 to-indigo-600 border-purple-400/30"
-            >
-              <span className="text-3xl">💜</span>
-              <p className="mt-2 font-semibold text-white">I'm stuck</p>
-              <p className="text-sm text-purple-100">Can't start or focus</p>
+        <div className="card" style={{ borderBottom: '10px solid var(--bg-gray)' }}>
+          <p className="text-muted text-sm mb-3">Quick actions</p>
+          <div className="flex gap-2">
+            <button onClick={() => router.push('/ally')} className="btn btn-outline" style={{ flex: 1 }}>
+              💜 I'm stuck
             </button>
-
-            <button
-              onClick={() => router.push('/brake')}
-              className="surface card-hover p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/30"
-            >
-              <span className="text-3xl">🛑</span>
-              <p className="mt-2 font-semibold text-white">Pause</p>
-              <p className="text-sm text-amber-100">About to react</p>
+            <button onClick={() => router.push('/brake')} className="btn btn-outline" style={{ flex: 1 }}>
+              🛑 Need to pause
             </button>
           </div>
-        </section>
+        </div>
 
-        {/* Mood Check-In */}
-        <section className="surface p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-800">How are you?</h2>
-            {weeklyAvg && (
-              <span className="text-sm text-slate-500">
-                Week avg: <span className="font-medium text-teal-600">{weeklyAvg}</span>
-              </span>
-            )}
-          </div>
+        {/* Mood Check-in (like compose tweet) */}
+        <div className="compose-box">
+          <p className="font-bold text-lg mb-3">How are you feeling?</p>
           
-          <div className="flex items-center justify-between py-2">
-            <span className="text-5xl">{getMoodEmoji(moodScore)}</span>
-            <span className={`text-5xl font-bold ${getMoodColor(moodScore)}`}>
-              {moodScore}
-            </span>
-          </div>
-
-          <input
-            type="range"
-            min="0"
-            max="10"
-            value={moodScore}
-            onChange={(e) => setMoodScore(Number(e.target.value))}
-            className="w-full my-4"
-          />
-
-          {!showNote ? (
-            <button
-              onClick={() => setShowNote(true)}
-              className="btn btn-ghost text-sm mb-4"
-            >
-              + Add a note
-            </button>
-          ) : (
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="What's on your mind?"
-              className="input min-h-[80px] mb-4"
-              autoFocus
-            />
-          )}
-
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="btn btn-primary w-full"
-          >
-            {saving ? 'Saving...' : 'Log mood'}
-          </button>
-
-          {/* Mini mood history */}
-          {recentMoods.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-200/50">
-              <div className="flex items-end gap-1 h-12">
-                {recentMoods.slice(0, 7).reverse().map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex-1 rounded-t transition-all hover:opacity-80"
-                    style={{
-                      height: `${Math.max(20, entry.mood_score * 10)}%`,
-                      background: entry.mood_score <= 3 ? '#fca5a5' :
-                                  entry.mood_score <= 6 ? '#fcd34d' : '#6ee7b7'
-                    }}
-                    title={`${entry.mood_score}/10`}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Tools */}
-        <section>
-          <h2 className="text-sm font-medium text-slate-500 mb-3">Tools</h2>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { path: '/focus', icon: '🔨', label: 'Break it down' },
-              { path: '/goals', icon: '🌱', label: 'Goals' },
-              { path: '/burnout', icon: '🔋', label: 'Battery check' },
-              { path: '/village', icon: '👥', label: `Village${villageCount ? ` (${villageCount})` : ''}` },
-            ].map((tool) => (
+          {/* Rating buttons */}
+          <div className="rating-grid mb-4">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
               <button
-                key={tool.path}
-                onClick={() => router.push(tool.path)}
-                className="surface card-hover px-4 py-2.5 flex items-center gap-2"
+                key={n}
+                onClick={() => setMoodScore(n)}
+                className={`rating-btn ${moodScore === n ? 'rating-btn-active' : ''}`}
               >
-                <span>{tool.icon}</span>
-                <span className="text-sm font-medium text-slate-700">{tool.label}</span>
+                {n}
               </button>
             ))}
           </div>
-        </section>
 
-        {/* Active Goals */}
-        {activeGoals.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-slate-500">Growing</h2>
-              <button 
-                onClick={() => router.push('/goals')}
-                className="btn btn-ghost text-sm text-teal-600 py-1 px-2 min-h-0"
-              >
-                See all →
-              </button>
-            </div>
-            <div className="space-y-2">
-              {activeGoals.map((goal) => (
+          {moodScore !== null && (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="emoji-large">{getMoodEmoji(moodScore)}</span>
+                <span className="text-2xl font-extrabold">{moodScore}/10</span>
+              </div>
+
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What's happening? (optional)"
+                className="input-borderless w-full"
+                rows={2}
+              />
+
+              <div className="flex justify-end mt-3">
                 <button
-                  key={goal.id}
-                  onClick={() => router.push('/goals')}
-                  className="surface card-hover w-full flex items-center gap-4 p-4 text-left"
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  className="btn btn-primary"
                 >
-                  <span className="text-2xl">{plantEmojis[goal.plant_type]}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{goal.title}</p>
-                    <div className="mt-1.5 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"
-                        style={{ width: `${goal.progress_percent}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-green-600">{goal.progress_percent}%</span>
+                  {saving ? 'Saving...' : 'Log mood'}
                 </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Active Tasks */}
-        {activePlans.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-slate-500">In progress</h2>
-              <button 
-                onClick={() => router.push('/focus')}
-                className="btn btn-ghost text-sm text-teal-600 py-1 px-2 min-h-0"
-              >
-                See all →
-              </button>
-            </div>
-            <div className="space-y-2">
-              {activePlans.map((plan) => (
-                <button
-                  key={plan.id}
-                  onClick={() => router.push('/focus')}
-                  className="surface card-hover w-full flex items-center gap-4 p-4 text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <span className="text-lg">🔨</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{plan.task_name}</p>
-                    <p className="text-sm text-slate-500">{plan.steps_completed} of {plan.total_steps} steps</p>
-                  </div>
-                  <div className="w-12 h-12 relative">
-                    <svg className="w-12 h-12 -rotate-90">
-                      <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
-                      <circle 
-                        cx="24" cy="24" r="20" 
-                        stroke="#3b82f6"
-                        strokeWidth="4" 
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={`${(plan.steps_completed / plan.total_steps) * 126} 126`}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-blue-600">
-                      {Math.round((plan.steps_completed / plan.total_steps) * 100)}%
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Bottom spacing for nav */}
-        <div className="h-20" />
-      </main>
-
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 inset-x-0 glass border-t border-slate-200/50">
-        <div className="app-max flex">
-          {[
-            { path: '/dashboard', icon: '🏠', label: 'Home', active: true },
-            { path: '/goals', icon: '🌱', label: 'Goals', active: false },
-            { path: '/village', icon: '👥', label: 'Village', active: false },
-          ].map((item) => (
-            <button
-              key={item.path}
-              onClick={() => router.push(item.path)}
-              className={`flex-1 flex flex-col items-center py-3 transition-colors ${
-                item.active ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              <span className="text-xs mt-0.5 font-medium">{item.label}</span>
-            </button>
-          ))}
+              </div>
+            </>
+          )}
         </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
-      </nav>
+
+        {/* Stats */}
+        {weeklyAvg && (
+          <div className="card">
+            <div className="stats-row">
+              <div className="stat">
+                <span className="stat-value">{weeklyAvg}</span>
+                <span className="stat-label">avg this week</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{recentMoods.length}</span>
+                <span className="stat-label">check-ins</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section header */}
+        <div className="page-header">
+          <h2 className="page-title">Recent check-ins</h2>
+        </div>
+
+        {/* Recent moods (like tweets) */}
+        {recentMoods.length === 0 ? (
+          <div className="card text-center" style={{ padding: '40px 15px' }}>
+            <p className="text-muted">No check-ins yet</p>
+            <p className="text-sm text-muted mt-1">Your mood history will appear here</p>
+          </div>
+        ) : (
+          recentMoods.map((entry) => (
+            <div key={entry.id} className="card">
+              <div className="flex items-center gap-3">
+                <span className="emoji-medium">{getMoodEmoji(entry.mood_score)}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">{entry.mood_score}/10</span>
+                    <span className="text-muted">·</span>
+                    <span className="text-muted text-sm">{formatTime(entry.created_at)}</span>
+                  </div>
+                  {entry.note && (
+                    <p className="mt-1" style={{ color: 'var(--black)' }}>{entry.note}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Goals section */}
+        {activeGoals.length > 0 && (
+          <>
+            <div className="section-divider" />
+            <div className="page-header flex justify-between items-center">
+              <h2 className="page-title">Goals</h2>
+              <button onClick={() => router.push('/goals')} className="btn btn-ghost text-sm">
+                See all
+              </button>
+            </div>
+            {activeGoals.map((goal) => (
+              <div 
+                key={goal.id} 
+                className="card card-clickable"
+                onClick={() => router.push('/goals')}
+              >
+                <p className="font-bold mb-2">{goal.title}</p>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${goal.progress_percent}%` }} />
+                </div>
+                <p className="text-sm text-muted mt-2">{goal.progress_percent}% complete</p>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Tools section */}
+        <div className="section-divider" />
+        <div className="page-header">
+          <h2 className="page-title">Tools</h2>
+        </div>
+        
+        <div className="card card-clickable" onClick={() => router.push('/focus')}>
+          <div className="flex items-center gap-3">
+            <span className="emoji-medium">🔨</span>
+            <div>
+              <p className="font-bold">Break it down</p>
+              <p className="text-sm text-muted">Split tasks into smaller steps</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-clickable" onClick={() => router.push('/goals')}>
+          <div className="flex items-center gap-3">
+            <span className="emoji-medium">🌱</span>
+            <div>
+              <p className="font-bold">Goals</p>
+              <p className="text-sm text-muted">Track your progress</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-clickable" onClick={() => router.push('/burnout')}>
+          <div className="flex items-center gap-3">
+            <span className="emoji-medium">🔋</span>
+            <div>
+              <p className="font-bold">Battery check</p>
+              <p className="text-sm text-muted">Monitor your energy levels</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-clickable" onClick={() => router.push('/village')}>
+          <div className="flex items-center gap-3">
+            <span className="emoji-medium">👥</span>
+            <div>
+              <p className="font-bold">My village</p>
+              <p className="text-sm text-muted">Your support network</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom padding */}
+        <div style={{ height: '50px' }} />
+      </div>
     </div>
   )
 }

@@ -3,52 +3,32 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getCopingSkillsForEmotion, CopingSkill } from '@/lib/adhderData'
+import { 
+  executiveBlocks, 
+  drillSergeantThoughts, 
+  getRandomActions, 
+  getCompassionReframe,
+  MicroAction,
+  CompassionReframe
+} from '@/lib/adhderData'
 
-type Step = 'impulse' | 'intensity' | 'observe' | 'cope' | 'proceed' | 'done'
+type Step = 'rating' | 'block' | 'thought' | 'reframe' | 'action' | 'done'
 
-const steps: { id: Step; label: string }[] = [
-  { id: 'impulse', label: 'The urge' },
-  { id: 'intensity', label: 'How strong?' },
-  { id: 'observe', label: 'What\'s underneath?' },
-  { id: 'cope', label: 'Cope first' },
-  { id: 'proceed', label: 'Decide' },
-]
-
-const emotions = [
-  { id: 'anger', label: 'Angry', icon: '😤' },
-  { id: 'anxiety', label: 'Anxious', icon: '😰' },
-  { id: 'sadness', label: 'Sad', icon: '😢' },
-  { id: 'frustration', label: 'Frustrated', icon: '😤' },
-  { id: 'overwhelm', label: 'Overwhelmed', icon: '🤯' },
-  { id: 'boredom', label: 'Bored', icon: '😑' },
-  { id: 'excitement', label: 'Excited', icon: '🤩' },
-  { id: 'shame', label: 'Ashamed', icon: '😔' },
-]
-
-const copingCategories = [
-  { id: 'all', label: 'All' },
-  { id: 'distraction', label: '🎯 Distract' },
-  { id: 'expression', label: '💨 Express' },
-  { id: 'grounding', label: '🌱 Ground' },
-  { id: 'physical', label: '💪 Move' },
-]
-
-export default function BrakePage() {
+export default function AllyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-
-  const [currentStep, setCurrentStep] = useState<Step>('impulse')
-  const [impulseText, setImpulseText] = useState('')
-  const [intensityBefore, setIntensityBefore] = useState<number | null>(null)
-  const [intensityAfter, setIntensityAfter] = useState<number | null>(null)
-  const [selectedEmotions, setSelectedEmotions] = useState<string[]>([])
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [suggestedSkills, setSuggestedSkills] = useState<CopingSkill[]>([])
-  const [usedSkill, setUsedSkill] = useState<CopingSkill | null>(null)
-  const [actedOnImpulse, setActedOnImpulse] = useState<boolean | null>(null)
+  
+  const [currentStep, setCurrentStep] = useState<Step>('rating')
+  const [stuckBefore, setStuckBefore] = useState<number | null>(null)
+  const [stuckAfter, setStuckAfter] = useState<number | null>(null)
+  const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
+  const [selectedThought, setSelectedThought] = useState<string | null>(null)
+  const [reframe, setReframe] = useState<CompassionReframe | null>(null)
+  const [actions, setActions] = useState<MicroAction[]>([])
+  const [selectedAction, setSelectedAction] = useState<string | null>(null)
+  const [customAction, setCustomAction] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -60,38 +40,33 @@ export default function BrakePage() {
     init()
   }, [router])
 
-  const currentStepIndex = steps.findIndex(s => s.id === currentStep)
-
-  const toggleEmotion = (id: string) => {
-    setSelectedEmotions(prev => 
-      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
-    )
+  const handleBlockSelect = (blockId: string) => {
+    setSelectedBlock(blockId)
+    setActions(getRandomActions(blockId, 3))
+    setCurrentStep('thought')
   }
 
-  const handleObserveDone = () => {
-    const skills = getCopingSkillsForEmotion(selectedEmotions)
-    setSuggestedSkills(skills)
-    setCurrentStep('cope')
+  const handleThoughtSelect = (thought: string) => {
+    setSelectedThought(thought)
+    if (selectedBlock) {
+      setReframe(getCompassionReframe(thought, selectedBlock))
+    }
+    setCurrentStep('reframe')
   }
 
-  const handleSkillUsed = (skill: CopingSkill) => {
-    setUsedSkill(skill)
-    setCurrentStep('proceed')
-  }
-
-  const handleComplete = async (acted: boolean) => {
-    if (!user) return
+  const handleComplete = async () => {
+    if (!user || !selectedBlock || (!selectedAction && !customAction)) return
     setSaving(true)
-    setActedOnImpulse(acted)
     
-    await supabase.from('impulse_events').insert({
+    await supabase.from('ally_sessions').insert({
       user_id: user.id,
-      impulse_description: impulseText,
-      intensity_before: intensityBefore,
-      intensity_after: intensityAfter,
-      emotions_felt: selectedEmotions,
-      coping_skill_used: usedSkill?.text || null,
-      acted_on_impulse: acted,
+      block_type: selectedBlock,
+      drill_sergeant_thought: selectedThought,
+      micro_action: selectedAction || 'custom',
+      custom_action: customAction || null,
+      challenge_before: stuckBefore,
+      challenge_after: stuckAfter,
+      completed: true
     })
 
     setCurrentStep('done')
@@ -99,258 +74,200 @@ export default function BrakePage() {
   }
 
   const reset = () => {
-    setCurrentStep('impulse')
-    setImpulseText('')
-    setIntensityBefore(null)
-    setIntensityAfter(null)
-    setSelectedEmotions([])
-    setUsedSkill(null)
-    setActedOnImpulse(null)
+    setCurrentStep('rating')
+    setStuckBefore(null)
+    setStuckAfter(null)
+    setSelectedBlock(null)
+    setSelectedThought(null)
+    setReframe(null)
+    setSelectedAction(null)
+    setCustomAction('')
   }
-
-  const filteredSkills = selectedCategory === 'all' 
-    ? suggestedSkills 
-    : suggestedSkills.filter(s => s.category === selectedCategory)
 
   if (loading) {
     return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <div className="app-container flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#1da1f2] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
+  const stepLabels = ['How stuck?', 'What\'s blocked?', 'Inner critic', 'Reframe', 'Next step']
+  const stepIndex = ['rating', 'block', 'thought', 'reframe', 'action'].indexOf(currentStep)
+
   return (
-    <div className="app-shell">
-      {/* Header */}
-      <header className="sticky top-0 z-50 -mx-4 px-4 glass border-b border-slate-200/50">
-        <div className="app-max py-4 flex items-center justify-between">
-          <button 
-            onClick={() => router.push('/dashboard')}
-            className="btn btn-ghost flex items-center gap-2 text-amber-600 py-2 px-3 min-h-0"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Home
+    <div className="app-container">
+      {/* Top Bar */}
+      <div className="top-bar">
+        <div className="top-bar-inner">
+          <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-icon">
+            ←
           </button>
-          <h1 className="text-lg font-bold text-amber-800">Impulse Brake</h1>
-          <div className="w-20" />
+          <h1 style={{ fontSize: '19px', fontWeight: 800 }}>I'm Stuck</h1>
+          <div style={{ width: '36px' }} />
         </div>
-      </header>
+      </div>
 
-      {/* Progress */}
-      {currentStep !== 'done' && (
-        <div className="app-max pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-amber-700">
-              {steps[currentStepIndex]?.label}
-            </span>
-            <span className="text-sm text-amber-500">
-              {currentStepIndex + 1} of {steps.length}
-            </span>
-          </div>
-          <div className="flex gap-1.5">
-            {steps.map((step, i) => (
-              <div
-                key={step.id}
-                className={`h-1.5 flex-1 rounded-full transition-all ${
-                  i <= currentStepIndex 
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500' 
-                    : 'bg-amber-200'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <main className="app-max py-6 space-y-4">
-        
-        {/* Step 1: Impulse */}
-        {currentStep === 'impulse' && (
-          <section className="surface p-6 space-y-5">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/30 mb-4">
-                <span className="text-3xl">🛑</span>
-              </div>
-              <h2 className="text-xl font-bold text-slate-800">STOP</h2>
-              <p className="text-slate-600 mt-1">What do you feel like doing right now?</p>
+      <div className="main-content">
+        {/* Progress */}
+        {currentStep !== 'done' && (
+          <div className="card">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-bold">{stepLabels[stepIndex]}</span>
+              <span className="text-sm text-muted">{stepIndex + 1} of 5</span>
             </div>
-
-            <textarea
-              value={impulseText}
-              onChange={(e) => setImpulseText(e.target.value)}
-              placeholder="I want to..."
-              className="input min-h-[100px]"
-              autoFocus
-            />
-
-            <button
-              onClick={() => setCurrentStep('intensity')}
-              disabled={!impulseText.trim()}
-              className="btn btn-primary w-full"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
-            >
-              Next →
-            </button>
-          </section>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${((stepIndex + 1) / 5) * 100}%` }} />
+            </div>
+          </div>
         )}
 
-        {/* Step 2: Intensity */}
-        {currentStep === 'intensity' && (
-          <section className="surface p-6 space-y-5">
-            <div className="text-center">
-              <span className="text-4xl">🌡️</span>
-              <h2 className="text-xl font-bold text-slate-800 mt-2">How strong is this urge?</h2>
-              <p className="text-slate-600 mt-1">1 = mild, 10 = overwhelming</p>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+        {/* Step 1: Rating */}
+        {currentStep === 'rating' && (
+          <div className="card" style={{ textAlign: 'center', padding: '30px 15px' }}>
+            <span className="emoji-large">💜</span>
+            <h2 className="text-xl font-extrabold mt-3 mb-2">How stuck are you?</h2>
+            <p className="text-muted mb-4">1 = a little, 5 = completely frozen</p>
+            
+            <div className="rating-grid" style={{ justifyContent: 'center' }}>
+              {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
-                  onClick={() => setIntensityBefore(n)}
-                  className={`h-12 rounded-xl font-bold transition-all ${
-                    intensityBefore === n
-                      ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg'
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                  }`}
+                  onClick={() => { setStuckBefore(n); setCurrentStep('block') }}
+                  className="rating-btn"
+                  style={{ width: '56px', height: '56px', fontSize: '20px' }}
                 >
                   {n}
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={() => setCurrentStep('observe')}
-              disabled={!intensityBefore}
-              className="btn btn-primary w-full"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
-            >
-              Next →
-            </button>
-          </section>
+          </div>
         )}
 
-        {/* Step 3: Observe */}
-        {currentStep === 'observe' && (
-          <section className="surface p-6 space-y-5">
-            <div className="text-center">
-              <span className="text-4xl">👁️</span>
-              <h2 className="text-xl font-bold text-slate-800 mt-2">What's underneath?</h2>
-              <p className="text-slate-600 mt-1">Select all emotions you're feeling</p>
+        {/* Step 2: Block Type */}
+        {currentStep === 'block' && (
+          <>
+            <div className="page-header">
+              <h2 className="page-title">What feels blocked?</h2>
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {emotions.map((emotion) => (
-                <button
-                  key={emotion.id}
-                  onClick={() => toggleEmotion(emotion.id)}
-                  className={`surface card-hover p-3 flex items-center gap-3 text-left ${
-                    selectedEmotions.includes(emotion.id)
-                      ? 'bg-amber-100/80 border-amber-400'
-                      : ''
-                  }`}
-                >
-                  <span className="text-xl">{emotion.icon}</span>
-                  <span className="font-medium text-slate-700">{emotion.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={handleObserveDone}
-              disabled={selectedEmotions.length === 0}
-              className="btn btn-primary w-full"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
-            >
-              Next →
-            </button>
-          </section>
-        )}
-
-        {/* Step 4: Cope */}
-        {currentStep === 'cope' && (
-          <section className="surface p-6 space-y-5">
-            <div className="text-center">
-              <span className="text-4xl">🧘</span>
-              <h2 className="text-xl font-bold text-slate-800 mt-2">Try a coping skill first</h2>
-              <p className="text-slate-600 mt-1">Pick one and do it before deciding</p>
-            </div>
-
-            {/* Category filter */}
-            <div className="flex flex-wrap gap-2">
-              {copingCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`chip transition-all ${
-                    selectedCategory === cat.id
-                      ? 'bg-amber-500 text-white border-amber-500'
-                      : ''
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {filteredSkills.slice(0, 6).map((skill) => (
-                <button
-                  key={skill.text}
-                  onClick={() => handleSkillUsed(skill)}
-                  className="surface card-hover w-full p-4 text-left"
-                >
-                  <p className="font-medium text-slate-800">{skill.text}</p>
-                  <p className="text-sm text-slate-500 mt-1">{skill.why}</p>
-                  <div className="flex gap-2 mt-2">
-                    <span className="chip text-xs">{skill.duration}</span>
-                    <span className="chip text-xs">{skill.intensity}</span>
+            {executiveBlocks.map((block) => (
+              <div
+                key={block.id}
+                className="card card-clickable"
+                onClick={() => handleBlockSelect(block.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="emoji-medium">{block.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <p className="font-bold">{block.label}</p>
+                    <p className="text-sm text-muted">{block.description}</p>
                   </div>
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setCurrentStep('proceed')}
-              className="btn btn-ghost w-full"
-            >
-              Skip for now →
-            </button>
-          </section>
+                  <span className="text-muted">→</span>
+                </div>
+              </div>
+            ))}
+          </>
         )}
 
-        {/* Step 5: Proceed */}
-        {currentStep === 'proceed' && (
-          <section className="surface p-6 space-y-5">
-            <div className="text-center">
-              <span className="text-4xl">🤔</span>
-              <h2 className="text-xl font-bold text-slate-800 mt-2">Now decide</h2>
-              <p className="text-slate-600 mt-1">After pausing, what do you want to do?</p>
+        {/* Step 3: Drill Sergeant Thought */}
+        {currentStep === 'thought' && (
+          <>
+            <div className="page-header">
+              <h2 className="page-title">The inner critic says...</h2>
+              <p className="page-subtitle">Which one sounds familiar?</p>
+            </div>
+            {drillSergeantThoughts.map((thought) => (
+              <div
+                key={thought.id}
+                className="card card-clickable"
+                onClick={() => handleThoughtSelect(thought.text)}
+                style={{ borderLeft: '3px solid var(--danger)' }}
+              >
+                <p style={{ fontStyle: 'italic' }}>"{thought.text}"</p>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Step 4: Reframe */}
+        {currentStep === 'reframe' && (
+          <>
+            {/* Harsh thought */}
+            <div className="card" style={{ background: 'rgba(224, 36, 94, 0.05)', borderLeft: '3px solid var(--danger)' }}>
+              <p className="text-sm text-danger font-bold mb-1">The harsh voice:</p>
+              <p style={{ fontStyle: 'italic' }}>"{selectedThought}"</p>
             </div>
 
-            {usedSkill && (
-              <div className="surface p-4 bg-green-50/80 border-green-200/50">
-                <p className="text-sm text-green-600 font-medium">You tried:</p>
-                <p className="text-green-800">{usedSkill.text}</p>
+            {/* Reframe */}
+            <div className="card" style={{ background: 'rgba(23, 191, 99, 0.05)', borderLeft: '3px solid var(--success)' }}>
+              <p className="text-sm text-success font-bold mb-2">The truth is:</p>
+              <p className="mb-4">
+                {reframe?.attunedResponse || 
+                  "Your brain works differently—not wrongly. This challenge is about neurology, not character."}
+              </p>
+              
+              <div style={{ background: 'rgba(29, 161, 242, 0.1)', padding: '12px', borderRadius: '8px' }}>
+                <p className="text-sm text-muted mb-1">Say this to yourself:</p>
+                <p className="text-primary font-bold" style={{ fontStyle: 'italic' }}>
+                  "{reframe?.affirmation || "I'm doing the best I can with the brain I have."}"
+                </p>
               </div>
-            )}
+            </div>
 
-            {/* Intensity check */}
-            <div>
-              <p className="text-center text-slate-700 mb-3 font-medium">How strong is the urge now?</p>
-              <div className="grid grid-cols-5 gap-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+            <div className="card">
+              <button
+                onClick={() => setCurrentStep('action')}
+                className="btn btn-primary btn-full"
+              >
+                I hear this → What can I do?
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 5: Action */}
+        {currentStep === 'action' && (
+          <>
+            <div className="page-header">
+              <h2 className="page-title">One tiny step</h2>
+              <p className="page-subtitle">Small and doable beats big and stuck</p>
+            </div>
+
+            {actions.map((action) => (
+              <div
+                key={action.id}
+                className={`card card-clickable ${selectedAction === action.text ? 'selected' : ''}`}
+                onClick={() => { setSelectedAction(action.text); setCustomAction('') }}
+                style={{ 
+                  borderLeft: selectedAction === action.text ? '3px solid var(--primary)' : '3px solid transparent',
+                  background: selectedAction === action.text ? 'rgba(29, 161, 242, 0.05)' : undefined
+                }}
+              >
+                <p className="font-bold">{action.text}</p>
+                <p className="text-sm text-muted mt-1">{action.why}</p>
+              </div>
+            ))}
+
+            <div className="card">
+              <input
+                type="text"
+                value={customAction}
+                onChange={(e) => { setCustomAction(e.target.value); setSelectedAction(null) }}
+                placeholder="Or write your own: I will..."
+                className="input"
+              />
+            </div>
+
+            <div className="section-divider" />
+
+            <div className="card">
+              <p className="font-bold mb-3 text-center">How stuck now?</p>
+              <div className="rating-grid" style={{ justifyContent: 'center' }}>
+                {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
-                    onClick={() => setIntensityAfter(n)}
-                    className={`h-10 rounded-lg font-bold text-sm transition-all ${
-                      intensityAfter === n
-                        ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
-                        : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                    }`}
+                    onClick={() => setStuckAfter(n)}
+                    className={`rating-btn ${stuckAfter === n ? 'rating-btn-active' : ''}`}
                   >
                     {n}
                   </button>
@@ -358,82 +275,72 @@ export default function BrakePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-4">
+            <div className="card">
               <button
-                onClick={() => handleComplete(false)}
-                disabled={saving}
-                className="btn btn-primary py-4 flex-col"
-                style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}
+                onClick={handleComplete}
+                disabled={(!selectedAction && !customAction) || saving}
+                className="btn btn-primary btn-full btn-large"
               >
-                <span className="text-2xl mb-1">✓</span>
-                <span className="text-sm">I'll wait</span>
-              </button>
-              <button
-                onClick={() => handleComplete(true)}
-                disabled={saving}
-                className="btn btn-ghost py-4 flex-col bg-amber-50 border-amber-300"
-              >
-                <span className="text-2xl mb-1">→</span>
-                <span className="text-sm text-amber-700">I'll do it</span>
+                {saving ? 'Saving...' : "I'll do this →"}
               </button>
             </div>
-          </section>
+          </>
         )}
 
         {/* Done */}
         {currentStep === 'done' && (
-          <section className="surface p-6 text-center space-y-5">
-            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center shadow-lg ${
-              actedOnImpulse === false 
-                ? 'bg-gradient-to-br from-green-400 to-emerald-500 shadow-green-500/30'
-                : 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30'
-            }`}>
-              <span className="text-4xl">{actedOnImpulse === false ? '🌟' : '👍'}</span>
+          <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div style={{ 
+              width: '80px', 
+              height: '80px', 
+              background: 'var(--success)', 
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px'
+            }}>
+              <span style={{ fontSize: '40px' }}>🌟</span>
             </div>
             
-            <h2 className="text-xl font-bold text-slate-800">
-              {actedOnImpulse === false ? 'You hit the brakes!' : 'You made a choice'}
-            </h2>
-            
-            <p className="text-slate-600">
-              {actedOnImpulse === false 
-                ? 'You paused, observed, and chose not to act impulsively. That takes real strength.'
-                : 'You paused and made a conscious decision. That awareness matters.'
-              }
+            <h2 className="text-xl font-extrabold mb-2">You chose kindness</h2>
+            <p className="text-muted mb-4">
+              You picked support over self-criticism. That's real progress.
             </p>
 
-            {intensityBefore && intensityAfter && intensityAfter < intensityBefore && (
-              <div className="inline-flex items-center gap-3 surface px-5 py-3">
-                <span className="text-amber-600 font-medium">Urge:</span>
-                <span className="text-2xl font-bold text-amber-400">{intensityBefore}</span>
-                <span className="text-amber-300">→</span>
-                <span className="text-2xl font-bold text-amber-600">{intensityAfter}</span>
-                <span className="text-xl">📉</span>
+            {stuckBefore && stuckAfter && stuckAfter < stuckBefore && (
+              <div className="stats-row" style={{ justifyContent: 'center', marginBottom: '20px' }}>
+                <span className="text-muted">Stuck level:</span>
+                <span className="stat-value" style={{ color: 'var(--light-gray)' }}>{stuckBefore}</span>
+                <span className="text-muted">→</span>
+                <span className="stat-value text-primary">{stuckAfter}</span>
+                <span>🎉</span>
               </div>
             )}
 
-            {usedSkill && (
-              <div className="surface p-4 bg-green-50/80 border-green-200/50">
-                <p className="text-sm text-green-600 font-medium">Coping skill used:</p>
-                <p className="text-green-800">{usedSkill.text}</p>
-              </div>
-            )}
+            <div style={{ 
+              background: 'rgba(23, 191, 99, 0.1)', 
+              padding: '16px', 
+              borderRadius: '12px',
+              marginBottom: '20px'
+            }}>
+              <p className="text-sm text-success font-bold mb-1">Your next step:</p>
+              <p>{selectedAction || customAction}</p>
+            </div>
 
-            <div className="flex gap-3 pt-2">
-              <button onClick={reset} className="btn btn-ghost flex-1">
-                Another urge
+            <div className="flex gap-3">
+              <button onClick={reset} className="btn btn-outline" style={{ flex: 1 }}>
+                Another round
               </button>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="btn btn-primary flex-1"
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
-              >
+              <button onClick={() => router.push('/dashboard')} className="btn btn-primary" style={{ flex: 1 }}>
                 Done
               </button>
             </div>
-          </section>
+          </div>
         )}
-      </main>
+
+        <div style={{ height: '50px' }} />
+      </div>
     </div>
   )
 }
