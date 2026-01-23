@@ -140,43 +140,42 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
+    <div className="app-shell">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/50">
-        <div className="max-w-xl mx-auto px-5 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 glass border-b border-white/20">
+        <div className="app-max py-4 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-500">{getGreeting()}</p>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold text-gradient bg-gradient-to-r from-teal-600 to-cyan-600">
               ADHDer.net
             </h1>
           </div>
           <button
             onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
-            className="text-sm text-slate-400 hover:text-slate-600 transition-colors"
+            className="btn btn-ghost text-sm"
           >
             Sign out
           </button>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-5 py-6 space-y-6">
+      <main className="app-max py-6 space-y-6">
         
-        {/* Quick Actions - Modern cards with subtle depth */}
+        {/* Quick Actions */}
         <section>
-          <h2 className="text-sm font-medium text-slate-500 mb-3 px-1">Quick help</h2>
+          <h2 className="text-sm font-medium text-slate-500 mb-3">Quick help</h2>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => router.push('/ally')}
-              className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 p-5 text-left shadow-lg shadow-purple-500/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              className="surface card-hover p-5 text-left bg-gradient-to-br from-purple-500 to-indigo-600 border-purple-400/30"
             >
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               <span className="text-3xl">💜</span>
               <p className="mt-2 font-semibold text-white">I'm stuck</p>
               <p className="text-sm text-purple-100">Can't start or focus</p>
@@ -184,9 +183,8 @@ export default function Dashboard() {
 
             <button
               onClick={() => router.push('/brake')}
-              className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-5 text-left shadow-lg shadow-amber-500/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              className="surface card-hover p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/30"
             >
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               <span className="text-3xl">🛑</span>
               <p className="mt-2 font-semibold text-white">Pause</p>
               <p className="text-sm text-amber-100">About to react</p>
@@ -194,106 +192,93 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Mood Check-In - Clean card */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-          <div className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-slate-800">How are you?</h2>
-              {weeklyAvg && (
-                <span className="text-sm text-slate-500">
-                  Week avg: <span className="font-medium text-teal-600">{weeklyAvg}</span>
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center justify-between py-2">
-              <span className="text-5xl transition-transform hover:scale-110">
-                {getMoodEmoji(moodScore)}
+        {/* Mood Check-In */}
+        <section className="surface p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-800">How are you?</h2>
+            {weeklyAvg && (
+              <span className="text-sm text-slate-500">
+                Week avg: <span className="font-medium text-teal-600">{weeklyAvg}</span>
               </span>
-              <span className={`text-5xl font-bold ${getMoodColor(moodScore)}`}>
-                {moodScore}
-              </span>
-            </div>
-
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={moodScore}
-              onChange={(e) => setMoodScore(Number(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400"
-            />
-
-            {!showNote ? (
-              <button
-                onClick={() => setShowNote(true)}
-                className="text-sm text-slate-500 hover:text-teal-600 transition-colors"
-              >
-                + Add a note
-              </button>
-            ) : (
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="What's on your mind?"
-                rows={2}
-                className="w-full px-4 py-3 bg-slate-50 rounded-xl border-0 focus:ring-2 focus:ring-teal-500/20 resize-none text-sm"
-                autoFocus
-              />
             )}
-
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-500 shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Log mood'}
-            </button>
+          </div>
+          
+          <div className="flex items-center justify-between py-2">
+            <span className="text-5xl">{getMoodEmoji(moodScore)}</span>
+            <span className={`text-5xl font-bold ${getMoodColor(moodScore)}`}>
+              {moodScore}
+            </span>
           </div>
 
-          {/* Mini mood history - subtle visual */}
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={moodScore}
+            onChange={(e) => setMoodScore(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 my-4"
+          />
+
+          {!showNote ? (
+            <button
+              onClick={() => setShowNote(true)}
+              className="btn btn-ghost text-sm mb-4"
+            >
+              + Add a note
+            </button>
+          ) : (
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="What's on your mind?"
+              className="input min-h-[80px] mb-4"
+              autoFocus
+            />
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="btn btn-primary w-full"
+          >
+            {saving ? 'Saving...' : 'Log mood'}
+          </button>
+
+          {/* Mini mood history */}
           {recentMoods.length > 0 && (
-            <div className="px-5 py-3 bg-slate-50/50 border-t border-slate-100">
-              <div className="flex items-center gap-1">
-                {recentMoods.slice(0, 7).reverse().map((entry, i) => (
+            <div className="mt-4 pt-4 border-t border-slate-200/50">
+              <div className="flex items-end gap-1 h-12">
+                {recentMoods.slice(0, 7).reverse().map((entry) => (
                   <div
                     key={entry.id}
-                    className="flex-1 group relative"
-                  >
-                    <div
-                      className="h-8 rounded-md transition-all group-hover:scale-110"
-                      style={{
-                        background: `linear-gradient(to top, ${
-                          entry.mood_score <= 3 ? '#fca5a5' :
-                          entry.mood_score <= 6 ? '#fcd34d' : '#6ee7b7'
-                        }, transparent)`,
-                        height: `${Math.max(20, entry.mood_score * 8)}%`
-                      }}
-                    />
-                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      {entry.mood_score}/10
-                    </span>
-                  </div>
+                    className="flex-1 rounded-t transition-all hover:opacity-80"
+                    style={{
+                      height: `${Math.max(20, entry.mood_score * 10)}%`,
+                      background: entry.mood_score <= 3 ? '#fca5a5' :
+                                  entry.mood_score <= 6 ? '#fcd34d' : '#6ee7b7'
+                    }}
+                    title={`${entry.mood_score}/10`}
+                  />
                 ))}
               </div>
             </div>
           )}
         </section>
 
-        {/* Tools Grid - Modern pill navigation */}
+        {/* Tools */}
         <section>
-          <h2 className="text-sm font-medium text-slate-500 mb-3 px-1">Tools</h2>
+          <h2 className="text-sm font-medium text-slate-500 mb-3">Tools</h2>
           <div className="flex flex-wrap gap-2">
             {[
-              { path: '/focus', icon: '🔨', label: 'Break it down', color: 'from-blue-500 to-cyan-500' },
-              { path: '/goals', icon: '🌱', label: 'Goals', color: 'from-green-500 to-emerald-500' },
-              { path: '/burnout', icon: '🔋', label: 'Battery check', color: 'from-slate-500 to-slate-600' },
-              { path: '/village', icon: '👥', label: `Village${villageCount ? ` (${villageCount})` : ''}`, color: 'from-orange-500 to-red-500' },
+              { path: '/focus', icon: '🔨', label: 'Break it down' },
+              { path: '/goals', icon: '🌱', label: 'Goals' },
+              { path: '/burnout', icon: '🔋', label: 'Battery check' },
+              { path: '/village', icon: '👥', label: `Village${villageCount ? ` (${villageCount})` : ''}` },
             ].map((tool) => (
               <button
                 key={tool.path}
                 onClick={() => router.push(tool.path)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-full border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
+                className="surface card-hover px-4 py-2.5 flex items-center gap-2"
               >
                 <span>{tool.icon}</span>
                 <span className="text-sm font-medium text-slate-700">{tool.label}</span>
@@ -302,14 +287,14 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Active Goals - Modern cards */}
+        {/* Active Goals */}
         {activeGoals.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-slate-500">Growing</h2>
               <button 
                 onClick={() => router.push('/goals')}
-                className="text-sm text-teal-600 hover:text-teal-700"
+                className="btn btn-ghost text-sm text-teal-600"
               >
                 See all →
               </button>
@@ -319,14 +304,14 @@ export default function Dashboard() {
                 <button
                   key={goal.id}
                   onClick={() => router.push('/goals')}
-                  className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all text-left"
+                  className="surface card-hover w-full flex items-center gap-4 p-4 text-left"
                 >
                   <span className="text-2xl">{plantEmojis[goal.plant_type]}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-800 truncate">{goal.title}</p>
                     <div className="mt-1.5 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all"
+                        className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"
                         style={{ width: `${goal.progress_percent}%` }}
                       />
                     </div>
@@ -341,11 +326,11 @@ export default function Dashboard() {
         {/* Active Tasks */}
         {activePlans.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-slate-500">In progress</h2>
               <button 
                 onClick={() => router.push('/focus')}
-                className="text-sm text-teal-600 hover:text-teal-700"
+                className="btn btn-ghost text-sm text-teal-600"
               >
                 See all →
               </button>
@@ -355,7 +340,7 @@ export default function Dashboard() {
                 <button
                   key={plan.id}
                   onClick={() => router.push('/focus')}
-                  className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all text-left"
+                  className="surface card-hover w-full flex items-center gap-4 p-4 text-left"
                 >
                   <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                     <span className="text-lg">🔨</span>
@@ -369,18 +354,12 @@ export default function Dashboard() {
                       <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
                       <circle 
                         cx="24" cy="24" r="20" 
-                        stroke="url(#blueGradient)" 
+                        stroke="#3b82f6"
                         strokeWidth="4" 
                         fill="none"
                         strokeLinecap="round"
                         strokeDasharray={`${(plan.steps_completed / plan.total_steps) * 126} 126`}
                       />
-                      <defs>
-                        <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#3b82f6" />
-                          <stop offset="100%" stopColor="#06b6d4" />
-                        </linearGradient>
-                      </defs>
                     </svg>
                     <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-blue-600">
                       {Math.round((plan.steps_completed / plan.total_steps) * 100)}%
@@ -392,17 +371,17 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* Bottom spacing */}
-        <div className="h-6" />
+        {/* Bottom spacing for nav */}
+        <div className="h-20" />
       </main>
 
-      {/* Modern bottom nav */}
-      <nav className="fixed bottom-0 inset-x-0 bg-white/80 backdrop-blur-md border-t border-slate-200/50">
-        <div className="max-w-xl mx-auto flex">
+      {/* Bottom Nav */}
+      <nav className="fixed bottom-0 inset-x-0 glass border-t border-white/20">
+        <div className="app-max flex">
           {[
             { path: '/dashboard', icon: '🏠', label: 'Home', active: true },
-            { path: '/goals', icon: '🌱', label: 'Goals' },
-            { path: '/village', icon: '👥', label: 'Village' },
+            { path: '/goals', icon: '🌱', label: 'Goals', active: false },
+            { path: '/village', icon: '👥', label: 'Village', active: false },
           ].map((item) => (
             <button
               key={item.path}
@@ -416,7 +395,6 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
-        {/* Safe area */}
         <div className="h-[env(safe-area-inset-bottom)]" />
       </nav>
 
@@ -430,13 +408,6 @@ export default function Dashboard() {
           border: 3px solid #14b8a6;
           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
           cursor: pointer;
-          transition: transform 0.15s;
-        }
-        input[type='range']::-webkit-slider-thumb:hover {
-          transform: scale(1.15);
-        }
-        input[type='range']::-webkit-slider-thumb:active {
-          transform: scale(0.95);
         }
       `}</style>
     </div>
