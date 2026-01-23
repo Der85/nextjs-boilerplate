@@ -17,9 +17,19 @@ export const metadata: Metadata = {
     default: "ADHDer",
     template: "%s · ADHDer",
   },
-  description: "Tools for ADHD adults: check-ins, getting unstuck, and impulse braking.",
+  description: "ADHD-friendly tools for check-ins, getting unstuck, and impulse braking.",
   applicationName: "ADHDer",
-  themeColor: "#0ea5a4",
+  themeColor: "#14b8a6",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ADHDer",
+  },
 };
 
 export default function RootLayout({
@@ -29,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
       </body>
     </html>

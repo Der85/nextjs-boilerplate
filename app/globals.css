@@ -79,17 +79,13 @@ html {
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Use Geist if loaded, fallback to system fonts */
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: var(--text-base);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Fallback gradient for browsers without color-mix */
-  background: 
-    radial-gradient(900px 500px at 15% 0%, rgba(20, 184, 166, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 85% 10%, rgba(59, 130, 246, 0.08), transparent 55%),
-    #f7f9fc;
   background: 
     radial-gradient(900px 500px at 15% 0%, rgba(20, 184, 166, 0.10), transparent 60%),
     radial-gradient(900px 500px at 85% 10%, rgba(59, 130, 246, 0.08), transparent 55%),
@@ -98,8 +94,8 @@ body {
   color: var(--fg);
   padding-bottom: var(--safe-area-bottom);
   
-  /* Prevent overscroll bounce */
-  overscroll-behavior: none;
+  /* Prevent overscroll bounce chaining without feeling "stuck" */
+  overscroll-behavior-y: contain;
 }
 
 /* Links */
@@ -127,7 +123,6 @@ a {
    FOCUS (strong + consistent)
    ============================================ */
 
-/* Fallback for browsers without color-mix */
 :focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.8);
   outline-offset: 3px;
@@ -183,12 +178,6 @@ textarea {
 
 ::placeholder {
   color: rgba(15, 23, 42, 0.35);
-}
-
-@supports (background: color-mix(in srgb, red 50%, blue)) {
-  ::placeholder {
-    color: color-mix(in srgb, var(--fg) 35%, transparent);
-  }
 }
 
 /* ============================================
@@ -260,7 +249,6 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* Firefox range track */
 input[type="range"]::-moz-range-track {
   background: linear-gradient(to right, #fca5a5, #fcd34d, #6ee7b7);
   height: 10px;
@@ -274,27 +262,41 @@ input[type="range"]::-moz-range-track {
 @layer components {
   /* App shell - full height container */
   .app-shell {
+    min-height: 100vh;
     min-height: 100svh;
-    min-height: 100vh; /* fallback for older browsers */
     padding-left: 1rem;
     padding-right: 1rem;
     padding-bottom: max(1rem, var(--safe-area-bottom));
   }
 
-  /* Centered content container */
+  /* Centered content container - responsive widths */
   .app-max {
     margin-left: auto;
     margin-right: auto;
     width: 100%;
-    max-width: 32rem; /* 512px - good for mobile-first */
+    max-width: 42rem; /* comfortable reading width */
   }
 
-  /* For wider layouts if needed */
+  @media (min-width: 768px) {
+    .app-max {
+      max-width: 56rem; /* better desktop breathing room */
+    }
+  }
+
+  /* For narrower content (forms, single-column) */
+  .app-max-narrow {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  /* For wider layouts (dashboards, multi-card) */
   .app-max-wide {
     margin-left: auto;
     margin-right: auto;
     width: 100%;
-    max-width: 64rem;
+    max-width: 72rem;
   }
 
   /* Glass surface card */
@@ -378,6 +380,7 @@ input[type="range"]::-moz-range-track {
   .btn-ghost:hover:not(:disabled) {
     background: rgba(15, 23, 42, 0.09);
     border-color: rgba(15, 23, 42, 0.14);
+    transform: translateY(-1px);
   }
 
   /* Input field */
@@ -457,7 +460,6 @@ input[type="range"]::-moz-range-track {
     border: 0;
   }
 
-  /* Animation for loading spinners */
   .animate-spin {
     animation: spin 1s linear infinite;
   }
