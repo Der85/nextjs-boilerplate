@@ -3,67 +3,36 @@
 @tailwind utilities;
 
 /* ============================================
-   ADHD-FRIENDLY DESIGN SYSTEM
+   MODERN ADHD-FRIENDLY DESIGN SYSTEM 2026
+   Clean, calm, but visually engaging
    ============================================ */
 
 :root {
-  /* Minimum touch target size */
-  --min-tap-size: 44px;
-  
-  /* Consistent spacing */
-  --space-xs: 0.5rem;
-  --space-sm: 0.75rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  
-  /* Safe area for phones */
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ============================================
-   BASE TYPOGRAPHY
+   BASE STYLES
    ============================================ */
 
 html {
-  /* Prevent font size adjustment on orientation change */
   -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  /* Minimum 16px for readability, prevents iOS zoom on input focus */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  
-  /* Improve text rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
-  /* Prevent overscroll bounce on iOS */
-  overscroll-behavior: none;
+  background: #f8fafc;
 }
-
-/* Ensure minimum readable text size */
-p, span, label, li {
-  font-size: max(0.875rem, 14px);
-}
-
-/* Headings with clear hierarchy */
-h1 { font-size: 1.5rem; font-weight: 700; }
-h2 { font-size: 1.25rem; font-weight: 600; }
-h3 { font-size: 1.125rem; font-weight: 600; }
 
 /* ============================================
    REDUCED MOTION SUPPORT
    ============================================ */
 
-/* Default: subtle transitions */
-* {
-  transition-duration: 200ms;
-}
-
-/* Respect user preference for reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -71,72 +40,114 @@ h3 { font-size: 1.125rem; font-weight: 600; }
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
   
-  /* Remove any loading spinners' rotation */
-  .animate-spin {
-    animation: none !important;
+  html {
+    scroll-behavior: auto;
   }
 }
 
 /* ============================================
-   FOCUS STATES (Accessibility)
+   FOCUS STATES
    ============================================ */
 
-/* Clear, visible focus ring */
 :focus-visible {
-  outline: 3px solid #14b8a6;
+  outline: 2px solid #14b8a6;
   outline-offset: 2px;
+  border-radius: 8px;
 }
 
-/* Remove default outline when using mouse */
 :focus:not(:focus-visible) {
   outline: none;
 }
 
 /* ============================================
-   BUTTON DEFAULTS
+   TYPOGRAPHY
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Minimum readable size */
+p, span, label, li, a {
+  font-size: max(0.875rem, 14px);
+}
+
+/* ============================================
+   BUTTONS & INPUTS
    ============================================ */
 
 button {
-  /* Minimum touch target */
-  min-height: var(--min-tap-size);
-  
-  /* Prevent text selection on tap */
-  user-select: none;
-  -webkit-user-select: none;
-  
-  /* Remove tap highlight on mobile */
-  -webkit-tap-highlight-color: transparent;
-  
-  /* Ensure text is readable */
   font-size: max(0.9375rem, 15px);
+  min-height: 44px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
 }
-
-/* ============================================
-   INPUT DEFAULTS
-   ============================================ */
 
 input, textarea, select {
-  /* Minimum 16px prevents iOS zoom */
-  font-size: max(1rem, 16px);
-  
-  /* Comfortable touch target */
-  min-height: var(--min-tap-size);
-  
-  /* Good padding */
-  padding: 0.75rem 1rem;
+  font-size: 16px; /* Prevents iOS zoom */
+  min-height: 44px;
 }
 
-/* Placeholder styling */
+textarea {
+  min-height: auto;
+}
+
 ::placeholder {
   color: #94a3b8;
-  opacity: 1;
 }
 
 /* ============================================
-   SCROLLBAR STYLING (subtle)
+   RANGE SLIDER - Modern style
+   ============================================ */
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  cursor: pointer;
+  background: linear-gradient(to right, #fca5a5, #fcd34d, #6ee7b7);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #14b8a6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 4px rgba(20, 184, 166, 0.1);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), 0 0 0 6px rgba(20, 184, 166, 0.15);
+}
+
+input[type='range']::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #14b8a6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+/* ============================================
+   SCROLLBAR - Subtle
    ============================================ */
 
 ::-webkit-scrollbar {
@@ -158,95 +169,53 @@ input, textarea, select {
 }
 
 /* ============================================
-   UTILITY CLASSES
+   GLASS MORPHISM UTILITIES
    ============================================ */
 
-/* Safe area padding for bottom nav */
-.pb-safe {
-  padding-bottom: calc(4rem + var(--safe-area-bottom));
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.h-safe-area-bottom {
-  height: var(--safe-area-bottom);
-}
-
-/* Hide scrollbar but keep functionality */
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Truncate text with ellipsis */
-.truncate-2-lines {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 /* ============================================
-   CUSTOM RANGE SLIDER (Mood)
-   ============================================ */
-
-input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 12px;
-  border-radius: 9999px;
-  cursor: pointer;
-}
-
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: white;
-  border: 3px solid #14b8a6;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  transition: transform 150ms ease;
-}
-
-input[type='range']::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-}
-
-input[type='range']::-webkit-slider-thumb:active {
-  transform: scale(0.95);
-}
-
-input[type='range']::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: white;
-  border: 3px solid #14b8a6;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-}
-
-/* ============================================
-   LOADING SPINNER
+   ANIMATION UTILITIES
    ============================================ */
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .animate-spin {
   animation: spin 1s linear infinite;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
 /* ============================================
-   SCREEN READER ONLY
+   UTILITIES
    ============================================ */
 
 .sr-only {
@@ -261,19 +230,36 @@ input[type='range']::-moz-range-thumb {
   border: 0;
 }
 
+/* Gradient text */
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Safe area */
+.pb-safe {
+  padding-bottom: max(1rem, var(--safe-area-bottom));
+}
+
 /* ============================================
-   HIGH CONTRAST MODE SUPPORT
+   HIGH CONTRAST MODE
    ============================================ */
 
 @media (prefers-contrast: high) {
-  /* Increase border visibility */
-  .border {
-    border-width: 2px;
+  button, a {
+    border: 2px solid currentColor;
   }
   
-  /* Ensure text contrast */
-  .text-slate-500,
-  .text-slate-400 {
-    color: #475569;
+  .text-slate-500, .text-slate-400 {
+    color: #334155;
   }
+}
+
+/* ============================================
+   DARK MODE (future-ready)
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  /* Ready to implement when needed */
 }
