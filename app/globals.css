@@ -1,132 +1,279 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Design tokens */
+/* ============================================
+   ADHD-FRIENDLY DESIGN SYSTEM
+   ============================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-
-  /* Accessible focus colour (works on both light/dark) */
-  --focus: #2563eb; /* blue-600 */
+  /* Minimum touch target size */
+  --min-tap-size: 44px;
+  
+  /* Consistent spacing */
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  
+  /* Safe area for phones */
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ============================================
+   BASE TYPOGRAPHY
+   ============================================ */
+
+html {
+  /* Prevent font size adjustment on orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  /* Minimum 16px for readability, prevents iOS zoom on input focus */
+  font-size: 16px;
+  line-height: 1.6;
+  
+  /* Improve text rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Prevent overscroll bounce on iOS */
+  overscroll-behavior: none;
 }
 
-@layer base {
-  html {
-    color-scheme: light dark;
-    -webkit-text-size-adjust: 100%;
-    text-rendering: optimizeLegibility;
-  }
-
-  body {
-    background: var(--background);
-    color: var(--foreground);
-
-    /* IMPORTANT: stop overriding Geist with Arial */
-    font-family: var(--font-sans), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-
-    /* iPhone safe-area friendliness */
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Strong, consistent keyboard focus across the entire app */
-  :focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
-  }
-
-  /* Don’t let buttons/inputs look “unstyled” on iOS */
-  button,
-  input,
-  textarea {
-    font: inherit;
-  }
-
-  /* Smooth scrolling is fine, but respect reduced motion */
-  @media (prefers-reduced-motion: no-preference) {
-    html:focus-within {
-      scroll-behavior: smooth;
-    }
-  }
-
-  /* Reduce motion for ADHD + vestibular safety */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
+/* Ensure minimum readable text size */
+p, span, label, li {
+  font-size: max(0.875rem, 14px);
 }
 
-@layer components {
-  /* A reusable “page container” pattern to keep layouts consistent */
-  .app-shell {
-    min-height: 100svh;
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
+/* Headings with clear hierarchy */
+h1 { font-size: 1.5rem; font-weight: 700; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1.125rem; font-weight: 600; }
 
-  .app-max {
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-    max-width: 56rem; /* ~max-w-4xl */
-  }
+/* ============================================
+   REDUCED MOTION SUPPORT
+   ============================================ */
 
-  /* Consistent button focus + tap targets */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    font-weight: 600;
-    transition: transform 120ms ease, filter 120ms ease;
-  }
+/* Default: subtle transitions */
+* {
+  transition-duration: 200ms;
+}
 
-  .btn:active {
-    transform: scale(0.98);
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Remove any loading spinners' rotation */
+  .animate-spin {
+    animation: none !important;
   }
 }
 
-/* Move your range thumb styling out of inline JSX and make it global */
-@layer base {
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 9999px;
-    background: white;
-    cursor: pointer;
-    border: 3px solid #14b8a6;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  }
+/* ============================================
+   FOCUS STATES (Accessibility)
+   ============================================ */
 
-  input[type="range"]::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-    border-radius: 9999px;
-    background: white;
-    cursor: pointer;
-    border: 3px solid #14b8a6;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+/* Clear, visible focus ring */
+:focus-visible {
+  outline: 3px solid #14b8a6;
+  outline-offset: 2px;
+}
+
+/* Remove default outline when using mouse */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================
+   BUTTON DEFAULTS
+   ============================================ */
+
+button {
+  /* Minimum touch target */
+  min-height: var(--min-tap-size);
+  
+  /* Prevent text selection on tap */
+  user-select: none;
+  -webkit-user-select: none;
+  
+  /* Remove tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
+  
+  /* Ensure text is readable */
+  font-size: max(0.9375rem, 15px);
+}
+
+/* ============================================
+   INPUT DEFAULTS
+   ============================================ */
+
+input, textarea, select {
+  /* Minimum 16px prevents iOS zoom */
+  font-size: max(1rem, 16px);
+  
+  /* Comfortable touch target */
+  min-height: var(--min-tap-size);
+  
+  /* Good padding */
+  padding: 0.75rem 1rem;
+}
+
+/* Placeholder styling */
+::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+/* ============================================
+   SCROLLBAR STYLING (subtle)
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Safe area padding for bottom nav */
+.pb-safe {
+  padding-bottom: calc(4rem + var(--safe-area-bottom));
+}
+
+.h-safe-area-bottom {
+  height: var(--safe-area-bottom);
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Truncate text with ellipsis */
+.truncate-2-lines {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================
+   CUSTOM RANGE SLIDER (Mood)
+   ============================================ */
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 12px;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #14b8a6;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+input[type='range']::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #14b8a6;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ============================================
+   SCREEN READER ONLY
+   ============================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================
+   HIGH CONTRAST MODE SUPPORT
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  /* Increase border visibility */
+  .border {
+    border-width: 2px;
+  }
+  
+  /* Ensure text contrast */
+  .text-slate-500,
+  .text-slate-400 {
+    color: #475569;
   }
 }
