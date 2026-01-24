@@ -42,7 +42,6 @@ export default function OnboardingPage() {
     setError('')
     
     try {
-      const supabase = createClient()
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -78,7 +77,6 @@ export default function OnboardingPage() {
       setCoachAdvice(data.advice)
       
       // Save mood entry
-      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
