@@ -101,28 +101,44 @@ export default function OnboardingPage() {
     router.push('/dashboard')
   }
 
+  // Twitter-style button component
+  const PrimaryButton = ({ onClick, disabled, children }: { onClick: () => void, disabled?: boolean, children: React.ReactNode }) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full bg-[#1D9BF0] text-white py-3 px-6 rounded-full font-bold text-[15px] hover:bg-[#1A8CD8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
+  )
+
+  const SecondaryButton = ({ onClick, children }: { onClick: () => void, children: React.ReactNode }) => (
+    <button
+      onClick={onClick}
+      className="w-full bg-white text-[#0F1419] py-3 px-6 rounded-full font-bold text-[15px] border border-[#CFD9DE] hover:bg-[#F7F9F9] transition-colors"
+    >
+      {children}
+    </button>
+  )
+
   const renderStep = () => {
     switch (step) {
       // Step 0: Welcome - First time user?
       case 0:
         return (
           <div className="text-center">
-            <div className="text-6xl mb-6">👋</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to ADHDer.io</h1>
-            <p className="text-gray-600 mb-8">Is this your first time here?</p>
+            <div className="w-16 h-16 bg-[#1D9BF0] rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-3xl">🧠</span>
+            </div>
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-2">Welcome to ADHDer.io</h1>
+            <p className="text-[15px] text-[#536471] mb-8">Is this your first time here?</p>
             <div className="space-y-3">
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-              >
+              <PrimaryButton onClick={handleNext}>
                 Yes, I'm new here
-              </button>
-              <button
-                onClick={() => router.push('/login')}
-                className="w-full bg-white text-gray-700 py-3 px-6 rounded-full font-medium border border-gray-300 hover:bg-gray-50 transition"
-              >
+              </PrimaryButton>
+              <SecondaryButton onClick={() => router.push('/login')}>
                 No, take me to login
-              </button>
+              </SecondaryButton>
             </div>
           </div>
         )
@@ -131,29 +147,26 @@ export default function OnboardingPage() {
       case 1:
         return (
           <div>
-            <div className="text-5xl mb-4">🧠</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-2">
               Hello! I'm Der, your ADHD coach.
             </h1>
-            <p className="text-gray-600 mb-2">
-              It's <span className="font-semibold text-blue-500">ADHD-er</span>, get it? 😄
+            <p className="text-[15px] text-[#536471] mb-1">
+              It's <span className="font-bold text-[#1D9BF0]">ADHD-er</span>, get it? 😄
             </p>
-            <p className="text-gray-600 mb-6">What's your name?</p>
+            <p className="text-[15px] text-[#536471] mb-6">What's your name?</p>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 bg-white border border-[#CFD9DE] rounded-lg text-[15px] text-[#0F1419] placeholder-[#536471] focus:outline-none focus:border-[#1D9BF0] focus:ring-1 focus:ring-[#1D9BF0]"
               autoFocus
             />
-            <button
-              onClick={handleNext}
-              disabled={!name.trim()}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Continue
-            </button>
+            <div className="mt-6">
+              <PrimaryButton onClick={handleNext} disabled={!name.trim()}>
+                Continue
+              </PrimaryButton>
+            </div>
           </div>
         )
 
@@ -161,26 +174,23 @@ export default function OnboardingPage() {
       case 2:
         return (
           <div>
-            <div className="text-5xl mb-4">✨</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-2">
               Hi {name}, great to meet you!
             </h1>
-            <p className="text-gray-600 mb-6">What's your email?</p>
+            <p className="text-[15px] text-[#536471] mb-6">What's your email?</p>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 bg-white border border-[#CFD9DE] rounded-lg text-[15px] text-[#0F1419] placeholder-[#536471] focus:outline-none focus:border-[#1D9BF0] focus:ring-1 focus:ring-[#1D9BF0]"
               autoFocus
             />
-            <button
-              onClick={handleNext}
-              disabled={!email.trim()}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Continue
-            </button>
+            <div className="mt-6">
+              <PrimaryButton onClick={handleNext} disabled={!email.trim()}>
+                Continue
+              </PrimaryButton>
+            </div>
           </div>
         )
 
@@ -188,29 +198,26 @@ export default function OnboardingPage() {
       case 3:
         return (
           <div>
-            <div className="text-5xl mb-4">🔐</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-2">
               Great! Now create a password
             </h1>
-            <p className="text-gray-600 mb-6">So you can log back in later.</p>
+            <p className="text-[15px] text-[#536471] mb-6">So you can log back in later.</p>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Create a password"
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 bg-white border border-[#CFD9DE] rounded-lg text-[15px] text-[#0F1419] placeholder-[#536471] focus:outline-none focus:border-[#1D9BF0] focus:ring-1 focus:ring-[#1D9BF0]"
               autoFocus
             />
             {error && (
-              <p className="mt-2 text-red-500 text-sm">{error}</p>
+              <p className="mt-2 text-[#F4212E] text-[13px]">{error}</p>
             )}
-            <button
-              onClick={handleRegister}
-              disabled={!password.trim() || isLoading}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Creating account...' : 'Create Account'}
-            </button>
+            <div className="mt-6">
+              <PrimaryButton onClick={handleRegister} disabled={!password.trim() || isLoading}>
+                {isLoading ? 'Creating account...' : 'Create Account'}
+              </PrimaryButton>
+            </div>
           </div>
         )
 
@@ -218,30 +225,28 @@ export default function OnboardingPage() {
       case 4:
         return (
           <div>
-            <div className="text-5xl mb-4">💭</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-4">
               A bit about me...
             </h1>
-            <div className="space-y-4 text-gray-600">
+            <div className="space-y-4 text-[15px] text-[#536471]">
               <p>
                 I was only diagnosed with ADHD in my 30s. Suddenly so much made sense, and at the same time there still feels like there's so much to figure out.
               </p>
               <p>
-                That's why I'm here — to build <span className="font-semibold text-gray-900">systems with you that work</span>.
+                That's why I'm here — to build <span className="font-bold text-[#0F1419]">systems with you that work</span>.
               </p>
               <p>
                 Not brand new "expensive" systems that require you to buy a bunch of new things — I'm guessing you've tried that already.
               </p>
-              <p className="font-medium text-gray-900">
+              <p className="font-medium text-[#0F1419]">
                 Systems that are yours, built where you are — not where you imagine you'll be with the new gym membership or supplement from the health food store.
               </p>
             </div>
-            <button
-              onClick={handleNext}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              I like the sound of that
-            </button>
+            <div className="mt-6">
+              <PrimaryButton onClick={handleNext}>
+                I like the sound of that
+              </PrimaryButton>
+            </div>
           </div>
         )
 
@@ -249,18 +254,17 @@ export default function OnboardingPage() {
       case 5:
         return (
           <div>
-            <div className="text-5xl mb-4">📊</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-2">
               Let's start with a simple check-in
             </h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-[15px] text-[#536471] mb-6">
               Rate how you're feeling right now, with 10 being the best you've ever felt and 0 being the worst.
             </p>
             
             <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-500 mb-2">
+              <div className="flex justify-between text-[13px] text-[#536471] mb-2">
                 <span>Worst</span>
-                <span className="text-2xl font-bold text-blue-500">{mood}</span>
+                <span className="text-[20px] font-bold text-[#1D9BF0]">{mood}</span>
                 <span>Best</span>
               </div>
               <input
@@ -269,11 +273,11 @@ export default function OnboardingPage() {
                 max="10"
                 value={mood}
                 onChange={(e) => setMood(parseInt(e.target.value))}
-                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="w-full h-2 bg-[#CFD9DE] rounded-lg appearance-none cursor-pointer accent-[#1D9BF0]"
               />
             </div>
 
-            <p className="text-gray-600 mb-3">
+            <p className="text-[15px] text-[#536471] mb-3">
               Why did you pick that number? What's happening?
             </p>
             <textarea
@@ -281,16 +285,14 @@ export default function OnboardingPage() {
               onChange={(e) => setMoodNote(e.target.value)}
               placeholder="Share what's on your mind..."
               rows={3}
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full p-3 bg-white border border-[#CFD9DE] rounded-lg text-[15px] text-[#0F1419] placeholder-[#536471] focus:outline-none focus:border-[#1D9BF0] focus:ring-1 focus:ring-[#1D9BF0] resize-none"
             />
             
-            <button
-              onClick={handleMoodSubmit}
-              disabled={isLoading}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50"
-            >
-              {isLoading ? 'Getting advice...' : 'Submit Check-in'}
-            </button>
+            <div className="mt-6">
+              <PrimaryButton onClick={handleMoodSubmit} disabled={isLoading}>
+                {isLoading ? 'Getting advice...' : 'Submit Check-in'}
+              </PrimaryButton>
+            </div>
           </div>
         )
 
@@ -298,30 +300,30 @@ export default function OnboardingPage() {
       case 6:
         return (
           <div>
-            <div className="text-5xl mb-4">🧠</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-4">
               Here's what I think...
             </h1>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <p className="text-gray-800">
+            <div className="bg-[#F7F9F9] border border-[#CFD9DE] rounded-2xl p-4 mb-6">
+              <p className="text-[15px] text-[#0F1419]">
                 {coachAdvice || "Thanks for sharing. Remember, checking in with yourself is the first step to understanding your patterns."}
               </p>
             </div>
-            <p className="text-gray-600 mb-6">
-              This was your first coaching session! I'm going to ask you to tell me how you're feeling once per day and offer suggestions like this.
-            </p>
-            <p className="text-gray-600 mb-6">
-              The goal is to help recognize patterns. There aren't always patterns, but sometimes there are — and helping you recognize them can help build new ones, or choose to continue with the old ones.
-            </p>
-            <p className="font-semibold text-gray-900 mb-6">
-              You're in the driving seat here!
-            </p>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              Continue
-            </button>
+            <div className="space-y-4 text-[15px] text-[#536471]">
+              <p>
+                This was your first coaching session! I'm going to ask you to tell me how you're feeling once per day and offer suggestions like this.
+              </p>
+              <p>
+                The goal is to help recognize patterns. There aren't always patterns, but sometimes there are — and helping you recognize them can help build new ones, or choose to continue with the old ones.
+              </p>
+              <p className="font-bold text-[#0F1419]">
+                You're in the driving seat here!
+              </p>
+            </div>
+            <div className="mt-6">
+              <PrimaryButton onClick={handleNext}>
+                Continue
+              </PrimaryButton>
+            </div>
           </div>
         )
 
@@ -329,27 +331,23 @@ export default function OnboardingPage() {
       case 7:
         return (
           <div>
-            <div className="text-5xl mb-4">🧰</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-4">
               There's more I can help with
             </h1>
-            <p className="text-gray-600 mb-4">
+            <p className="text-[15px] text-[#536471] mb-4">
               Helping you recognize your patterns is one thing, but there's a bunch of other stuff on this journey too.
             </p>
-            <div className="bg-gray-100 rounded-xl p-4 mb-6">
-              <p className="text-gray-600 text-sm">
+            <div className="bg-[#F7F9F9] border border-[#CFD9DE] rounded-2xl p-4 mb-6">
+              <p className="text-[13px] text-[#536471]">
                 💡 Pressing the menu button after this journey will show you everything I can help with — but don't worry about that for now.
               </p>
             </div>
-            <p className="text-gray-900 font-semibold mb-6">
-              The first tool I need to show you is <span className="text-red-500">BREAK</span> →
+            <p className="text-[15px] text-[#0F1419] font-bold mb-6">
+              The first tool I need to show you is <span className="text-[#F4212E]">BREAK</span> →
             </p>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
+            <PrimaryButton onClick={handleNext}>
               Show me BREAK
-            </button>
+            </PrimaryButton>
           </div>
         )
 
@@ -357,30 +355,31 @@ export default function OnboardingPage() {
       case 8:
         return (
           <div>
-            <div className="text-5xl mb-4">🛑</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <div className="w-12 h-12 bg-[#F4212E] rounded-full flex items-center justify-center mb-4">
+              <span className="text-white text-xl">🛑</span>
+            </div>
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-4">
               BREAK is for when everything is overwhelming
             </h1>
-            <p className="text-gray-600 mb-4">
-              For me, sometimes it's the noise in a busy supermarket. Or being a bit tired and someone asks me a question and I'm snappy, they get annoyed, I get more annoyed…
-            </p>
-            <p className="text-gray-600 mb-4 font-medium">
-              You know the story.
-            </p>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-              <p className="text-gray-800 text-sm">
-                Press the <span className="font-bold text-red-500">BREAK</span> button for 10 seconds. Select if you're frustrated, angry, feel rejected, or upset.
+            <div className="space-y-4 text-[15px] text-[#536471]">
+              <p>
+                For me, sometimes it's the noise in a busy supermarket. Or being a bit tired and someone asks me a question and I'm snappy, they get annoyed, I get more annoyed…
+              </p>
+              <p className="font-medium text-[#0F1419]">
+                You know the story.
               </p>
             </div>
-            <p className="text-gray-600 mb-6">
-              ADHD isn't just about focus and dopamine levels — it's so much more. Mainly, it's about <span className="font-semibold">dysregulation</span>.
+            <div className="bg-[#FEE2E2] border border-[#FECACA] rounded-2xl p-4 my-6">
+              <p className="text-[13px] text-[#991B1B]">
+                Press the <span className="font-bold">BREAK</span> button for 10 seconds. Select if you're frustrated, angry, feel rejected, or upset.
+              </p>
+            </div>
+            <p className="text-[15px] text-[#536471] mb-6">
+              ADHD isn't just about focus and dopamine levels — it's so much more. Mainly, it's about <span className="font-bold text-[#0F1419]">dysregulation</span>.
             </p>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
+            <PrimaryButton onClick={handleNext}>
               Tell me more about dysregulation
-            </button>
+            </PrimaryButton>
           </div>
         )
 
@@ -388,30 +387,31 @@ export default function OnboardingPage() {
       case 9:
         return (
           <div>
-            <div className="text-5xl mb-4">💙</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <div className="w-12 h-12 bg-[#1D9BF0] rounded-full flex items-center justify-center mb-4">
+              <span className="text-white text-xl">💙</span>
+            </div>
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-4">
               Dysregulation means it's not your fault
             </h1>
-            <p className="text-gray-600 mb-4">
-              Dysregulation of attention, sure. But also of sleep, food, energy levels, relationships.
-            </p>
-            <p className="text-gray-600 mb-4">
-              I know you won't fully believe me when I say it's not your fault.
-            </p>
-            <p className="text-gray-600 mb-4">
-              You didn't get to grow up with people who could teach you how to cope with the world. But it's not your parents' fault either — ADHD is highly hereditary.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <p className="text-blue-800 font-medium">
+            <div className="space-y-4 text-[15px] text-[#536471]">
+              <p>
+                Dysregulation of attention, sure. But also of sleep, food, energy levels, relationships.
+              </p>
+              <p>
+                I know you won't fully believe me when I say it's not your fault.
+              </p>
+              <p>
+                You didn't get to grow up with people who could teach you how to cope with the world. But it's not your parents' fault either — ADHD is highly hereditary.
+              </p>
+            </div>
+            <div className="bg-[#E8F5FD] border border-[#BBDFFA] rounded-2xl p-4 my-6">
+              <p className="text-[13px] text-[#1D9BF0] font-medium">
                 🧬 Your brain is wired differently. That's not a flaw — it's just different.
               </p>
             </div>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
+            <PrimaryButton onClick={handleNext}>
               Continue
-            </button>
+            </PrimaryButton>
           </div>
         )
 
@@ -419,36 +419,37 @@ export default function OnboardingPage() {
       case 10:
         return (
           <div>
-            <div className="text-5xl mb-4">🔋</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <div className="w-12 h-12 bg-[#F97316] rounded-full flex items-center justify-center mb-4">
+              <span className="text-white text-xl">🔋</span>
+            </div>
+            <h1 className="text-[23px] font-bold text-[#0F1419] mb-4">
               Let's talk about energy
             </h1>
-            <p className="text-gray-600 mb-4">
-              Energy for us ADHDers is, well, <span className="font-semibold">dysregulated</span>.
-            </p>
-            <p className="text-gray-600 mb-4">
-              If it's something we're interested in, everything else disappears. But if it's something we "have" to do, it's nearly impossible to get off the couch.
-            </p>
-            <p className="text-gray-600 mb-4">
-              When we're not interested in something but it still needs to be done (think: work), we often rely on <span className="font-semibold">stress and anxiety</span> to keep us moving.
-            </p>
-            <p className="text-gray-600 mb-4">
-              No problem once in a while — but when it becomes our default… <span className="font-semibold text-orange-600">burnout becomes the destination</span>.
-            </p>
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
-              <p className="text-orange-800 font-medium">
+            <div className="space-y-4 text-[15px] text-[#536471]">
+              <p>
+                Energy for us ADHDers is, well, <span className="font-bold text-[#0F1419]">dysregulated</span>.
+              </p>
+              <p>
+                If it's something we're interested in, everything else disappears. But if it's something we "have" to do, it's nearly impossible to get off the couch.
+              </p>
+              <p>
+                When we're not interested in something but it still needs to be done (think: work), we often rely on <span className="font-bold text-[#0F1419]">stress and anxiety</span> to keep us moving.
+              </p>
+              <p>
+                No problem once in a while — but when it becomes our default… <span className="font-bold text-[#F97316]">burnout becomes the destination</span>.
+              </p>
+            </div>
+            <div className="bg-[#FFF7ED] border border-[#FDBA74] rounded-2xl p-4 my-6">
+              <p className="text-[13px] text-[#C2410C] font-medium">
                 ⚡ When your mood is lower or when you share that you've been frustrated, I'm going to ask about your energy levels. The key is to avoid burnout.
               </p>
             </div>
-            <p className="text-gray-900 font-semibold mb-6">
+            <p className="text-[15px] font-bold text-[#0F1419] mb-6">
               Nothing is more important than taking care of yourself.
             </p>
-            <button
-              onClick={handleFinish}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
+            <PrimaryButton onClick={handleFinish}>
               Let's get started! →
-            </button>
+            </PrimaryButton>
           </div>
         )
 
@@ -458,32 +459,37 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#F7F9F9] flex flex-col">
       {/* Progress bar */}
       {step > 0 && (
-        <div className="fixed top-0 left-0 right-0 h-1 bg-gray-200">
+        <div className="fixed top-0 left-0 right-0 h-1 bg-[#EFF3F4] z-50">
           <div 
-            className="h-full bg-blue-500 transition-all duration-300"
+            className="h-full bg-[#1D9BF0] transition-all duration-300"
             style={{ width: `${(step / (totalSteps - 1)) * 100}%` }}
           />
         </div>
       )}
 
-      {/* Back button */}
+      {/* Header with back button */}
       {step > 0 && step < 4 && (
-        <button
-          onClick={handleBack}
-          className="fixed top-4 left-4 p-2 text-gray-500 hover:text-gray-700"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-[#EFF3F4] z-40">
+          <div className="max-w-[600px] mx-auto px-4 h-[53px] flex items-center">
+            <button
+              onClick={handleBack}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#EFF3F4] transition-colors"
+            >
+              <svg className="w-5 h-5 text-[#0F1419]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="ml-6 text-[17px] font-bold text-[#0F1419]">Sign up</span>
+          </div>
+        </header>
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-[440px] bg-white rounded-2xl shadow-sm border border-[#EFF3F4] p-6">
           {renderStep()}
         </div>
       </div>
@@ -491,7 +497,7 @@ export default function OnboardingPage() {
       {/* Step indicator */}
       {step > 0 && (
         <div className="fixed bottom-4 left-0 right-0 flex justify-center">
-          <span className="text-sm text-gray-400">
+          <span className="text-[13px] text-[#536471] bg-white px-3 py-1 rounded-full shadow-sm border border-[#EFF3F4]">
             {step} of {totalSteps - 1}
           </span>
         </div>
