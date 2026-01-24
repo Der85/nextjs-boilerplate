@@ -2,11 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================
-   ADHDer.io - Twitter-inspired Design System
-   Clean, fast, familiar, scannable
-   ============================================ */
-
 :root {
   --white: #ffffff;
   --black: #14171a;
@@ -19,21 +14,10 @@
   --success: #17bf63;
   --warning: #ffad1f;
   --danger: #e0245e;
-  
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ============================================
-   BASE
-   ============================================ */
-
-* {
-  box-sizing: border-box;
-}
-
-html {
-  -webkit-text-size-adjust: 100%;
-}
+* { box-sizing: border-box; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -42,22 +26,11 @@ body {
   color: var(--black);
   background-color: var(--bg-gray);
   margin: 0;
-  padding: 0;
   -webkit-font-smoothing: antialiased;
 }
 
-a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-/* ============================================
-   REDUCED MOTION
-   ============================================ */
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -66,505 +39,133 @@ a:hover {
   }
 }
 
-/* ============================================
-   FOCUS
-   ============================================ */
-
-:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* ============================================
-   LAYOUT
-   ============================================ */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
 
 @layer components {
-  /* Main app container */
-  .app-container {
-    min-height: 100vh;
-    background: var(--bg-gray);
-  }
-
-  /* Twitter-style header bar */
+  .app-container { min-height: 100vh; background: var(--bg-gray); }
+  
   .top-bar {
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    position: sticky; top: 0; z-index: 100;
     background: var(--white);
     border-bottom: 1px solid var(--extra-light-gray);
     padding: 10px 15px;
   }
-
   .top-bar-inner {
-    max-width: 600px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    max-width: 600px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
   }
-
-  /* Main content area */
+  
   .main-content {
-    max-width: 600px;
-    margin: 0 auto;
-    background: var(--white);
-    min-height: calc(100vh - 53px);
+    max-width: 600px; margin: 0 auto;
+    background: var(--white); min-height: calc(100vh - 53px);
     border-left: 1px solid var(--extra-light-gray);
     border-right: 1px solid var(--extra-light-gray);
   }
-
-  /* Page header (like tweet composer area) */
-  .page-header {
-    padding: 15px;
-    border-bottom: 1px solid var(--extra-light-gray);
-    background: var(--white);
-  }
-
-  .page-title {
-    font-size: 19px;
-    font-weight: 800;
-    color: var(--black);
-    margin: 0;
-  }
-
-  .page-subtitle {
-    font-size: 13px;
-    color: var(--dark-gray);
-    margin-top: 2px;
-  }
-
-  /* Card/Tweet-like item */
+  
+  .page-header { padding: 15px; border-bottom: 1px solid var(--extra-light-gray); }
+  .page-title { font-size: 19px; font-weight: 800; margin: 0; }
+  .page-subtitle { font-size: 13px; color: var(--dark-gray); margin-top: 2px; }
+  
   .card {
-    padding: 15px;
-    border-bottom: 1px solid var(--extra-light-gray);
-    background: var(--white);
-    transition: background-color 0.15s ease;
+    padding: 15px; border-bottom: 1px solid var(--extra-light-gray);
+    background: var(--white); transition: background-color 0.15s ease;
   }
-
-  .card:hover {
-    background: var(--bg-gray);
-  }
-
-  .card-clickable {
-    cursor: pointer;
-  }
-
-  /* Compose box style */
-  .compose-box {
-    padding: 15px;
-    border-bottom: 10px solid var(--bg-gray);
-    background: var(--white);
-  }
-
-  /* Section divider */
+  .card:hover { background: var(--bg-gray); }
+  .card-clickable { cursor: pointer; }
+  
+  .compose-box { padding: 15px; border-bottom: 10px solid var(--bg-gray); }
   .section-divider {
-    height: 10px;
-    background: var(--bg-gray);
+    height: 10px; background: var(--bg-gray);
     border-top: 1px solid var(--extra-light-gray);
     border-bottom: 1px solid var(--extra-light-gray);
   }
-
-  /* ============================================
-     BUTTONS - Twitter style
-     ============================================ */
-
+  
   .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 16px;
-    height: 36px;
-    border-radius: 9999px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-    border: none;
-    white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 16px; height: 36px; border-radius: 9999px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: background-color 0.15s ease; border: none; white-space: nowrap;
   }
-
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background: var(--primary-hover);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-outline {
-    background: transparent;
-    color: var(--primary);
-    border: 1px solid var(--primary);
-  }
-
-  .btn-outline:hover {
-    background: rgba(29, 161, 242, 0.1);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--dark-gray);
-  }
-
-  .btn-ghost:hover {
-    background: rgba(29, 161, 242, 0.1);
-    color: var(--primary);
-  }
-
-  .btn-danger {
-    background: var(--danger);
-    color: white;
-  }
-
-  .btn-danger:hover {
-    background: #c9184a;
-  }
-
-  .btn-success {
-    background: var(--success);
-    color: white;
-  }
-
-  .btn-success:hover {
-    background: #14a357;
-  }
-
-  .btn-large {
-    height: 46px;
-    font-size: 17px;
-    padding: 0 24px;
-  }
-
-  .btn-full {
-    width: 100%;
-  }
-
-  .btn-icon {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 9999px;
-  }
-
-  /* ============================================
-     INPUTS - Twitter style
-     ============================================ */
-
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+  .btn-outline:hover { background: rgba(29, 161, 242, 0.1); }
+  .btn-ghost { background: transparent; color: var(--dark-gray); }
+  .btn-ghost:hover { background: rgba(29, 161, 242, 0.1); color: var(--primary); }
+  .btn-large { height: 46px; font-size: 17px; padding: 0 24px; }
+  .btn-icon { width: 36px; height: 36px; padding: 0; }
+  
   .input {
-    width: 100%;
-    padding: 12px;
-    font-size: 15px;
-    border: 1px solid var(--extra-light-gray);
-    border-radius: 4px;
-    background: var(--white);
-    color: var(--black);
+    width: 100%; padding: 12px; font-size: 15px;
+    border: 1px solid var(--extra-light-gray); border-radius: 4px;
+    background: var(--white); color: var(--black);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-
-  .input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 1px var(--primary);
-  }
-
-  .input::placeholder {
-    color: var(--dark-gray);
-  }
-
-  .input-borderless {
-    border: none;
-    padding: 12px 0;
-    font-size: 19px;
-    resize: none;
-  }
-
-  .input-borderless:focus {
-    outline: none;
-    box-shadow: none;
-  }
-
-  /* ============================================
-     ACTION ITEMS (like tweet actions)
-     ============================================ */
-
-  .action-row {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-top: 10px;
-  }
-
-  .action-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 9999px;
-    font-size: 13px;
-    color: var(--dark-gray);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .action-btn:hover {
-    background: rgba(29, 161, 242, 0.1);
-    color: var(--primary);
-  }
-
-  .action-btn-danger:hover {
-    background: rgba(224, 36, 94, 0.1);
-    color: var(--danger);
-  }
-
-  .action-btn-success:hover {
-    background: rgba(23, 191, 99, 0.1);
-    color: var(--success);
-  }
-
-  /* ============================================
-     TABS (like Twitter tabs)
-     ============================================ */
-
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--extra-light-gray);
-  }
-
+  .input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .input::placeholder { color: var(--dark-gray); }
+  .input-borderless { border: none; padding: 12px 0; font-size: 19px; resize: none; }
+  .input-borderless:focus { outline: none; box-shadow: none; }
+  
+  .tabs { display: flex; border-bottom: 1px solid var(--extra-light-gray); }
   .tab {
-    flex: 1;
-    padding: 15px;
-    text-align: center;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--dark-gray);
-    background: none;
-    border: none;
-    cursor: pointer;
-    position: relative;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    flex: 1; padding: 15px; text-align: center;
+    font-size: 15px; font-weight: 700; color: var(--dark-gray);
+    background: none; border: none; cursor: pointer; position: relative;
   }
-
-  .tab:hover {
-    background: rgba(29, 161, 242, 0.1);
-    color: var(--primary);
-  }
-
-  .tab-active {
-    color: var(--primary);
-  }
-
+  .tab:hover { background: rgba(29, 161, 242, 0.1); color: var(--primary); }
+  .tab-active { color: var(--primary); }
   .tab-active::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 56px;
-    height: 2px;
-    background: var(--primary);
-    border-radius: 9999px;
+    content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 56px; height: 2px; background: var(--primary); border-radius: 9999px;
   }
-
-  /* ============================================
-     STATS ROW
-     ============================================ */
-
-  .stats-row {
-    display: flex;
-    gap: 20px;
-    padding: 12px 0;
-  }
-
-  .stat {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-  }
-
-  .stat-value {
-    font-size: 19px;
-    font-weight: 800;
-    color: var(--black);
-  }
-
-  .stat-label {
-    font-size: 15px;
-    color: var(--dark-gray);
-  }
-
-  /* ============================================
-     RATING BUTTONS
-     ============================================ */
-
-  .rating-grid {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
+  
+  .stats-row { display: flex; gap: 20px; padding: 12px 0; }
+  .stat { display: flex; align-items: baseline; gap: 4px; }
+  .stat-value { font-size: 19px; font-weight: 800; }
+  .stat-label { font-size: 15px; color: var(--dark-gray); }
+  
+  .rating-grid { display: flex; gap: 8px; flex-wrap: wrap; }
   .rating-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 9999px;
-    border: 2px solid var(--extra-light-gray);
-    background: var(--white);
-    font-size: 17px;
-    font-weight: 700;
-    color: var(--dark-gray);
-    cursor: pointer;
-    transition: all 0.15s ease;
+    width: 48px; height: 48px; border-radius: 9999px;
+    border: 2px solid var(--extra-light-gray); background: var(--white);
+    font-size: 17px; font-weight: 700; color: var(--dark-gray); cursor: pointer;
   }
-
-  .rating-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .rating-btn-active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-  }
-
-  /* ============================================
-     PROGRESS BAR
-     ============================================ */
-
-  .progress-bar {
-    height: 4px;
-    background: var(--extra-light-gray);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: var(--primary);
-    transition: width 0.3s ease;
-  }
-
-  /* ============================================
-     EMOJI DISPLAY
-     ============================================ */
-
-  .emoji-large {
-    font-size: 48px;
-    line-height: 1;
-  }
-
-  .emoji-medium {
-    font-size: 32px;
-    line-height: 1;
-  }
-
-  /* ============================================
-     UTILITIES
-     ============================================ */
-
+  .rating-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .rating-btn-active { background: var(--primary); border-color: var(--primary); color: white; }
+  
+  .progress-bar { height: 4px; background: var(--extra-light-gray); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--primary); transition: width 0.3s ease; }
+  
+  .emoji-large { font-size: 48px; line-height: 1; }
+  .emoji-medium { font-size: 32px; line-height: 1; }
+  
   .text-primary { color: var(--primary); }
-  .text-dark { color: var(--black); }
   .text-muted { color: var(--dark-gray); }
-  .text-light { color: var(--light-gray); }
   .text-success { color: var(--success); }
   .text-warning { color: var(--warning); }
   .text-danger { color: var(--danger); }
-
   .font-bold { font-weight: 700; }
   .font-extrabold { font-weight: 800; }
-
   .text-sm { font-size: 13px; }
-  .text-base { font-size: 15px; }
   .text-lg { font-size: 17px; }
   .text-xl { font-size: 19px; }
   .text-2xl { font-size: 23px; }
-
-  .mb-0 { margin-bottom: 0; }
-  .mb-1 { margin-bottom: 4px; }
+  .text-center { text-align: center; }
+  .w-full { width: 100%; }
   .mb-2 { margin-bottom: 8px; }
   .mb-3 { margin-bottom: 12px; }
   .mb-4 { margin-bottom: 16px; }
-  .mb-5 { margin-bottom: 20px; }
-
-  .mt-0 { margin-top: 0; }
   .mt-1 { margin-top: 4px; }
-  .mt-2 { margin-top: 8px; }
   .mt-3 { margin-top: 12px; }
   .mt-4 { margin-top: 16px; }
-  .mt-5 { margin-top: 20px; }
-
-  .p-0 { padding: 0; }
-  .p-3 { padding: 12px; }
-  .p-4 { padding: 16px; }
-
   .flex { display: flex; }
-  .flex-col { flex-direction: column; }
   .items-center { align-items: center; }
   .justify-center { justify-content: center; }
-  .justify-between { justify-content: space-between; }
   .gap-2 { gap: 8px; }
   .gap-3 { gap: 12px; }
-  .gap-4 { gap: 16px; }
-
-  .w-full { width: 100%; }
-  .text-center { text-align: center; }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .animate-spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Safe area for mobile */
-  .pb-safe {
-    padding-bottom: max(15px, var(--safe-area-bottom));
-  }
-}
-
-/* ============================================
-   SCROLLBAR
-   ============================================ */
-
-::-webkit-scrollbar {
-  width: 16px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--extra-light-gray);
-  border: 4px solid var(--white);
-  border-radius: 8px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--light-gray);
+  
+  .animate-spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 }

@@ -5,19 +5,31 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-export default function Login() {
+export default function Register() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
     })
@@ -31,23 +43,21 @@ export default function Login() {
   }
 
   return (
-    <div className="app-container flex items-center justify-center" style={{ minHeight: '100vh' }}>
+    <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
       <div style={{ width: '100%', maxWidth: '400px', padding: '20px' }}>
-        {/* Logo */}
-        <div className="text-center mb-5">
-          <h1 style={{ fontSize: '31px', fontWeight: 800, color: '#1da1f2' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <h1 style={{ fontSize: '31px', fontWeight: 800, color: 'var(--primary)' }}>
             ADHDer.io
           </h1>
         </div>
 
-        {/* Card */}
         <div style={{ 
           background: 'white', 
           borderRadius: '16px', 
           padding: '32px',
           boxShadow: '0 0 0 1px var(--extra-light-gray)'
         }}>
-          <h2 className="text-2xl font-extrabold mb-4">Sign in</h2>
+          <h2 className="text-2xl font-extrabold mb-4">Create your account</h2>
 
           {error && (
             <div style={{ 
@@ -62,7 +72,7 @@ export default function Login() {
             </div>
           )}
 
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleRegister}>
             <div className="mb-4">
               <input
                 type="email"
@@ -85,19 +95,30 @@ export default function Login() {
               />
             </div>
 
+            <div className="mb-4">
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="input"
+                placeholder="Confirm password"
+                required
+              />
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary btn-large btn-full"
+              className="btn btn-primary btn-large w-full"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Creating account...' : 'Sign up'}
             </button>
           </form>
 
-          <div className="text-center mt-5">
-            <span className="text-muted">Don't have an account? </span>
-            <Link href="/register" className="text-primary font-bold">
-              Sign up
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <span className="text-muted">Already have an account? </span>
+            <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 700 }}>
+              Sign in
             </Link>
           </div>
         </div>
