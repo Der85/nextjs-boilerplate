@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function OnboardingPage() {
   const router = useRouter()
