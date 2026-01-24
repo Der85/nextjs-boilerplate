@@ -1,7 +1,13 @@
-const GEMINI_API_KEY = 'AIzaSyAjYucxStvEVvcbDZStm2sx6JP62UWXFaU'
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 export async function getADHDCoachAdvice(moodScore: number, note: string | null): Promise<string> {
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY
+  
+  if (!apiKey) {
+    console.error('Gemini API key not configured')
+    return getGenericAdvice(moodScore)
+  }
+
   // If no note provided, give a gentle prompt to share more next time
   if (!note || note.trim().length < 3) {
     return getGenericAdvice(moodScore)
@@ -30,7 +36,7 @@ GOOD EXAMPLE (specific): "Dealing with a boss who keeps changing priorities is e
 Respond now with your 2 personalized sentences:`
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
