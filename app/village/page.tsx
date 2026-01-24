@@ -43,16 +43,17 @@ export default function VillagePage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-      await fetchContacts()
+      await fetchContacts(session.user.id)
       setLoading(false)
     }
     init()
   }, [router])
 
-  const fetchContacts = async () => {
+  const fetchContacts = async (userId: string) => {
     const { data } = await supabase
       .from('village_contacts')
       .select('*')
+      .eq('user_id', userId)
       .eq('is_archived', false)
       .order('is_favorite', { ascending: false })
       .order('name')
@@ -84,13 +85,14 @@ export default function VillagePage() {
     setEmail('')
     setSupports([])
     setView('list')
-    await fetchContacts()
+    if (user) await fetchContacts(user.id)
     setSaving(false)
   }
 
   const toggleFavorite = async (id: string, current: boolean) => {
-    await supabase.from('village_contacts').update({ is_favorite: !current }).eq('id', id)
-    await fetchContacts()
+    if (!user) return
+    await supabase.from('village_contacts').update({ is_favorite: !current }).eq('id', id).eq('user_id', user.id)
+    await fetchContacts(user.id)
   }
 
   const getContactsForType = (type: string) => {

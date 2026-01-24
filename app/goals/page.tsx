@@ -36,16 +36,17 @@ export default function GoalsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-      await fetchGoals()
+      await fetchGoals(session.user.id)
       setLoading(false)
     }
     init()
   }, [router])
 
-  const fetchGoals = async () => {
+  const fetchGoals = async (userId: string) => {
     const { data } = await supabase
       .from('goals')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
     if (data) setGoals(data)
   }
@@ -66,17 +67,18 @@ export default function GoalsPage() {
     setTitle('')
     setDescription('')
     setView('list')
-    await fetchGoals()
+    if (user) await fetchGoals(user.id)
     setSaving(false)
   }
 
   const updateProgress = async (goalId: string, newProgress: number) => {
+    if (!user) return
     const progress = Math.min(100, Math.max(0, newProgress))
     await supabase.from('goals').update({
       progress_percent: progress,
       status: progress >= 100 ? 'completed' : 'active'
-    }).eq('id', goalId)
-    await fetchGoals()
+    }).eq('id', goalId).eq('user_id', user.id)
+    await fetchGoals(user.id)
   }
 
   if (loading) {

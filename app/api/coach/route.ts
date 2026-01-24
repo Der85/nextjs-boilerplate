@@ -1,9 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
+const RATE_WINDOW_MS = 60_000
+const RATE_MAX = 30
+const rateBucket = new Map<string, { count: number; resetAt: number }>()
+
+function getClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) return null
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
+
+function getIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) return forwardedFor.split(',')[0].trim()
+  return request.headers.get('x-real-ip') ?? 'unknown'
+}
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const current = rateBucket.get(ip)
+  if (!current || now > current.resetAt) {
+    rateBucket.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return false
+  }
+  current.count += 1
+  return current.count > RATE_MAX
+}
+
+function isValidMoodScore(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
+  const supabase = getClient()
   
   if (!apiKey) {
     console.error('GEMINI_API_KEY not configured')
@@ -11,18 +45,46 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { moodScore, note } = await request.json()
+    if (!supabase) {
+      console.error('Supabase env not configured')
+      return NextResponse.json({ advice: getGenericAdvice(5) }, { status: 500 })
+    }
 
+    const ip = getIp(request)
+    if (isRateLimited(ip)) {
+      return NextResponse.json({ advice: getGenericAdvice(5) }, { status: 429 })
+    }
+
+    const authHeader = request.headers.get('authorization') ?? ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+    if (!token) {
+      return NextResponse.json({ advice: getGenericAdvice(5) }, { status: 401 })
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !authData?.user) {
+      return NextResponse.json({ advice: getGenericAdvice(5) }, { status: 401 })
+    }
+
+    const { moodScore, note } = await request.json()
+    if (!isValidMoodScore(moodScore)) {
+      return NextResponse.json({ advice: getGenericAdvice(5) }, { status: 400 })
+    }
+
+    const noteText = typeof note === 'string' ? note : ''
     // If no note provided, return generic advice
-    if (!note || note.trim().length < 3) {
+    if (noteText.trim().length < 3) {
       return NextResponse.json({ advice: getGenericAdvice(moodScore) })
+    }
+    if (noteText.length > 1000) {
+      return NextResponse.json({ advice: getGenericAdvice(moodScore) }, { status: 400 })
     }
 
     const prompt = `You are a warm, experienced ADHD coach responding to a client's check-in.
 
 THEIR CHECK-IN:
 - Mood: ${moodScore}/10
-- What they shared: "${note}"
+- What they shared: "${noteText}"
 
 YOUR TASK:
 Respond with EXACTLY 2 sentences that directly address what they specifically shared. 

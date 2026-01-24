@@ -39,16 +39,17 @@ export default function Dashboard() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-      await fetchMoods()
+      await fetchMoods(session.user.id)
       setLoading(false)
     }
     init()
   }, [router])
 
-  const fetchMoods = async () => {
+  const fetchMoods = async (userId: string) => {
     const { data } = await supabase
       .from('mood_entries')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5)
     
@@ -84,7 +85,7 @@ export default function Dashboard() {
     // Reset form but keep advice visible
     setNote('')
     setMoodScore(null)
-    await fetchMoods()
+    if (user) await fetchMoods(user.id)
     setSaving(false)
   }
 

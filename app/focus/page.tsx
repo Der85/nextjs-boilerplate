@@ -33,16 +33,17 @@ export default function FocusPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-      await fetchPlans()
+      await fetchPlans(session.user.id)
       setLoading(false)
     }
     init()
   }, [router])
 
-  const fetchPlans = async () => {
+  const fetchPlans = async (userId: string) => {
     const { data } = await supabase
       .from('focus_plans')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10)
     if (data) setPlans(data.map(p => ({ ...p, steps: p.steps || [] })))
@@ -80,7 +81,7 @@ export default function FocusPage() {
     setTaskName('')
     setSteps(['', '', ''])
     setView('list')
-    await fetchPlans()
+    if (user) await fetchPlans(user.id)
     setSaving(false)
   }
 
@@ -91,13 +92,14 @@ export default function FocusPage() {
     const updatedSteps = plan.steps.map(s => s.id === stepId ? { ...s, completed: !s.completed } : s)
     const completedCount = updatedSteps.filter(s => s.completed).length
 
+    if (!user) return
     await supabase.from('focus_plans').update({
       steps: updatedSteps,
       steps_completed: completedCount,
       is_completed: completedCount === updatedSteps.length
-    }).eq('id', planId)
+    }).eq('id', planId).eq('user_id', user.id)
 
-    await fetchPlans()
+    await fetchPlans(user.id)
   }
 
   if (loading) {

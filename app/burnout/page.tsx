@@ -46,16 +46,17 @@ export default function BurnoutPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-      await fetchEntries()
+      await fetchEntries(session.user.id)
       setLoading(false)
     }
     init()
   }, [router])
 
-  const fetchEntries = async () => {
+  const fetchEntries = async (userId: string) => {
     const { data } = await supabase
       .from('burnout_checks')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10)
     if (data) setEntries(data)
@@ -77,7 +78,7 @@ export default function BurnoutPage() {
     setStress(null)
     setSleep(null)
     setNote('')
-    await fetchEntries()
+    if (user) await fetchEntries(user.id)
     setSaving(false)
     setView('history')
   }

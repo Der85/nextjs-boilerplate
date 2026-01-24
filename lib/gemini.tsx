@@ -1,9 +1,15 @@
+import { supabase } from '@/lib/supabase'
+
 export async function getADHDCoachAdvice(moodScore: number, note: string | null): Promise<string> {
   try {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token ?? null
+
     const response = await fetch('/api/coach', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
       },
       body: JSON.stringify({ moodScore, note }),
     })
