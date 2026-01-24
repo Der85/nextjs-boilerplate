@@ -77,13 +77,13 @@ Respond now with your 2 personalized sentences:`
 
 function getGenericAdvice(moodScore: number): string {
   if (moodScore <= 3) {
-    return "It's okay to have hard days—your feelings are valid. Try sharing what's on your mind next time so I can give you more personalized support."
+    return "under 3, no response"
   }
   if (moodScore <= 5) {
-    return "Thanks for checking in—showing up matters. If you share what's going on, I can offer advice tailored to your situation."
+    return "under 5, no response"
   }
   if (moodScore <= 7) {
-    return "You're in a steady place right now—that's worth acknowledging. Tell me more about what's happening and I can help you make the most of it."
+    return "under 7, no response"
   }
-  return "Love to see you feeling good! Share what's contributing to this so we can help you recreate it."
+  return "over 7, no response"
 }
