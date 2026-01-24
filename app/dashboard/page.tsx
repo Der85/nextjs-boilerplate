@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { getADHDCoachAdvice } from '@/lib/gemini'
 
 interface MoodEntry {
   id: string
   mood_score: number
   note: string | null
+  coach_advice: string | null
   created_at: string
 }
 
@@ -29,6 +31,8 @@ export default function Dashboard() {
   const [note, setNote] = useState('')
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([])
   const [weeklyAvg, setWeeklyAvg] = useState<number | null>(null)
+  const [coachAdvice, setCoachAdvice] = useState<string | null>(null)
+  const [showAdvice, setShowAdvice] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -60,15 +64,33 @@ export default function Dashboard() {
   const handleSubmit = async () => {
     if (!user || moodScore === null) return
     setSaving(true)
+    setCoachAdvice(null)
+    
+    // Get advice from Gemini
+    const advice = await getADHDCoachAdvice(moodScore, note || null)
+    
+    // Save to database
     await supabase.from('mood_entries').insert({
       user_id: user.id,
       mood_score: moodScore,
       note: note || null,
+      coach_advice: advice,
     })
+    
+    // Show the advice
+    setCoachAdvice(advice)
+    setShowAdvice(true)
+    
+    // Reset form but keep advice visible
     setNote('')
     setMoodScore(null)
     await fetchMoods()
     setSaving(false)
+  }
+
+  const dismissAdvice = () => {
+    setShowAdvice(false)
+    setCoachAdvice(null)
   }
 
   const formatTime = (dateString: string) => {
@@ -121,6 +143,24 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Coach Advice Display */}
+        {showAdvice && coachAdvice && (
+          <div className="card" style={{ 
+            background: 'rgba(29, 161, 242, 0.08)', 
+            borderLeft: '3px solid var(--primary)',
+            borderBottom: '10px solid var(--bg-gray)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <span style={{ fontSize: '24px' }}>🧠</span>
+              <div style={{ flex: 1 }}>
+                <p className="text-sm font-bold mb-1" style={{ color: 'var(--primary)' }}>Your ADHD Coach says:</p>
+                <p style={{ lineHeight: 1.5 }}>{coachAdvice}</p>
+              </div>
+              <button onClick={dismissAdvice} className="btn btn-ghost btn-icon" style={{ marginTop: '-4px' }}>×</button>
+            </div>
+          </div>
+        )}
+
         <div className="compose-box">
           <p className="font-bold text-lg mb-3">How are you feeling?</p>
           <div className="rating-grid mb-4">
@@ -144,13 +184,18 @@ export default function Dashboard() {
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="What's happening? (optional)"
+                placeholder="What's happening? (optional - helps personalize advice)"
                 className="input-borderless w-full"
                 rows={2}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
                 <button onClick={handleSubmit} disabled={saving} className="btn btn-primary">
-                  {saving ? 'Saving...' : 'Log mood'}
+                  {saving ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Getting advice...
+                    </span>
+                  ) : 'Log mood'}
                 </button>
               </div>
             </>
@@ -190,6 +235,19 @@ export default function Dashboard() {
                     <span className="text-muted text-sm">{formatTime(entry.created_at)}</span>
                   </div>
                   {entry.note && <p className="mt-1">{entry.note}</p>}
+                  {entry.coach_advice && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '8px 12px', 
+                      background: 'rgba(29, 161, 242, 0.05)', 
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'var(--dark-gray)'
+                    }}>
+                      <span style={{ color: 'var(--primary)', fontWeight: 700 }}>🧠 </span>
+                      {entry.coach_advice}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
