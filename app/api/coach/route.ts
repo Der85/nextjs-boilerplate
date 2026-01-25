@@ -1,3 +1,9 @@
+Here is the complete, updated `route.ts` file. You can copy and paste this directly to replace your existing file.
+
+This version includes the **Input Sanitization** logic to fix the "echoing typos" issue and the **Context Engine** to ensure the AI acts as a long-term partner.
+
+```typescript
+// app/api/coach/route.ts
 // Context-Aware Coach API Route
 // Transforms AI from chatbot to long-term partner using historical context
 
@@ -6,10 +12,37 @@ import { createClient } from '@supabase/supabase-js'
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
-// Rate limiting
+// Rate limiting configuration
 const RATE_WINDOW_MS = 60_000
 const RATE_MAX = 30
 const rateBucket = new Map<string, { count: number; resetAt: number }>()
+
+// ============================================
+// HELPER FUNCTIONS & TYPES
+// ============================================
+
+interface MoodEntry {
+  id: string
+  user_id: string
+  mood_score: number
+  note: string | null
+  coach_advice: string | null
+  created_at: string
+}
+
+interface UserContext {
+  totalCheckIns: number
+  averageMood: number
+  lastCheckIn: MoodEntry | null
+  daysSinceLastCheckIn: number
+  recentEntries: MoodEntry[]
+  recentAverageMood: number
+  currentStreak: { type: string; days: number } | null
+  currentPattern: { type: string; description: string; daysAffected: number } | null
+  recurringThemes: string[]
+  comparedToBaseline: 'better' | 'worse' | 'same'
+  baselineDifference: number
+}
 
 function getClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -48,37 +81,14 @@ function isValidMoodScore(value: unknown): value is number {
 }
 
 // ============================================
-// INLINE USER CONTEXT BUILDING
-// (Moved here to avoid import issues and ensure it runs server-side)
+// CONTEXT ENGINE
+// Builds the "Long-Term Memory" for the AI
 // ============================================
-
-interface MoodEntry {
-  id: string
-  user_id: string
-  mood_score: number
-  note: string | null
-  coach_advice: string | null
-  created_at: string
-}
-
-interface UserContext {
-  totalCheckIns: number
-  averageMood: number
-  lastCheckIn: MoodEntry | null
-  daysSinceLastCheckIn: number
-  recentEntries: MoodEntry[]
-  recentAverageMood: number
-  currentStreak: { type: string; days: number } | null
-  currentPattern: { type: string; description: string; daysAffected: number } | null
-  recurringThemes: string[]
-  comparedToBaseline: 'better' | 'worse' | 'same'
-  baselineDifference: number
-}
 
 async function buildUserContext(supabase: any, userId: string): Promise<UserContext> {
   console.log('[Context] Building context for user:', userId)
   
-  // Fetch mood history
+  // Fetch mood history (Last 30 entries)
   const { data: entries, error } = await supabase
     .from('mood_entries')
     .select('*')
@@ -90,11 +100,8 @@ async function buildUserContext(supabase: any, userId: string): Promise<UserCont
     console.error('[Context] Error fetching mood history:', error)
   }
 
-  console.log('[Context] Found entries:', entries?.length || 0)
-
   // Default context for new users or errors
   if (!entries || entries.length === 0) {
-    console.log('[Context] No entries found, returning default context')
     return {
       totalCheckIns: 0,
       averageMood: 0,
@@ -123,7 +130,7 @@ async function buildUserContext(supabase: any, userId: string): Promise<UserCont
     (Date.now() - new Date(lastCheckIn.created_at).getTime()) / (1000 * 60 * 60 * 24)
   )
 
-  // Calculate streak
+  // Calculate streak (consecutive days)
   let streak = 1
   for (let i = 1; i < entries.length; i++) {
     const curr = new Date(entries[i - 1].created_at)
@@ -196,6 +203,7 @@ async function buildUserContext(supabase: any, userId: string): Promise<UserCont
     { pattern: /tired|exhaust|sleep/i, theme: 'fatigue' },
     { pattern: /focus|distract|concentrate/i, theme: 'focus' },
     { pattern: /procrastinat|avoid|putting off/i, theme: 'procrastination' },
+    { pattern: /eat|food|hungry|diet/i, theme: 'diet/food' },
   ]
   
   const themeCounts: Record<string, number> = {}
@@ -219,7 +227,7 @@ async function buildUserContext(supabase: any, userId: string): Promise<UserCont
     baselineDifference > 0.5 ? 'better' : 
     baselineDifference < -0.5 ? 'worse' : 'same'
 
-  const context: UserContext = {
+  return {
     totalCheckIns: entries.length,
     averageMood: Math.round(averageMood * 10) / 10,
     lastCheckIn,
@@ -232,92 +240,88 @@ async function buildUserContext(supabase: any, userId: string): Promise<UserCont
     comparedToBaseline,
     baselineDifference: Math.round(baselineDifference * 10) / 10
   }
-
-  console.log('[Context] Built context:', {
-    totalCheckIns: context.totalCheckIns,
-    averageMood: context.averageMood,
-    currentStreak: context.currentStreak,
-    currentPattern: context.currentPattern?.type,
-    recurringThemes: context.recurringThemes
-  })
-
-  return context
 }
+
+// ============================================
+// PROMPT GENERATOR
+// Includes "Sanitization" and "Persona" logic
+// ============================================
 
 function generateContextualPrompt(context: UserContext, moodScore: number, noteText: string) {
   const insights: string[] = []
   let suggestedApproach = 'standard'
 
+  // 1. ANALYZE HISTORY
   if (context.totalCheckIns === 0) {
     insights.push("This is the user's first check-in. Welcome them warmly.")
     suggestedApproach = 'onboarding'
   } else {
-    // Streak information
+    // Streak Analysis
     if (context.currentStreak) {
       if (context.currentStreak.type === 'low_mood' && context.currentStreak.days >= 3) {
-        insights.push(`IMPORTANT: User has marked low mood (≤4) for ${context.currentStreak.days} consecutive days.`)
+        insights.push(`CRITICAL: User is in a "Low Mood Cycle" (Day ${context.currentStreak.days}).`)
         suggestedApproach = 'gentle_support'
       } else if (context.currentStreak.type === 'high_mood') {
-        insights.push(`User has been feeling good (≥7) for ${context.currentStreak.days} consecutive days.`)
+        insights.push(`User is on a "High Mood Streak" (${context.currentStreak.days} days). Help them bank this feeling.`)
         suggestedApproach = 'celebrate_maintain'
       } else if (context.currentStreak.type === 'checking_in') {
-        insights.push(`Great consistency: ${context.currentStreak.days}-day check-in streak!`)
+        insights.push(`Consistency Win: ${context.currentStreak.days}-day check-in streak.`)
       }
     }
 
-    // Pattern insights
+    // Pattern Recognition
     if (context.currentPattern) {
-      insights.push(`Pattern: ${context.currentPattern.description}`)
+      insights.push(`Observed Pattern: ${context.currentPattern.description}`)
     }
 
-    // Comparison to baseline
+    // Baseline Comparison
     if (context.comparedToBaseline !== 'same') {
       const direction = context.comparedToBaseline === 'better' ? 'above' : 'below'
-      insights.push(`Recent mood is ${Math.abs(context.baselineDifference)} points ${direction} their usual baseline of ${context.averageMood}.`)
+      insights.push(`Current State: Mood is ${direction} their historical baseline of ${context.averageMood}.`)
     }
-
-    // Recurring themes
-    if (context.recurringThemes.length > 0) {
-      insights.push(`Recurring themes in their notes: ${context.recurringThemes.join(', ')}.`)
-    }
-
-    // Days since last check-in
-    if (context.daysSinceLastCheckIn > 3) {
-      insights.push(`It's been ${context.daysSinceLastCheckIn} days since their last check-in.`)
-    }
-
-    // Last check-in context
+    
+    // Last Session Bridge (Object Permanence)
     if (context.lastCheckIn && context.lastCheckIn.note) {
-      const lastNote = context.lastCheckIn.note.slice(0, 100)
-      insights.push(`Last check-in note: "${lastNote}${context.lastCheckIn.note.length > 100 ? '...' : ''}" (mood: ${context.lastCheckIn.mood_score}/10)`)
+      // Only reference note if it was substantial
+      if (context.lastCheckIn.note.length > 5) {
+         // Truncate for prompt safety
+         const safeNote = context.lastCheckIn.note.slice(0, 100).replace(/\n/g, " ");
+         insights.push(`Context from last time: They were feeling ${context.lastCheckIn.mood_score}/10 and mentioned "${safeNote}..."`)
+      }
+    }
+    
+    // Recurring Themes
+    if (context.recurringThemes.length > 0) {
+      insights.push(`Common themes for this user: ${context.recurringThemes.join(', ')}`)
     }
   }
 
-  const systemContext = `You are a warm, experienced ADHD coach who KNOWS this person's history. You remember their patterns, struggles, and wins. Never ask generic questions like "How have you been?" - you already know.
-
-YOUR KNOWLEDGE ABOUT THIS USER:
-- Total check-ins: ${context.totalCheckIns}
-- Average mood: ${context.averageMood}/10
-- Recent average (7 days): ${context.recentAverageMood}/10
+  // 2. DEFINE SYSTEM PERSONA
+  const systemContext = `ROLE: You are an expert ADHD coach who acts as an "External Executive Function" for the user. You prioritize pattern recognition over generic cheerleading. You speak UK English.
+  
+USER PROFILE (The "Moat" Data):
+- History: ${context.totalCheckIns} check-ins logged
+- Baseline Mood: ${context.averageMood}/10
 ${insights.map(i => `- ${i}`).join('\n')}`
 
+  // 3. DEFINE CURRENT SITUATION
   const moodChange = context.lastCheckIn 
     ? moodScore - context.lastCheckIn.mood_score 
     : 0
   
   const currentSituation = `
-CURRENT CHECK-IN:
-- Mood score: ${moodScore}/10
-- What they shared: "${noteText || '(no note provided)'}"
-${context.lastCheckIn ? `- Change from last time: ${moodChange > 0 ? '+' : ''}${moodChange} points` : ''}
-${moodScore <= 3 ? '- ⚠️ LOW MOOD ALERT: Be extra gentle and supportive' : ''}
-${moodScore >= 8 ? '- 🎉 HIGH MOOD: Celebrate and help them capture what\'s working' : ''}`
+CURRENT INPUT:
+- Score: ${moodScore}/10
+- Raw Text: "${noteText || '(no note provided)'}"
+- Delta: ${moodChange > 0 ? '+' : ''}${moodChange} points from last entry
+${moodScore <= 3 ? '- ALERT: High Dysregulation Risk. Reduce friction.' : ''}`
 
+  // 4. STRATEGIC INSTRUCTION
   const approachInstructions: Record<string, string> = {
-    standard: 'Provide personalized support based on their specific situation and history.',
-    onboarding: 'Welcome them warmly! This is their first check-in. Focus on this moment and let them know you\'ll learn their patterns over time.',
-    gentle_support: 'This person has been struggling for multiple days. Be extra gentle. Suggest SMALLER steps than usual. Acknowledge the difficulty of consecutive hard days.',
-    celebrate_maintain: 'They\'re doing well! Help them identify and maintain what\'s working. Don\'t fix what isn\'t broken.',
+    standard: 'Connect the current mood to their recent history. Look for correlations.',
+    onboarding: 'Focus on low-pressure welcome. Do not overwhelm with questions. Establish trust.',
+    gentle_support: 'Validate the difficulty of the streak. Do NOT suggest big tasks. Suggest one sensory reset (e.g., drink water, step outside).',
+    celebrate_maintain: 'Ask them to identify ONE thing that made this happen, so they can replicate it later.',
   }
 
   return {
@@ -376,23 +380,20 @@ export async function POST(request: NextRequest) {
 
     const noteText = typeof note === 'string' ? note : ''
     
-    // Validate note length (but don't skip context!)
+    // Validate note length
     if (noteText.length > 1000) {
       return NextResponse.json({ advice: getGenericAdvice(moodScore) }, { status: 400 })
     }
 
     // ============================================
-    // ALWAYS BUILD CONTEXT (even without a note!)
-    // Use service client to bypass RLS
+    // BUILD USER CONTEXT
+    // Use service client to bypass RLS for history lookup
     // ============================================
     const serviceClient = getServiceClient()
-    if (!serviceClient) {
-      console.error('[Context] Service role key not configured - falling back to anon client')
-    }
     const contextClient = serviceClient || supabase
     const userContext = await buildUserContext(contextClient, userId)
     
-    // If no note AND this is the first check-in, give a welcoming message
+    // Handle First Time User (No note)
     if (noteText.trim().length < 3 && userContext.totalCheckIns === 0) {
       return NextResponse.json({ 
         advice: "Welcome to ADHDer.io! I'm here to support you on your journey. Each time you check in, I'll learn more about your patterns and be able to give you more personalized advice. Try adding a note about what's on your mind for more tailored support.",
@@ -405,7 +406,7 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    // If no note but we have history, give context-aware but gentle response
+    // Handle Standard User (No note) - Use Contextual Generic
     if (noteText.trim().length < 3) {
       const contextAwareGeneric = getContextAwareGenericAdvice(moodScore, userContext)
       return NextResponse.json({ 
@@ -419,26 +420,36 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Full context-aware prompt for users who wrote a note
+    // =========================================================
+    // GENERATE AI PROMPT
+    // =========================================================
+    
     const contextualPrompt = generateContextualPrompt(userContext, moodScore, noteText)
 
-    const prompt = `${contextualPrompt.systemContext}
+    const prompt = `
+${contextualPrompt.systemContext}
 
 ${contextualPrompt.currentSituation}
 
-YOUR APPROACH:
+STRATEGY:
 ${contextualPrompt.suggestedApproach}
 
-RESPONSE GUIDELINES:
-1. Your response MUST reference specific details from their history OR their current note
-2. First sentence: Acknowledge their specific situation using what you KNOW about them
-3. Second sentence: Give ONE practical micro-tip relevant to their exact situation
-4. Be warm but concise (2-3 sentences max)
-5. No emojis, no bullet points, no generic advice
-6. NEVER say "How have you been?" or ask questions you should already know the answer to
-7. Reference patterns you've noticed when relevant
+### CRITICAL RULES FOR INPUT SANITIZATION (Do not skip):
+1. **NO PARROTING:** If the user's text seems like a typo, fragment, or incoherent (e.g., "grand like", "tired ugh", "sdlfk"), **DO NOT quote it directly**.
+   - BAD: "I see 'grand like' is on your mind."
+   - GOOD: "It sounds like things are a bit unclear or weighing on you right now."
+   - GOOD (if typo seems happy): "I sense some good energy despite the typo!"
+2. **INTERPRET INTENT:** If the text is short/unclear, prioritize the MOOD SCORE (${moodScore}/10) as your source of truth.
+3. **OBJECT PERMANENCE:** If they mentioned a specific struggle in the *previous* session (see context), and they are low again, reference that connection.
 
-Now respond to this check-in with your context-aware coaching:`
+### OUTPUT FORMAT:
+- Write 2-3 short, warm sentences.
+- **Sentence 1:** Validate their state using the Context (Streak/History) + Current Mood.
+- **Sentence 2:** Offer a micro-observation or a tiny "frictionless" next step.
+- Tone: UK English, casual, supportive (like a smart friend, not a medical textbook).
+- NO emojis at start of sentences. NO bullet points.
+
+Now respond:`
 
     // Call Gemini API
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
@@ -451,7 +462,7 @@ Now respond to this check-in with your context-aware coaching:`
           parts: [{ text: prompt }]
         }],
         generationConfig: {
-          temperature: 0.85,
+          temperature: 0.7, // Reduced temperature to prevent hallucinations on typos
           maxOutputTokens: 200,
         }
       })
@@ -485,7 +496,10 @@ Now respond to this check-in with your context-aware coaching:`
   }
 }
 
-// Context-aware generic advice (when user doesn't write a note)
+// ============================================
+// FALLBACK ADVICE GENERATORS
+// ============================================
+
 function getContextAwareGenericAdvice(moodScore: number, context: UserContext): string {
   // If they have a low mood streak
   if (context.currentStreak?.type === 'low_mood') {
@@ -532,3 +546,5 @@ function getGenericAdvice(moodScore: number): string {
   }
   return "Love to see you feeling good! Share what's contributing to this so we can help you notice the patterns and recreate it."
 }
+
+```
