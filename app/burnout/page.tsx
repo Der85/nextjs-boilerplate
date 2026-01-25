@@ -1,501 +1,601 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function OnboardingPage() {
+interface BurnoutLog {
+  id: string
+  user_id: string
+  // Physical symptoms
+  sleep_quality: number
+  energy_level: number
+  physical_tension: number
+  // Emotional symptoms
+  irritability: number
+  overwhelm: number
+  motivation: number
+  // Cognitive symptoms
+  focus_difficulty: number
+  forgetfulness: number
+  decision_fatigue: number
+  // Calculated
+  total_score: number
+  severity_level: 'green' | 'yellow' | 'red'
+  notes: string | null
+  created_at: string
+}
+
+const questions = [
+  { key: 'sleep_quality', label: 'How well did you sleep?', low: 'Terribly', high: 'Great', icon: '😴' },
+  { key: 'energy_level', label: 'What\'s your energy like?', low: 'Exhausted', high: 'Energized', icon: '⚡' },
+  { key: 'physical_tension', label: 'Any physical tension or pain?', low: 'A lot', high: 'None', icon: '💪' },
+  { key: 'irritability', label: 'How easily annoyed are you?', low: 'Very', high: 'Not at all', icon: '😤' },
+  { key: 'overwhelm', label: 'Feeling overwhelmed?', low: 'Completely', high: 'Not at all', icon: '🌊' },
+  { key: 'motivation', label: 'How motivated do you feel?', low: 'Zero', high: 'Very', icon: '🔥' },
+  { key: 'focus_difficulty', label: 'How hard is it to focus?', low: 'Impossible', high: 'Easy', icon: '🎯' },
+  { key: 'forgetfulness', label: 'Forgetting things?', low: 'Constantly', high: 'Not really', icon: '🧠' },
+  { key: 'decision_fatigue', label: 'Hard to make decisions?', low: 'Very', high: 'Not at all', icon: '🤔' },
+]
+
+export default function BurnoutPage() {
   const router = useRouter()
-  const [step, setStep] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [recentLogs, setRecentLogs] = useState<BurnoutLog[]>([])
   
-  // Form data
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [mood, setMood] = useState(5)
-  const [moodNote, setMoodNote] = useState('')
-  const [coachAdvice, setCoachAdvice] = useState('')
+  // Form state
+  const [answers, setAnswers] = useState<Record<string, number>>({
+    sleep_quality: 5,
+    energy_level: 5,
+    physical_tension: 5,
+    irritability: 5,
+    overwhelm: 5,
+    motivation: 5,
+    focus_difficulty: 5,
+    forgetfulness: 5,
+    decision_fatigue: 5,
+  })
+  const [notes, setNotes] = useState('')
+  const [currentQuestion, setCurrentQuestion] = useState(0)
 
-  const totalSteps = 11
-
-  const handleNext = () => {
-    if (step < totalSteps - 1) {
-      setStep(step + 1)
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+      setUser(session.user)
+      await fetchLogs(session.user.id)
+      setLoading(false)
     }
+    init()
+  }, [router])
+
+  const fetchLogs = async (userId: string) => {
+    const { data } = await supabase
+      .from('burnout_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    
+    if (data) setRecentLogs(data)
   }
 
-  const handleBack = () => {
-    if (step > 0) {
-      setStep(step - 1)
-    }
+  const calculateScore = () => {
+    const values = Object.values(answers)
+    const total = values.reduce((sum, val) => sum + val, 0)
+    const avg = total / values.length
+    return { total, avg }
   }
 
-  const handleRegister = async () => {
-    if (!email || !password || !name) {
-      setError('Please fill in all fields')
-      return
-    }
-    
-    setIsLoading(true)
-    setError('')
-    
-    try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: name,
-          }
+  const getSeverity = (avg: number): 'green' | 'yellow' | 'red' => {
+    if (avg >= 7) return 'green'
+    if (avg >= 4) return 'yellow'
+    return 'red'
+  }
+
+  const getSeverityInfo = (severity: 'green' | 'yellow' | 'red') => {
+    switch (severity) {
+      case 'green':
+        return {
+          label: 'Looking Good',
+          emoji: '✅',
+          color: 'var(--success)',
+          bgColor: 'rgba(23, 191, 99, 0.1)',
+          message: 'Your energy levels are healthy! Keep doing what you\'re doing.'
         }
+      case 'yellow':
+        return {
+          label: 'Watch Out',
+          emoji: '⚠️',
+          color: 'var(--warning)',
+          bgColor: 'rgba(255, 173, 31, 0.1)',
+          message: 'You\'re showing some signs of strain. Consider taking breaks and prioritizing rest.'
+        }
+      case 'red':
+        return {
+          label: 'Burnout Risk',
+          emoji: '🚨',
+          color: 'var(--danger)',
+          bgColor: 'rgba(224, 36, 94, 0.1)',
+          message: 'Your scores suggest high burnout risk. Please prioritize self-care and consider talking to someone.'
+        }
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!user) return
+    setSaving(true)
+
+    const { total, avg } = calculateScore()
+    const severity = getSeverity(avg)
+
+    const { error } = await supabase.from('burnout_logs').insert({
+      user_id: user.id,
+      sleep_quality: answers.sleep_quality,
+      energy_level: answers.energy_level,
+      physical_tension: answers.physical_tension,
+      irritability: answers.irritability,
+      overwhelm: answers.overwhelm,
+      motivation: answers.motivation,
+      focus_difficulty: answers.focus_difficulty,
+      forgetfulness: answers.forgetfulness,
+      decision_fatigue: answers.decision_fatigue,
+      total_score: total,
+      severity_level: severity,
+      notes: notes || null,
+    })
+
+    if (!error) {
+      await fetchLogs(user.id)
+      setShowForm(false)
+      setCurrentQuestion(0)
+      setAnswers({
+        sleep_quality: 5,
+        energy_level: 5,
+        physical_tension: 5,
+        irritability: 5,
+        overwhelm: 5,
+        motivation: 5,
+        focus_difficulty: 5,
+        forgetfulness: 5,
+        decision_fatigue: 5,
       })
-      
-      if (signUpError) throw signUpError
-      
-      handleNext()
-    } catch (err: any) {
-      setError(err.message || 'Registration failed')
-    } finally {
-      setIsLoading(false)
+      setNotes('')
     }
+
+    setSaving(false)
   }
 
-  const handleMoodSubmit = async () => {
-    setIsLoading(true)
-    
-    try {
-      // Get coach advice
-      const response = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moodScore: mood, note: moodNote }),
-      })
-      
-      const data = await response.json()
-      setCoachAdvice(data.advice)
-      
-      // Save mood entry
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        await supabase.from('mood_entries').insert({
-          user_id: user.id,
-          mood_score: mood,
-          note: moodNote,
-          coach_advice: data.advice,
-        })
-      }
-      
-      handleNext()
-    } catch (err) {
-      console.error('Error:', err)
-      handleNext()
-    } finally {
-      setIsLoading(false)
-    }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
   }
 
-  const handleFinish = () => {
-    router.push('/dashboard')
-  }
-
-  const renderStep = () => {
-    switch (step) {
-      // Step 0: Welcome - First time user?
-      case 0:
-        return (
-          <div className="text-center">
-            <div className="text-6xl mb-6">👋</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to ADHDer.io</h1>
-            <p className="text-gray-600 mb-8">Is this your first time here?</p>
-            <div className="space-y-3">
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-              >
-                Yes, I'm new here
-              </button>
-              <button
-                onClick={() => router.push('/login')}
-                className="w-full bg-white text-gray-700 py-3 px-6 rounded-full font-medium border border-gray-300 hover:bg-gray-50 transition"
-              >
-                No, take me to login
-              </button>
-            </div>
-          </div>
-        )
-
-      // Step 1: Meet Der, get name
-      case 1:
-        return (
-          <div>
-            <div className="text-5xl mb-4">🧠</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Hello! I'm Der, your ADHD coach.
-            </h1>
-            <p className="text-gray-600 mb-2">
-              It's <span className="font-semibold text-blue-500">ADHD-er</span>, get it? 😄
-            </p>
-            <p className="text-gray-600 mb-6">What's your name?</p>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              onClick={handleNext}
-              disabled={!name.trim()}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Continue
-            </button>
-          </div>
-        )
-
-      // Step 2: Get email
-      case 2:
-        return (
-          <div>
-            <div className="text-5xl mb-4">✨</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Hi {name}, great to meet you!
-            </h1>
-            <p className="text-gray-600 mb-6">What's your email?</p>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              onClick={handleNext}
-              disabled={!email.trim()}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Continue
-            </button>
-          </div>
-        )
-
-      // Step 3: Create password & register
-      case 3:
-        return (
-          <div>
-            <div className="text-5xl mb-4">🔐</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Great! Now create a password
-            </h1>
-            <p className="text-gray-600 mb-6">So you can log back in later.</p>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
-            />
-            {error && (
-              <p className="mt-2 text-red-500 text-sm">{error}</p>
-            )}
-            <button
-              onClick={handleRegister}
-              disabled={!password.trim() || isLoading}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Creating account...' : 'Create Account'}
-            </button>
-          </div>
-        )
-
-      // Step 4: Der's story
-      case 4:
-        return (
-          <div>
-            <div className="text-5xl mb-4">💭</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              A bit about me...
-            </h1>
-            <div className="space-y-4 text-gray-600">
-              <p>
-                I was only diagnosed with ADHD in my 30s. Suddenly so much made sense, and at the same time there still feels like there's so much to figure out.
-              </p>
-              <p>
-                That's why I'm here — to build <span className="font-semibold text-gray-900">systems with you that work</span>.
-              </p>
-              <p>
-                Not brand new "expensive" systems that require you to buy a bunch of new things — I'm guessing you've tried that already.
-              </p>
-              <p className="font-medium text-gray-900">
-                Systems that are yours, built where you are — not where you imagine you'll be with the new gym membership or supplement from the health food store.
-              </p>
-            </div>
-            <button
-              onClick={handleNext}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              I like the sound of that
-            </button>
-          </div>
-        )
-
-      // Step 5: First check-in (mood + note)
-      case 5:
-        return (
-          <div>
-            <div className="text-5xl mb-4">📊</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Let's start with a simple check-in
-            </h1>
-            <p className="text-gray-600 mb-6">
-              Rate how you're feeling right now, with 10 being the best you've ever felt and 0 being the worst.
-            </p>
-            
-            <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-500 mb-2">
-                <span>Worst</span>
-                <span className="text-2xl font-bold text-blue-500">{mood}</span>
-                <span>Best</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="10"
-                value={mood}
-                onChange={(e) => setMood(parseInt(e.target.value))}
-                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-            </div>
-
-            <p className="text-gray-600 mb-3">
-              Why did you pick that number? What's happening?
-            </p>
-            <textarea
-              value={moodNote}
-              onChange={(e) => setMoodNote(e.target.value)}
-              placeholder="Share what's on your mind..."
-              rows={3}
-              className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
-            
-            <button
-              onClick={handleMoodSubmit}
-              disabled={isLoading}
-              className="w-full mt-6 bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition disabled:opacity-50"
-            >
-              {isLoading ? 'Getting advice...' : 'Submit Check-in'}
-            </button>
-          </div>
-        )
-
-      // Step 6: Show coach advice
-      case 6:
-        return (
-          <div>
-            <div className="text-5xl mb-4">🧠</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Here's what I think...
-            </h1>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <p className="text-gray-800">
-                {coachAdvice || "Thanks for sharing. Remember, checking in with yourself is the first step to understanding your patterns."}
-              </p>
-            </div>
-            <p className="text-gray-600 mb-6">
-              This was your first coaching session! I'm going to ask you to tell me how you're feeling once per day and offer suggestions like this.
-            </p>
-            <p className="text-gray-600 mb-6">
-              The goal is to help recognize patterns. There aren't always patterns, but sometimes there are — and helping you recognize them can help build new ones, or choose to continue with the old ones.
-            </p>
-            <p className="font-semibold text-gray-900 mb-6">
-              You're in the driving seat here!
-            </p>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              Continue
-            </button>
-          </div>
-        )
-
-      // Step 7: Other tools intro
-      case 7:
-        return (
-          <div>
-            <div className="text-5xl mb-4">🧰</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              There's more I can help with
-            </h1>
-            <p className="text-gray-600 mb-4">
-              Helping you recognize your patterns is one thing, but there's a bunch of other stuff on this journey too.
-            </p>
-            <div className="bg-gray-100 rounded-xl p-4 mb-6">
-              <p className="text-gray-600 text-sm">
-                💡 Pressing the menu button after this journey will show you everything I can help with — but don't worry about that for now.
-              </p>
-            </div>
-            <p className="text-gray-900 font-semibold mb-6">
-              The first tool I need to show you is <span className="text-red-500">BREAK</span> →
-            </p>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              Show me BREAK
-            </button>
-          </div>
-        )
-
-      // Step 8: BREAK explanation
-      case 8:
-        return (
-          <div>
-            <div className="text-5xl mb-4">🛑</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              BREAK is for when everything is overwhelming
-            </h1>
-            <p className="text-gray-600 mb-4">
-              For me, sometimes it's the noise in a busy supermarket. Or being a bit tired and someone asks me a question and I'm snappy, they get annoyed, I get more annoyed…
-            </p>
-            <p className="text-gray-600 mb-4 font-medium">
-              You know the story.
-            </p>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-              <p className="text-gray-800 text-sm">
-                Press the <span className="font-bold text-red-500">BREAK</span> button for 10 seconds. Select if you're frustrated, angry, feel rejected, or upset.
-              </p>
-            </div>
-            <p className="text-gray-600 mb-6">
-              ADHD isn't just about focus and dopamine levels — it's so much more. Mainly, it's about <span className="font-semibold">dysregulation</span>.
-            </p>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              Tell me more about dysregulation
-            </button>
-          </div>
-        )
-
-      // Step 9: Dysregulation explanation
-      case 9:
-        return (
-          <div>
-            <div className="text-5xl mb-4">💙</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Dysregulation means it's not your fault
-            </h1>
-            <p className="text-gray-600 mb-4">
-              Dysregulation of attention, sure. But also of sleep, food, energy levels, relationships.
-            </p>
-            <p className="text-gray-600 mb-4">
-              I know you won't fully believe me when I say it's not your fault.
-            </p>
-            <p className="text-gray-600 mb-4">
-              You didn't get to grow up with people who could teach you how to cope with the world. But it's not your parents' fault either — ADHD is highly hereditary.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <p className="text-blue-800 font-medium">
-                🧬 Your brain is wired differently. That's not a flaw — it's just different.
-              </p>
-            </div>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              Continue
-            </button>
-          </div>
-        )
-
-      // Step 10: Energy levels & burnout
-      case 10:
-        return (
-          <div>
-            <div className="text-5xl mb-4">🔋</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Let's talk about energy
-            </h1>
-            <p className="text-gray-600 mb-4">
-              Energy for us ADHDers is, well, <span className="font-semibold">dysregulated</span>.
-            </p>
-            <p className="text-gray-600 mb-4">
-              If it's something we're interested in, everything else disappears. But if it's something we "have" to do, it's nearly impossible to get off the couch.
-            </p>
-            <p className="text-gray-600 mb-4">
-              When we're not interested in something but it still needs to be done (think: work), we often rely on <span className="font-semibold">stress and anxiety</span> to keep us moving.
-            </p>
-            <p className="text-gray-600 mb-4">
-              No problem once in a while — but when it becomes our default… <span className="font-semibold text-orange-600">burnout becomes the destination</span>.
-            </p>
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
-              <p className="text-orange-800 font-medium">
-                ⚡ When your mood is lower or when you share that you've been frustrated, I'm going to ask about your energy levels. The key is to avoid burnout.
-              </p>
-            </div>
-            <p className="text-gray-900 font-semibold mb-6">
-              Nothing is more important than taking care of yourself.
-            </p>
-            <button
-              onClick={handleFinish}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-full font-medium hover:bg-blue-600 transition"
-            >
-              Let's get started! →
-            </button>
-          </div>
-        )
-
-      default:
-        return null
-    }
+  if (loading) {
+    return (
+      <div className="app-container">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <span style={{ 
+            width: '32px', 
+            height: '32px', 
+            border: '3px solid var(--primary)', 
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }} />
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Progress bar */}
-      {step > 0 && (
-        <div className="fixed top-0 left-0 right-0 h-1 bg-gray-200">
-          <div 
-            className="h-full bg-blue-500 transition-all duration-300"
-            style={{ width: `${(step / (totalSteps - 1)) * 100}%` }}
-          />
-        </div>
-      )}
-
-      {/* Back button */}
-      {step > 0 && step < 4 && (
-        <button
-          onClick={handleBack}
-          className="fixed top-4 left-4 p-2 text-gray-500 hover:text-gray-700"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-      )}
-
-      {/* Main content */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
-          {renderStep()}
+    <div className="app-container">
+      {/* Top Bar */}
+      <div className="top-bar">
+        <div className="top-bar-inner">
+          <button
+            onClick={() => router.push('/dashboard')}
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: 'var(--dark-gray)'
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            Back
+          </button>
+          <h1 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--black)' }}>
+            🔋 Energy Tracker
+          </h1>
+          <div style={{ width: '60px' }}></div>
         </div>
       </div>
 
-      {/* Step indicator */}
-      {step > 0 && (
-        <div className="fixed bottom-4 left-0 right-0 flex justify-center">
-          <span className="text-sm text-gray-400">
-            {step} of {totalSteps - 1}
-          </span>
+      <div className="main-content">
+        {/* Current Status Card */}
+        {recentLogs.length > 0 && !showForm && (
+          <div className="card" style={{
+            background: getSeverityInfo(recentLogs[0].severity_level).bgColor,
+            borderLeft: `4px solid ${getSeverityInfo(recentLogs[0].severity_level).color}`
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '32px' }}>{getSeverityInfo(recentLogs[0].severity_level).emoji}</span>
+              <div>
+                <div style={{ 
+                  fontSize: '18px', 
+                  fontWeight: 700,
+                  color: getSeverityInfo(recentLogs[0].severity_level).color
+                }}>
+                  {getSeverityInfo(recentLogs[0].severity_level).label}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--dark-gray)' }}>
+                  Last check: {formatDate(recentLogs[0].created_at)}
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize: '14px', color: 'var(--dark-gray)', lineHeight: 1.5 }}>
+              {getSeverityInfo(recentLogs[0].severity_level).message}
+            </p>
+          </div>
+        )}
+
+        {/* New Check Button or Form */}
+        {!showForm ? (
+          <div className="card">
+            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+              How's your energy?
+            </h2>
+            <p style={{ fontSize: '14px', color: 'var(--dark-gray)', marginBottom: '16px' }}>
+              Track your energy levels to spot burnout before it happens.
+            </p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+            >
+              Start Energy Check
+            </button>
+          </div>
+        ) : (
+          <div className="card">
+            {/* Progress */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: '8px'
+              }}>
+                <span style={{ fontSize: '13px', color: 'var(--dark-gray)' }}>
+                  Question {currentQuestion + 1} of {questions.length}
+                </span>
+                <button
+                  onClick={() => {
+                    setShowForm(false)
+                    setCurrentQuestion(0)
+                  }}
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    cursor: 'pointer',
+                    color: 'var(--light-gray)',
+                    fontSize: '18px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ 
+                height: '4px', 
+                background: 'var(--extra-light-gray)', 
+                borderRadius: '2px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${((currentQuestion + 1) / questions.length) * 100}%`,
+                  background: 'var(--primary)',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+            </div>
+
+            {/* Question */}
+            {currentQuestion < questions.length ? (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '48px' }}>{questions[currentQuestion].icon}</span>
+                  <h3 style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 600, 
+                    color: 'var(--black)',
+                    marginTop: '12px'
+                  }}>
+                    {questions[currentQuestion].label}
+                  </h3>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    fontSize: '13px',
+                    color: 'var(--dark-gray)',
+                    marginBottom: '8px'
+                  }}>
+                    <span>{questions[currentQuestion].low}</span>
+                    <span style={{ 
+                      fontSize: '24px', 
+                      fontWeight: 700,
+                      color: 'var(--primary)'
+                    }}>
+                      {answers[questions[currentQuestion].key]}
+                    </span>
+                    <span>{questions[currentQuestion].high}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={answers[questions[currentQuestion].key]}
+                    onChange={(e) => setAnswers({
+                      ...answers,
+                      [questions[currentQuestion].key]: parseInt(e.target.value)
+                    })}
+                    style={{
+                      width: '100%',
+                      height: '8px',
+                      borderRadius: '4px',
+                      appearance: 'none',
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(answers[questions[currentQuestion].key] - 1) * 11.1}%, var(--extra-light-gray) ${(answers[questions[currentQuestion].key] - 1) * 11.1}%, var(--extra-light-gray) 100%)`,
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {currentQuestion > 0 && (
+                    <button
+                      onClick={() => setCurrentQuestion(currentQuestion - 1)}
+                      className="btn btn-outline"
+                      style={{ flex: 1 }}
+                    >
+                      Back
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setCurrentQuestion(currentQuestion + 1)}
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                  >
+                    {currentQuestion === questions.length - 1 ? 'Review' : 'Next'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Review & Submit
+              <div>
+                <h3 style={{ 
+                  fontSize: '18px', 
+                  fontWeight: 600, 
+                  marginBottom: '16px',
+                  textAlign: 'center'
+                }}>
+                  Review Your Answers
+                </h3>
+                
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(3, 1fr)', 
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}>
+                  {questions.map((q, i) => (
+                    <div 
+                      key={q.key}
+                      onClick={() => setCurrentQuestion(i)}
+                      style={{
+                        background: 'var(--bg-gray)',
+                        borderRadius: '8px',
+                        padding: '12px 8px',
+                        textAlign: 'center',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontSize: '20px', marginBottom: '4px' }}>{q.icon}</div>
+                      <div style={{ 
+                        fontSize: '18px', 
+                        fontWeight: 700,
+                        color: answers[q.key] >= 7 ? 'var(--success)' : 
+                               answers[q.key] >= 4 ? 'var(--warning)' : 'var(--danger)'
+                      }}>
+                        {answers[q.key]}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Overall Score Preview */}
+                <div style={{
+                  background: getSeverityInfo(getSeverity(calculateScore().avg)).bgColor,
+                  borderRadius: '12px',
+                  padding: '16px',
+                  textAlign: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ fontSize: '32px', marginBottom: '4px' }}>
+                    {getSeverityInfo(getSeverity(calculateScore().avg)).emoji}
+                  </div>
+                  <div style={{ 
+                    fontSize: '24px', 
+                    fontWeight: 700,
+                    color: getSeverityInfo(getSeverity(calculateScore().avg)).color
+                  }}>
+                    {calculateScore().avg.toFixed(1)} / 10
+                  </div>
+                  <div style={{ fontSize: '14px', color: 'var(--dark-gray)' }}>
+                    {getSeverityInfo(getSeverity(calculateScore().avg)).label}
+                  </div>
+                </div>
+
+                {/* Optional Notes */}
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any notes? (optional)"
+                  rows={2}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid var(--extra-light-gray)',
+                    borderRadius: '12px',
+                    fontSize: '15px',
+                    resize: 'none',
+                    marginBottom: '16px'
+                  }}
+                />
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={() => setCurrentQuestion(questions.length - 1)}
+                    className="btn btn-outline"
+                    style={{ flex: 1 }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={saving}
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                  >
+                    {saving ? 'Saving...' : 'Save Check-in'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* History */}
+        {recentLogs.length > 0 && !showForm && (
+          <>
+            <div className="page-header">
+              <h2 className="page-title">Recent Check-ins</h2>
+            </div>
+            
+            {recentLogs.map((log) => {
+              const info = getSeverityInfo(log.severity_level)
+              return (
+                <div key={log.id} className="card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '28px' }}>{info.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ 
+                          fontWeight: 700,
+                          color: info.color
+                        }}>
+                          {(log.total_score / 9).toFixed(1)}/10
+                        </span>
+                        <span style={{ 
+                          fontSize: '12px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          background: info.bgColor,
+                          color: info.color,
+                          fontWeight: 500
+                        }}>
+                          {info.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--dark-gray)' }}>
+                        {formatDate(log.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                  {log.notes && (
+                    <p style={{ 
+                      marginTop: '8px', 
+                      fontSize: '14px', 
+                      color: 'var(--dark-gray)' 
+                    }}>
+                      {log.notes}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </>
+        )}
+
+        {/* ADHD Tip */}
+        <div className="card" style={{
+          background: 'rgba(29, 161, 242, 0.05)',
+          borderLeft: '3px solid var(--primary)'
+        }}>
+          <div style={{ 
+            fontSize: '13px', 
+            fontWeight: 600, 
+            color: 'var(--primary)',
+            marginBottom: '4px'
+          }}>
+            💡 ADHD & Burnout
+          </div>
+          <p style={{ fontSize: '14px', color: 'var(--dark-gray)', lineHeight: 1.5 }}>
+            ADHDers often rely on stress to stay productive, which leads to burnout faster. 
+            Regular energy check-ins help you catch the warning signs early.
+          </p>
         </div>
-      )}
+
+        {/* Bottom Navigation */}
+        <nav className="bottom-nav">
+          <button onClick={() => router.push('/dashboard')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <span>Dashboard</span>
+          </button>
+          <button onClick={() => router.push('/focus')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+            </svg>
+            <span>Focus</span>
+          </button>
+          <button onClick={() => router.push('/goals')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+            <span>Goals</span>
+          </button>
+          <button className="nav-item nav-item-active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/>
+            </svg>
+            <span>Energy</span>
+          </button>
+          <button onClick={() => router.push('/village')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span>Village</span>
+          </button>
+        </nav>
+      </div>
     </div>
   )
 }
