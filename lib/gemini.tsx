@@ -1,6 +1,20 @@
+// Client-side Gemini helper with context support
 import { supabase } from '@/lib/supabase'
 
-export async function getADHDCoachAdvice(moodScore: number, note: string | null): Promise<string> {
+export interface CoachResponse {
+  advice: string
+  context?: {
+    totalCheckIns: number
+    currentStreak: {
+      type: 'checking_in' | 'low_mood' | 'high_mood' | 'improving'
+      days: number
+    } | null
+    pattern: 'streak_low' | 'streak_high' | 'declining' | 'improving' | 'volatile' | 'stable' | null
+    comparedToBaseline: 'better' | 'worse' | 'same'
+  }
+}
+
+export async function getADHDCoachAdvice(moodScore: number, note: string | null): Promise<CoachResponse> {
   try {
     const { data: sessionData } = await supabase.auth.getSession()
     const accessToken = sessionData?.session?.access_token ?? null
@@ -16,20 +30,23 @@ export async function getADHDCoachAdvice(moodScore: number, note: string | null)
 
     if (!response.ok) {
       console.error('Coach API error:', response.status)
-      return getFallbackAdvice(moodScore)
+      return { advice: getFallbackAdvice(moodScore) }
     }
 
     const data = await response.json()
-    return data.advice || getFallbackAdvice(moodScore)
+    return {
+      advice: data.advice || getFallbackAdvice(moodScore),
+      context: data.context
+    }
   } catch (error) {
     console.error('Coach API error:', error)
-    return getFallbackAdvice(moodScore)
+    return { advice: getFallbackAdvice(moodScore) }
   }
 }
 
 function getFallbackAdvice(moodScore: number): string {
   if (moodScore <= 3) {
-    return "It's okay to have hard days—your feelings are valid. Try sharing what's on your mind next time so I can give you more personalized support."
+    return "I'm here with you during this hard moment. Sometimes just showing up to check in is the win—you did that today."
   }
   if (moodScore <= 5) {
     return "Thanks for checking in—showing up matters. If you share what's going on, I can offer advice tailored to your situation."
