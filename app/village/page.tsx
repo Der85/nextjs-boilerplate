@@ -15,11 +15,11 @@ interface Contact {
 }
 
 const supportTypes = [
-  { key: 'emotional', label: 'Emotional', icon: '💙' },
+  { key: 'emotional', label: 'Emotional', icon: '💜' },
   { key: 'task', label: 'Task help', icon: '🤝' },
   { key: 'info', label: 'Advice', icon: '💡' },
   { key: 'fun', label: 'Fun', icon: '🎉' },
-  { key: 'emergency', label: 'Emergency', icon: '🆘' },
+  { key: 'emergency', label: 'Emergency', icon: '🚨' },
 ]
 
 export default function VillagePage() {
@@ -28,10 +28,12 @@ export default function VillagePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
-  const [view, setView] = useState<'list' | 'add' | 'sos'>('list')
+  const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
   const [contacts, setContacts] = useState<Contact[]>([])
-  const [sosType, setSosType] = useState<string | null>(null)
+  const [filterType, setFilterType] = useState<string | null>(null)
   
+  // Form state
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [relationship, setRelationship] = useState('')
   const [phone, setPhone] = useState('')
@@ -64,10 +66,19 @@ export default function VillagePage() {
     setSupports(prev => prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key])
   }
 
+  const resetForm = () => {
+    setEditingId(null)
+    setName('')
+    setRelationship('')
+    setPhone('')
+    setEmail('')
+    setSupports([])
+  }
+
   const handleAdd = async () => {
     if (!user || !name.trim()) return
     setSaving(true)
-    
+
     await supabase.from('village_contacts').insert({
       user_id: user.id,
       name,
@@ -79,14 +90,55 @@ export default function VillagePage() {
       is_archived: false
     })
 
-    setName('')
-    setRelationship('')
-    setPhone('')
-    setEmail('')
-    setSupports([])
+    resetForm()
     setView('list')
     if (user) await fetchContacts(user.id)
     setSaving(false)
+  }
+
+  const handleEdit = (contact: Contact) => {
+    setEditingId(contact.id)
+    setName(contact.name)
+    setRelationship(contact.relationship || '')
+    setPhone(contact.phone || '')
+    setEmail(contact.email || '')
+    setSupports(contact.support_type || [])
+    setView('edit')
+  }
+
+  const handleUpdate = async () => {
+    if (!user || !editingId || !name.trim()) return
+    setSaving(true)
+
+    await supabase
+      .from('village_contacts')
+      .update({
+        name,
+        relationship: relationship || null,
+        phone: phone || null,
+        email: email || null,
+        support_type: supports,
+      })
+      .eq('id', editingId)
+      .eq('user_id', user.id)
+
+    resetForm()
+    setView('list')
+    if (user) await fetchContacts(user.id)
+    setSaving(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!user) return
+    if (!confirm('Are you sure you want to remove this contact?')) return
+    
+    await supabase
+      .from('village_contacts')
+      .update({ is_archived: true })
+      .eq('id', id)
+      .eq('user_id', user.id)
+    
+    await fetchContacts(user.id)
   }
 
   const toggleFavorite = async (id: string, current: boolean) => {
@@ -100,77 +152,244 @@ export default function VillagePage() {
   }
 
   const contactPerson = (contact: Contact) => {
-    if (contact.phone) window.location.href = `tel:${contact.phone}`
-    else if (contact.email) window.location.href = `mailto:${contact.email}`
+    if (contact.phone) {
+      window.open(`tel:${contact.phone}`)
+    } else if (contact.email) {
+      window.open(`mailto:${contact.email}`)
+    }
   }
+
+  const filteredContacts = filterType 
+    ? contacts.filter(c => c.support_type?.includes(filterType))
+    : contacts
 
   if (loading) {
     return (
-      <div className="app-container flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      <div className="app-container">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <span style={{ 
+            width: '32px', 
+            height: '32px', 
+            border: '3px solid var(--primary)', 
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }} />
+        </div>
       </div>
     )
   }
 
   return (
     <div className="app-container">
+      {/* Top Bar */}
       <div className="top-bar">
         <div className="top-bar-inner">
-          <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-icon">←</button>
-          <h1 style={{ fontSize: '19px', fontWeight: 800 }}>My Village</h1>
-          <div style={{ width: '36px' }} />
+          <button
+            onClick={() => router.push('/dashboard')}
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: 'var(--dark-gray)'
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            Back
+          </button>
+          <h1 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--black)' }}>
+            👥 My Village
+          </h1>
+          <div style={{ width: '60px' }}></div>
         </div>
       </div>
 
       <div className="main-content">
-        <div className="tabs">
-          <button className={`tab ${view === 'list' ? 'tab-active' : ''}`} onClick={() => { setView('list'); setSosType(null) }}>People</button>
-          <button className={`tab ${view === 'sos' ? 'tab-active' : ''}`} onClick={() => setView('sos')}>SOS</button>
-          <button className={`tab ${view === 'add' ? 'tab-active' : ''}`} onClick={() => setView('add')}>Add</button>
-        </div>
-
-        {view === 'sos' && !sosType && (
+        {/* List View */}
+        {view === 'list' && (
           <>
-            <div className="page-header">
-              <h2 className="page-title">What do you need?</h2>
-              <p className="page-subtitle">Tap to find someone who can help</p>
+            {/* Add Contact Button */}
+            <div className="card">
+              <p style={{ fontSize: '14px', color: 'var(--dark-gray)', marginBottom: '12px' }}>
+                Your support network — the people who help you thrive.
+              </p>
+              <button
+                onClick={() => { resetForm(); setView('create') }}
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                + Add Someone
+              </button>
             </div>
-            {supportTypes.map((type) => (
-              <div key={type.key} className="card card-clickable" onClick={() => setSosType(type.key)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '32px' }}>{type.icon}</span>
-                  <p className="font-bold" style={{ flex: 1 }}>{type.label}</p>
-                  <span className="text-muted">→</span>
-                </div>
+
+            {/* Filter by support type */}
+            {contacts.length > 0 && (
+              <div style={{ 
+                display: 'flex', 
+                gap: '8px', 
+                overflowX: 'auto',
+                padding: '4px 0',
+                marginBottom: '8px'
+              }}>
+                <button
+                  onClick={() => setFilterType(null)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    background: filterType === null ? 'var(--primary)' : 'var(--bg-gray)',
+                    color: filterType === null ? 'white' : 'var(--dark-gray)',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  All ({contacts.length})
+                </button>
+                {supportTypes.map(type => {
+                  const count = getContactsForType(type.key).length
+                  if (count === 0) return null
+                  return (
+                    <button
+                      key={type.key}
+                      onClick={() => setFilterType(type.key)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '20px',
+                        border: 'none',
+                        background: filterType === type.key ? 'var(--primary)' : 'var(--bg-gray)',
+                        color: filterType === type.key ? 'white' : 'var(--dark-gray)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {type.icon} {type.label} ({count})
+                    </button>
+                  )
+                })}
               </div>
-            ))}
-          </>
-        )}
+            )}
 
-        {view === 'sos' && sosType && (
-          <>
-            <div className="page-header">
-              <button onClick={() => setSosType(null)} className="btn btn-ghost text-sm mb-2">← Back</button>
-              <h2 className="page-title">{supportTypes.find(t => t.key === sosType)?.icon} Who can help?</h2>
-            </div>
-            {getContactsForType(sosType).length === 0 ? (
+            {/* Contacts List */}
+            {filteredContacts.length === 0 ? (
               <div className="card text-center" style={{ padding: '40px 15px' }}>
-                <p className="text-muted">No contacts for this type</p>
-                <button onClick={() => setView('add')} className="btn btn-primary mt-3">Add someone</button>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>👥</div>
+                <p className="text-muted">
+                  {filterType ? 'No contacts for this support type' : 'No contacts yet'}
+                </p>
               </div>
             ) : (
-              getContactsForType(sosType).map((c) => (
-                <div key={c.id} className="card card-clickable" onClick={() => contactPerson(c)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-gray)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700 }}>
-                      {c.name.charAt(0).toUpperCase()}
+              filteredContacts.map((contact) => (
+                <div key={contact.id} className="card">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      background: 'var(--primary)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '18px',
+                      fontWeight: 700,
+                      flexShrink: 0
+                    }}>
+                      {contact.name.charAt(0).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <p className="font-bold">{c.name}</p>
-                      {c.relationship && <p className="text-sm text-muted">{c.relationship}</p>}
+                    
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Name & Favorite */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '16px' }}>{contact.name}</span>
+                        <button
+                          onClick={() => toggleFavorite(contact.id, contact.is_favorite)}
+                          style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            padding: 0
+                          }}
+                        >
+                          {contact.is_favorite ? '⭐' : '☆'}
+                        </button>
+                      </div>
+                      
+                      {/* Relationship */}
+                      {contact.relationship && (
+                        <p style={{ fontSize: '13px', color: 'var(--dark-gray)', marginBottom: '8px' }}>
+                          {contact.relationship}
+                        </p>
+                      )}
+                      
+                      {/* Support Types */}
+                      {contact.support_type && contact.support_type.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                          {contact.support_type.map(type => {
+                            const st = supportTypes.find(s => s.key === type)
+                            if (!st) return null
+                            return (
+                              <span
+                                key={type}
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  background: 'var(--bg-gray)',
+                                  color: 'var(--dark-gray)'
+                                }}
+                              >
+                                {st.icon} {st.label}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {(contact.phone || contact.email) && (
+                          <button
+                            onClick={() => contactPerson(contact)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '13px', padding: '6px 12px' }}
+                          >
+                            📞 Contact
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEdit(contact)}
+                          className="btn btn-outline"
+                          style={{ fontSize: '13px', padding: '6px 12px' }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(contact.id)}
+                          style={{ 
+                            fontSize: '13px', 
+                            padding: '6px 12px',
+                            background: 'none',
+                            border: '1px solid var(--extra-light-gray)',
+                            borderRadius: '20px',
+                            color: 'var(--danger)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
-                    <span style={{ color: 'var(--primary)' }}>{c.phone ? '📞' : '✉️'}</span>
                   </div>
                 </div>
               ))
@@ -178,76 +397,220 @@ export default function VillagePage() {
           </>
         )}
 
-        {view === 'add' && (
-          <div className="compose-box">
-            <p className="font-bold mb-2">Name</p>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="Their name" className="input mb-4" />
-
-            <p className="font-bold mb-2">Relationship (optional)</p>
-            <input type="text" value={relationship} onChange={(e) => setRelationship(e.target.value)}
-              placeholder="e.g., Friend, Sister, Therapist" className="input mb-4" />
-
-            <p className="font-bold mb-2">Contact info</p>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone number" className="input mb-2" />
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email" className="input mb-4" />
-
-            <p className="font-bold mb-2">They can help with:</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-              {supportTypes.map((type) => (
-                <button key={type.key} onClick={() => toggleSupport(type.key)}
-                  className={supports.includes(type.key) ? 'btn btn-primary' : 'btn btn-outline'}
-                  style={{ fontSize: '14px', padding: '8px 12px', height: 'auto' }}>
-                  {type.icon} {type.label}
-                </button>
-              ))}
+        {/* Create/Edit View */}
+        {(view === 'create' || view === 'edit') && (
+          <div className="card">
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600 }}>
+                {view === 'edit' ? '✏️ Edit Contact' : '➕ Add to Village'}
+              </h2>
+              <button
+                onClick={() => { resetForm(); setView('list') }}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  color: 'var(--light-gray)'
+                }}
+              >
+                ×
+              </button>
             </div>
 
-            <button onClick={handleAdd} disabled={!name.trim() || saving} className="btn btn-primary w-full">
-              {saving ? 'Adding...' : 'Add to village'}
-            </button>
+            {/* Name */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--dark-gray)', display: 'block', marginBottom: '6px' }}>
+                Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Their name"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid var(--extra-light-gray)',
+                  borderRadius: '12px',
+                  fontSize: '15px'
+                }}
+              />
+            </div>
+
+            {/* Relationship */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--dark-gray)', display: 'block', marginBottom: '6px' }}>
+                Relationship
+              </label>
+              <input
+                type="text"
+                value={relationship}
+                onChange={(e) => setRelationship(e.target.value)}
+                placeholder="e.g., Friend, Sister, Therapist"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid var(--extra-light-gray)',
+                  borderRadius: '12px',
+                  fontSize: '15px'
+                }}
+              />
+            </div>
+
+            {/* Phone */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--dark-gray)', display: 'block', marginBottom: '6px' }}>
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone number"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid var(--extra-light-gray)',
+                  borderRadius: '12px',
+                  fontSize: '15px'
+                }}
+              />
+            </div>
+
+            {/* Email */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--dark-gray)', display: 'block', marginBottom: '6px' }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid var(--extra-light-gray)',
+                  borderRadius: '12px',
+                  fontSize: '15px'
+                }}
+              />
+            </div>
+
+            {/* Support Types */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--dark-gray)', display: 'block', marginBottom: '8px' }}>
+                How do they support you?
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {supportTypes.map(type => (
+                  <button
+                    key={type.key}
+                    onClick={() => toggleSupport(type.key)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '20px',
+                      border: supports.includes(type.key) 
+                        ? '2px solid var(--primary)' 
+                        : '1px solid var(--extra-light-gray)',
+                      background: supports.includes(type.key) 
+                        ? 'rgba(29, 161, 242, 0.1)' 
+                        : 'var(--white)',
+                      color: supports.includes(type.key) 
+                        ? 'var(--primary)' 
+                        : 'var(--dark-gray)',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {type.icon} {type.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit Buttons */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => { resetForm(); setView('list') }}
+                className="btn btn-outline"
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={view === 'edit' ? handleUpdate : handleAdd}
+                disabled={!name.trim() || saving}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                {saving ? 'Saving...' : view === 'edit' ? 'Save Changes' : 'Add Contact'}
+              </button>
+            </div>
           </div>
         )}
 
-        {view === 'list' && (
-          <>
-            {contacts.length === 0 ? (
-              <div className="card text-center" style={{ padding: '40px 15px' }}>
-                <span className="emoji-large">👥</span>
-                <p className="font-bold mt-3">Your village is empty</p>
-                <p className="text-sm text-muted mt-1">Add people who support you</p>
-                <button onClick={() => setView('add')} className="btn btn-primary mt-4">Add first person</button>
-              </div>
-            ) : (
-              contacts.map((c) => (
-                <div key={c.id} className="card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-gray)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700 }}>
-                      {c.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p className="font-bold">{c.name} {c.is_favorite && '⭐'}</p>
-                      {c.relationship && <p className="text-sm text-muted">{c.relationship}</p>}
-                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-                        {c.support_type?.map(t => (
-                          <span key={t}>{supportTypes.find(s => s.key === t)?.icon}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <button onClick={() => toggleFavorite(c.id, c.is_favorite)} className="btn btn-ghost btn-icon">
-                      {c.is_favorite ? '⭐' : '☆'}
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </>
-        )}
+        {/* ADHD Tip */}
+        <div className="card" style={{
+          background: 'rgba(29, 161, 242, 0.05)',
+          borderLeft: '3px solid var(--primary)'
+        }}>
+          <div style={{ 
+            fontSize: '13px', 
+            fontWeight: 600, 
+            color: 'var(--primary)',
+            marginBottom: '4px'
+          }}>
+            💡 ADHD & Support Networks
+          </div>
+          <p style={{ fontSize: '14px', color: 'var(--dark-gray)', lineHeight: 1.5 }}>
+            Building a "village" helps with ADHD challenges. Different people help in different ways — 
+            some for emotional support, others for practical help. Knowing who to call makes it easier 
+            to reach out when you need it.
+          </p>
+        </div>
 
-        <div style={{ height: '50px' }} />
+        {/* Bottom Navigation */}
+        <nav className="bottom-nav">
+          <button onClick={() => router.push('/dashboard')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <span>Dashboard</span>
+          </button>
+          <button onClick={() => router.push('/focus')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+            </svg>
+            <span>Focus</span>
+          </button>
+          <button onClick={() => router.push('/goals')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+            <span>Goals</span>
+          </button>
+          <button onClick={() => router.push('/burnout')} className="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/>
+            </svg>
+            <span>Energy</span>
+          </button>
+          <button className="nav-item nav-item-active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span>Village</span>
+          </button>
+        </nav>
       </div>
     </div>
   )
