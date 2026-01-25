@@ -18,6 +18,14 @@ function getClient() {
   return createClient(supabaseUrl, supabaseAnonKey)
 }
 
+// Get client with service role (bypasses RLS for server-side queries)
+function getServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceRoleKey) return null
+  return createClient(supabaseUrl, serviceRoleKey)
+}
+
 function getIp(request: NextRequest): string {
   const forwardedFor = request.headers.get('x-forwarded-for')
   if (forwardedFor) return forwardedFor.split(',')[0].trim()
@@ -375,8 +383,14 @@ export async function POST(request: NextRequest) {
 
     // ============================================
     // ALWAYS BUILD CONTEXT (even without a note!)
+    // Use service client to bypass RLS
     // ============================================
-    const userContext = await buildUserContext(supabase, userId)
+    const serviceClient = getServiceClient()
+    if (!serviceClient) {
+      console.error('[Context] Service role key not configured - falling back to anon client')
+    }
+    const contextClient = serviceClient || supabase
+    const userContext = await buildUserContext(contextClient, userId)
     
     // If no note AND this is the first check-in, give a welcoming message
     if (noteText.trim().length < 3 && userContext.totalCheckIns === 0) {
