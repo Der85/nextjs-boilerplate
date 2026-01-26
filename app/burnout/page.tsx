@@ -7,19 +7,15 @@ import { supabase } from '@/lib/supabase'
 interface BurnoutLog {
   id: string
   user_id: string
-  // Physical symptoms
   sleep_quality: number
   energy_level: number
   physical_tension: number
-  // Emotional symptoms
   irritability: number
   overwhelm: number
   motivation: number
-  // Cognitive symptoms
   focus_difficulty: number
   forgetfulness: number
   decision_fatigue: number
-  // Calculated
   total_score: number
   severity_level: 'green' | 'yellow' | 'red'
   notes: string | null
@@ -28,7 +24,7 @@ interface BurnoutLog {
 
 const questions = [
   { key: 'sleep_quality', label: 'How well did you sleep?', low: 'Terribly', high: 'Great', icon: '😴' },
-  { key: 'energy_level', label: 'What\'s your energy like?', low: 'Exhausted', high: 'Energized', icon: '⚡' },
+  { key: 'energy_level', label: "What's your energy like?", low: 'Exhausted', high: 'Energized', icon: '⚡' },
   { key: 'physical_tension', label: 'Any physical tension or pain?', low: 'A lot', high: 'None', icon: '💪' },
   { key: 'irritability', label: 'How easily annoyed are you?', low: 'Very', high: 'Not at all', icon: '😤' },
   { key: 'overwhelm', label: 'Feeling overwhelmed?', low: 'Completely', high: 'Not at all', icon: '🌊' },
@@ -44,9 +40,9 @@ export default function BurnoutPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const [recentLogs, setRecentLogs] = useState<BurnoutLog[]>([])
-  
-  // Form state
+
   const [answers, setAnswers] = useState<Record<string, number>>({
     sleep_quality: 5,
     energy_level: 5,
@@ -79,7 +75,7 @@ export default function BurnoutPage() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10)
-    
+
     if (data) setRecentLogs(data)
   }
 
@@ -102,24 +98,24 @@ export default function BurnoutPage() {
         return {
           label: 'Looking Good',
           emoji: '✅',
-          color: 'var(--success)',
-          bgColor: 'rgba(23, 191, 99, 0.1)',
-          message: 'Your energy levels are healthy! Keep doing what you\'re doing.'
+          color: '#00ba7c',
+          bgColor: 'rgba(0, 186, 124, 0.1)',
+          message: "Your energy levels are healthy! Keep doing what you're doing."
         }
       case 'yellow':
         return {
           label: 'Watch Out',
           emoji: '⚠️',
-          color: 'var(--warning)',
+          color: '#ffad1f',
           bgColor: 'rgba(255, 173, 31, 0.1)',
-          message: 'You\'re showing some signs of strain. Consider taking breaks and prioritizing rest.'
+          message: "You're showing some signs of strain. Consider taking breaks and prioritizing rest."
         }
       case 'red':
         return {
           label: 'Burnout Risk',
           emoji: '🚨',
-          color: 'var(--danger)',
-          bgColor: 'rgba(224, 36, 94, 0.1)',
+          color: '#f4212e',
+          bgColor: 'rgba(244, 33, 46, 0.1)',
           message: 'Your scores suggest high burnout risk. Please prioritize self-care and consider talking to someone.'
         }
     }
@@ -153,198 +149,144 @@ export default function BurnoutPage() {
       setShowForm(false)
       setCurrentQuestion(0)
       setAnswers({
-        sleep_quality: 5,
-        energy_level: 5,
-        physical_tension: 5,
-        irritability: 5,
-        overwhelm: 5,
-        motivation: 5,
-        focus_difficulty: 5,
-        forgetfulness: 5,
-        decision_fatigue: 5,
+        sleep_quality: 5, energy_level: 5, physical_tension: 5,
+        irritability: 5, overwhelm: 5, motivation: 5,
+        focus_difficulty: 5, forgetfulness: 5, decision_fatigue: 5,
       })
       setNotes('')
     }
-
     setSaving(false)
   }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
+    return date.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
     })
   }
 
   if (loading) {
     return (
-      <div className="app-container">
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-          <span style={{ 
-            width: '32px', 
-            height: '32px', 
-            border: '3px solid var(--primary)', 
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
+      <div className="burnout-page">
+        <div className="loading-container">
+          <div className="spinner" />
+          <p>Loading...</p>
         </div>
+        <style jsx>{styles}</style>
       </div>
     )
   }
 
   return (
-    <div className="app-container">
-      {/* Top Bar */}
-      <div className="top-bar">
-        <div className="top-bar-inner">
-          <button
-            onClick={() => router.push('/dashboard')}
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: 'var(--dark-gray)'
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 18l-6-6 6-6"/>
-            </svg>
-            Back
+    <div className="burnout-page">
+      {/* Header - Consistent with Dashboard */}
+      <header className="header">
+        <button onClick={() => router.push('/dashboard')} className="logo">
+          ADHDer.io
+        </button>
+        
+        <div className="header-actions">
+          <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
+            💜
           </button>
-          <h1 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--black)' }}>
-            🔋 Energy Tracker
-          </h1>
-          <div style={{ width: '60px' }}></div>
+          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">
+            🛑
+          </button>
+          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
+            ☰
+          </button>
         </div>
-      </div>
 
-      <div className="main-content">
+        {showMenu && (
+          <div className="dropdown-menu">
+            <button onClick={() => { router.push('/dashboard'); setShowMenu(false) }} className="menu-item">
+              🏠 Dashboard
+            </button>
+            <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
+              ⏱️ Focus Mode
+            </button>
+            <button onClick={() => { router.push('/goals'); setShowMenu(false) }} className="menu-item">
+              🎯 Goals
+            </button>
+            <button onClick={() => { setShowMenu(false) }} className="menu-item active">
+              ⚡ Energy Tracker
+            </button>
+            <button onClick={() => { router.push('/village'); setShowMenu(false) }} className="menu-item">
+              👥 My Village
+            </button>
+            <div className="menu-divider" />
+            <button 
+              onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
+              className="menu-item logout"
+            >
+              Log out
+            </button>
+          </div>
+        )}
+      </header>
+
+      {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
+
+      <main className="main">
+        {/* Page Title */}
+        <div className="page-header-title">
+          <h1>🔋 Energy Tracker</h1>
+        </div>
+
         {/* Current Status Card */}
         {recentLogs.length > 0 && !showForm && (
-          <div className="card" style={{
-            background: getSeverityInfo(recentLogs[0].severity_level).bgColor,
-            borderLeft: `4px solid ${getSeverityInfo(recentLogs[0].severity_level).color}`
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '32px' }}>{getSeverityInfo(recentLogs[0].severity_level).emoji}</span>
-              <div>
-                <div style={{ 
-                  fontSize: '18px', 
-                  fontWeight: 700,
-                  color: getSeverityInfo(recentLogs[0].severity_level).color
-                }}>
+          <div 
+            className="card status-card"
+            style={{ 
+              background: getSeverityInfo(recentLogs[0].severity_level).bgColor,
+              borderLeft: `4px solid ${getSeverityInfo(recentLogs[0].severity_level).color}`
+            }}
+          >
+            <div className="status-header">
+              <span className="status-emoji">{getSeverityInfo(recentLogs[0].severity_level).emoji}</span>
+              <div className="status-info">
+                <div className="status-label" style={{ color: getSeverityInfo(recentLogs[0].severity_level).color }}>
                   {getSeverityInfo(recentLogs[0].severity_level).label}
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--dark-gray)' }}>
-                  Last check: {formatDate(recentLogs[0].created_at)}
-                </div>
+                <div className="status-time">Last check: {formatDate(recentLogs[0].created_at)}</div>
               </div>
             </div>
-            <p style={{ fontSize: '14px', color: 'var(--dark-gray)', lineHeight: 1.5 }}>
-              {getSeverityInfo(recentLogs[0].severity_level).message}
-            </p>
+            <p className="status-message">{getSeverityInfo(recentLogs[0].severity_level).message}</p>
           </div>
         )}
 
         {/* New Check Button or Form */}
         {!showForm ? (
           <div className="card">
-            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
-              How's your energy?
-            </h2>
-            <p style={{ fontSize: '14px', color: 'var(--dark-gray)', marginBottom: '16px' }}>
-              Track your energy levels to spot burnout before it happens.
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-            >
+            <h2 className="card-title">How's your energy?</h2>
+            <p className="card-desc">Track your energy levels to spot burnout before it happens.</p>
+            <button onClick={() => setShowForm(true)} className="btn-primary">
               Start Energy Check
             </button>
           </div>
         ) : (
-          <div className="card">
+          <div className="card form-card">
             {/* Progress */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                marginBottom: '8px'
-              }}>
-                <span style={{ fontSize: '13px', color: 'var(--dark-gray)' }}>
-                  Question {currentQuestion + 1} of {questions.length}
-                </span>
-                <button
-                  onClick={() => {
-                    setShowForm(false)
-                    setCurrentQuestion(0)
-                  }}
-                  style={{ 
-                    background: 'none', 
-                    border: 'none', 
-                    cursor: 'pointer',
-                    color: 'var(--light-gray)',
-                    fontSize: '18px'
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              <div style={{ 
-                height: '4px', 
-                background: 'var(--extra-light-gray)', 
-                borderRadius: '2px',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  height: '100%',
-                  width: `${((currentQuestion + 1) / questions.length) * 100}%`,
-                  background: 'var(--primary)',
-                  transition: 'width 0.3s ease'
-                }} />
-              </div>
+            <div className="progress-header">
+              <span className="progress-text">Question {currentQuestion + 1} of {questions.length}</span>
+              <button onClick={() => { setShowForm(false); setCurrentQuestion(0) }} className="close-btn">×</button>
             </div>
-            
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }} />
+            </div>
+
             {/* Question */}
             {currentQuestion < questions.length ? (
-              <div>
-                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                  <span style={{ fontSize: '48px' }}>{questions[currentQuestion].icon}</span>
-                  <h3 style={{ 
-                    fontSize: '18px', 
-                    fontWeight: 600, 
-                    color: 'var(--black)',
-                    marginTop: '12px'
-                  }}>
-                    {questions[currentQuestion].label}
-                  </h3>
+              <div className="question-container">
+                <div className="question-display">
+                  <span className="question-icon">{questions[currentQuestion].icon}</span>
+                  <h3 className="question-label">{questions[currentQuestion].label}</h3>
                 </div>
 
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between',
-                    fontSize: '13px',
-                    color: 'var(--dark-gray)',
-                    marginBottom: '8px'
-                  }}>
+                <div className="slider-container">
+                  <div className="slider-labels">
                     <span>{questions[currentQuestion].low}</span>
-                    <span style={{ 
-                      fontSize: '24px', 
-                      fontWeight: 700,
-                      color: 'var(--primary)'
-                    }}>
-                      {answers[questions[currentQuestion].key]}
-                    </span>
+                    <span className="slider-value">{answers[questions[currentQuestion].key]}</span>
                     <span>{questions[currentQuestion].high}</span>
                   </div>
                   <input
@@ -352,77 +294,48 @@ export default function BurnoutPage() {
                     min="1"
                     max="10"
                     value={answers[questions[currentQuestion].key]}
-                    onChange={(e) => setAnswers({
-                      ...answers,
-                      [questions[currentQuestion].key]: parseInt(e.target.value)
-                    })}
+                    onChange={(e) => setAnswers({ ...answers, [questions[currentQuestion].key]: parseInt(e.target.value) })}
+                    className="slider"
                     style={{
-                      width: '100%',
-                      height: '8px',
-                      borderRadius: '4px',
-                      appearance: 'none',
-                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(answers[questions[currentQuestion].key] - 1) * 11.1}%, var(--extra-light-gray) ${(answers[questions[currentQuestion].key] - 1) * 11.1}%, var(--extra-light-gray) 100%)`,
-                      cursor: 'pointer'
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(answers[questions[currentQuestion].key] - 1) * 11.1}%, var(--extra-light-gray) ${(answers[questions[currentQuestion].key] - 1) * 11.1}%, var(--extra-light-gray) 100%)`
                     }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="nav-buttons">
                   {currentQuestion > 0 && (
-                    <button
-                      onClick={() => setCurrentQuestion(currentQuestion - 1)}
-                      className="btn btn-outline"
-                      style={{ flex: 1 }}
-                    >
+                    <button onClick={() => setCurrentQuestion(currentQuestion - 1)} className="btn-secondary">
                       Back
                     </button>
                   )}
-                  <button
-                    onClick={() => setCurrentQuestion(currentQuestion + 1)}
-                    className="btn btn-primary"
-                    style={{ flex: 1 }}
+                  <button 
+                    onClick={() => setCurrentQuestion(currentQuestion + 1)} 
+                    className="btn-primary"
+                    style={{ flex: currentQuestion === 0 ? 'none' : 1, width: currentQuestion === 0 ? '100%' : 'auto' }}
                   >
                     {currentQuestion === questions.length - 1 ? 'Review' : 'Next'}
                   </button>
                 </div>
               </div>
             ) : (
-              // Review & Submit
-              <div>
-                <h3 style={{ 
-                  fontSize: '18px', 
-                  fontWeight: 600, 
-                  marginBottom: '16px',
-                  textAlign: 'center'
-                }}>
-                  Review Your Answers
-                </h3>
+              /* Review & Submit */
+              <div className="review-container">
+                <h3 className="review-title">Review Your Answers</h3>
                 
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(3, 1fr)', 
-                  gap: '8px',
-                  marginBottom: '16px'
-                }}>
+                <div className="answers-grid">
                   {questions.map((q, i) => (
                     <div 
-                      key={q.key}
+                      key={q.key} 
                       onClick={() => setCurrentQuestion(i)}
-                      style={{
-                        background: 'var(--bg-gray)',
-                        borderRadius: '8px',
-                        padding: '12px 8px',
-                        textAlign: 'center',
-                        cursor: 'pointer'
-                      }}
+                      className="answer-item"
                     >
-                      <div style={{ fontSize: '20px', marginBottom: '4px' }}>{q.icon}</div>
-                      <div style={{ 
-                        fontSize: '18px', 
-                        fontWeight: 700,
-                        color: answers[q.key] >= 7 ? 'var(--success)' : 
-                               answers[q.key] >= 4 ? 'var(--warning)' : 'var(--danger)'
-                      }}>
+                      <div className="answer-icon">{q.icon}</div>
+                      <div 
+                        className="answer-value"
+                        style={{ 
+                          color: answers[q.key] >= 7 ? '#00ba7c' : answers[q.key] >= 4 ? '#ffad1f' : '#f4212e'
+                        }}
+                      >
                         {answers[q.key]}
                       </div>
                     </div>
@@ -430,59 +343,30 @@ export default function BurnoutPage() {
                 </div>
 
                 {/* Overall Score Preview */}
-                <div style={{
-                  background: getSeverityInfo(getSeverity(calculateScore().avg)).bgColor,
-                  borderRadius: '12px',
-                  padding: '16px',
-                  textAlign: 'center',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontSize: '32px', marginBottom: '4px' }}>
-                    {getSeverityInfo(getSeverity(calculateScore().avg)).emoji}
-                  </div>
-                  <div style={{ 
-                    fontSize: '24px', 
-                    fontWeight: 700,
-                    color: getSeverityInfo(getSeverity(calculateScore().avg)).color
-                  }}>
+                <div 
+                  className="score-preview"
+                  style={{ background: getSeverityInfo(getSeverity(calculateScore().avg)).bgColor }}
+                >
+                  <div className="score-emoji">{getSeverityInfo(getSeverity(calculateScore().avg)).emoji}</div>
+                  <div className="score-value" style={{ color: getSeverityInfo(getSeverity(calculateScore().avg)).color }}>
                     {calculateScore().avg.toFixed(1)} / 10
                   </div>
-                  <div style={{ fontSize: '14px', color: 'var(--dark-gray)' }}>
-                    {getSeverityInfo(getSeverity(calculateScore().avg)).label}
-                  </div>
+                  <div className="score-label">{getSeverityInfo(getSeverity(calculateScore().avg)).label}</div>
                 </div>
 
-                {/* Optional Notes */}
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Any notes? (optional)"
                   rows={2}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid var(--extra-light-gray)',
-                    borderRadius: '12px',
-                    fontSize: '15px',
-                    resize: 'none',
-                    marginBottom: '16px'
-                  }}
+                  className="notes-input"
                 />
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    onClick={() => setCurrentQuestion(questions.length - 1)}
-                    className="btn btn-outline"
-                    style={{ flex: 1 }}
-                  >
+                <div className="nav-buttons">
+                  <button onClick={() => setCurrentQuestion(questions.length - 1)} className="btn-secondary">
                     Back
                   </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={saving}
-                    className="btn btn-primary"
-                    style={{ flex: 1 }}
-                  >
+                  <button onClick={handleSubmit} disabled={saving} className="btn-primary">
                     {saving ? 'Saving...' : 'Save Check-in'}
                   </button>
                 </div>
@@ -494,49 +378,28 @@ export default function BurnoutPage() {
         {/* History */}
         {recentLogs.length > 0 && !showForm && (
           <>
-            <div className="page-header">
-              <h2 className="page-title">Recent Check-ins</h2>
+            <div className="section-header">
+              <h2>Recent Check-ins</h2>
             </div>
-            
             {recentLogs.map((log) => {
               const info = getSeverityInfo(log.severity_level)
               return (
-                <div key={log.id} className="card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '28px' }}>{info.emoji}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ 
-                          fontWeight: 700,
-                          color: info.color
-                        }}>
+                <div key={log.id} className="card log-card">
+                  <div className="log-header">
+                    <span className="log-emoji">{info.emoji}</span>
+                    <div className="log-info">
+                      <div className="log-score-row">
+                        <span className="log-score" style={{ color: info.color }}>
                           {(log.total_score / 9).toFixed(1)}/10
                         </span>
-                        <span style={{ 
-                          fontSize: '12px',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          background: info.bgColor,
-                          color: info.color,
-                          fontWeight: 500
-                        }}>
+                        <span className="log-badge" style={{ background: info.bgColor, color: info.color }}>
                           {info.label}
                         </span>
                       </div>
-                      <div style={{ fontSize: '13px', color: 'var(--dark-gray)' }}>
-                        {formatDate(log.created_at)}
-                      </div>
+                      <div className="log-time">{formatDate(log.created_at)}</div>
                     </div>
                   </div>
-                  {log.notes && (
-                    <p style={{ 
-                      marginTop: '8px', 
-                      fontSize: '14px', 
-                      color: 'var(--dark-gray)' 
-                    }}>
-                      {log.notes}
-                    </p>
-                  )}
+                  {log.notes && <p className="log-notes">{log.notes}</p>}
                 </div>
               )
             })}
@@ -544,58 +407,605 @@ export default function BurnoutPage() {
         )}
 
         {/* ADHD Tip */}
-        <div className="card" style={{
-          background: 'rgba(29, 161, 242, 0.05)',
-          borderLeft: '3px solid var(--primary)'
-        }}>
-          <div style={{ 
-            fontSize: '13px', 
-            fontWeight: 600, 
-            color: 'var(--primary)',
-            marginBottom: '4px'
-          }}>
-            💡 ADHD & Burnout
-          </div>
-          <p style={{ fontSize: '14px', color: 'var(--dark-gray)', lineHeight: 1.5 }}>
+        <div className="card tip-card">
+          <div className="tip-label">💡 ADHD & Burnout</div>
+          <p className="tip-text">
             ADHDers often rely on stress to stay productive, which leads to burnout faster. 
             Regular energy check-ins help you catch the warning signs early.
           </p>
         </div>
+      </main>
 
-        {/* Bottom Navigation */}
-        <nav className="bottom-nav">
-          <button onClick={() => router.push('/dashboard')} className="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-            <span>Dashboard</span>
-          </button>
-          <button onClick={() => router.push('/focus')} className="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
-            </svg>
-            <span>Focus</span>
-          </button>
-          <button onClick={() => router.push('/goals')} className="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-            </svg>
-            <span>Goals</span>
-          </button>
-          <button className="nav-item nav-item-active">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/>
-            </svg>
-            <span>Energy</span>
-          </button>
-          <button onClick={() => router.push('/village')} className="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            <span>Village</span>
-          </button>
-        </nav>
-      </div>
+      {/* Bottom Nav */}
+      <nav className="bottom-nav">
+        <button onClick={() => router.push('/dashboard')} className="nav-btn">
+          <span className="nav-icon">🏠</span>
+          <span className="nav-label">Home</span>
+        </button>
+        <button onClick={() => router.push('/focus')} className="nav-btn">
+          <span className="nav-icon">⏱️</span>
+          <span className="nav-label">Focus</span>
+        </button>
+        <button onClick={() => router.push('/history')} className="nav-btn">
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Insights</span>
+        </button>
+      </nav>
+
+      <style jsx>{styles}</style>
     </div>
   )
 }
+
+// ============================================
+// RESPONSIVE STYLES
+// ============================================
+const styles = `
+  .burnout-page {
+    --primary: #1D9BF0;
+    --success: #00ba7c;
+    --warning: #ffad1f;
+    --danger: #f4212e;
+    --bg-gray: #f7f9fa;
+    --dark-gray: #536471;
+    --light-gray: #8899a6;
+    --extra-light-gray: #eff3f4;
+    
+    background: var(--bg-gray);
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* ===== LOADING ===== */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    color: var(--light-gray);
+  }
+  
+  .spinner {
+    width: clamp(24px, 5vw, 32px);
+    height: clamp(24px, 5vw, 32px);
+    border: 3px solid var(--primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    position: sticky;
+    top: 0;
+    background: white;
+    border-bottom: 1px solid #eee;
+    padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .logo {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(16px, 4vw, 20px);
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: clamp(6px, 2vw, 10px);
+  }
+
+  .icon-btn {
+    width: clamp(32px, 8vw, 42px);
+    height: clamp(32px, 8vw, 42px);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(14px, 3.5vw, 18px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
+  .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
+  .icon-btn.menu { 
+    background: white; 
+    border: 1px solid #ddd;
+    font-size: clamp(12px, 3vw, 16px);
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: clamp(50px, 12vw, 60px);
+    right: clamp(12px, 4vw, 20px);
+    background: white;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    padding: clamp(6px, 1.5vw, 10px);
+    min-width: clamp(140px, 40vw, 180px);
+    z-index: 200;
+  }
+
+  .menu-item {
+    display: block;
+    width: 100%;
+    padding: clamp(8px, 2.5vw, 12px) clamp(10px, 3vw, 14px);
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: clamp(6px, 1.5vw, 10px);
+    cursor: pointer;
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+  }
+
+  .menu-item:hover, .menu-item.active { background: var(--bg-gray); }
+  .menu-item.logout { color: #ef4444; }
+  .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
+  .menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main {
+    padding: clamp(12px, 4vw, 20px);
+    padding-bottom: clamp(80px, 20vw, 110px);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .page-header-title {
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .page-header-title h1 {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 700;
+    margin: 0;
+  }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(12px, 3.5vw, 18px);
+  }
+
+  .card-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 600;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .card-desc {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0 0 clamp(14px, 4vw, 20px) 0;
+    line-height: 1.5;
+  }
+
+  /* ===== STATUS CARD ===== */
+  .status-card {
+    border-radius: clamp(14px, 4vw, 20px);
+  }
+
+  .status-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 3vw, 14px);
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .status-emoji {
+    font-size: clamp(28px, 8vw, 38px);
+  }
+
+  .status-label {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+  }
+
+  .status-time {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+  }
+
+  .status-message {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ===== FORM ===== */
+  .form-card {
+    /* inherits from .card */
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .progress-text {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--light-gray);
+    font-size: clamp(20px, 5vw, 26px);
+    line-height: 1;
+    padding: 4px;
+  }
+
+  .progress-bar {
+    height: clamp(4px, 1vw, 6px);
+    background: var(--extra-light-gray);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: clamp(18px, 5vw, 26px);
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 100px;
+    transition: width 0.3s ease;
+  }
+
+  /* ===== QUESTION ===== */
+  .question-container {
+    /* container */
+  }
+
+  .question-display {
+    text-align: center;
+    margin-bottom: clamp(20px, 5vw, 28px);
+  }
+
+  .question-icon {
+    font-size: clamp(40px, 12vw, 56px);
+    display: block;
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .question-label {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .slider-container {
+    margin-bottom: clamp(20px, 5vw, 28px);
+  }
+
+  .slider-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .slider-value {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .slider {
+    width: 100%;
+    height: clamp(8px, 2vw, 10px);
+    border-radius: 100px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+  }
+
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: clamp(22px, 6vw, 28px);
+    height: clamp(22px, 6vw, 28px);
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  .slider::-moz-range-thumb {
+    width: clamp(22px, 6vw, 28px);
+    height: clamp(22px, 6vw, 28px);
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-primary {
+    flex: 1;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: white;
+    color: var(--dark-gray);
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .nav-buttons {
+    display: flex;
+    gap: clamp(10px, 3vw, 14px);
+  }
+
+  /* ===== REVIEW ===== */
+  .review-container {
+    /* container */
+  }
+
+  .review-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 clamp(14px, 4vw, 20px) 0;
+  }
+
+  .answers-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(6px, 2vw, 10px);
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .answer-item {
+    background: var(--bg-gray);
+    border-radius: clamp(8px, 2vw, 12px);
+    padding: clamp(10px, 3vw, 14px) clamp(6px, 2vw, 10px);
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .answer-icon {
+    font-size: clamp(18px, 5vw, 24px);
+    margin-bottom: clamp(2px, 1vw, 6px);
+  }
+
+  .answer-value {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+  }
+
+  .score-preview {
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(14px, 4vw, 20px);
+    text-align: center;
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .score-emoji {
+    font-size: clamp(28px, 8vw, 38px);
+    margin-bottom: clamp(4px, 1vw, 8px);
+  }
+
+  .score-value {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 700;
+  }
+
+  .score-label {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+  }
+
+  .notes-input {
+    width: 100%;
+    padding: clamp(10px, 3vw, 14px);
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-family: inherit;
+    resize: none;
+    margin-bottom: clamp(14px, 4vw, 20px);
+    box-sizing: border-box;
+  }
+
+  .notes-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  /* ===== SECTION HEADER ===== */
+  .section-header {
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .section-header h2 {
+    font-size: clamp(14px, 3.8vw, 17px);
+    font-weight: 700;
+    color: var(--dark-gray);
+    margin: 0;
+  }
+
+  /* ===== LOG CARDS ===== */
+  .log-card {
+    /* inherits from .card */
+  }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 3vw, 14px);
+  }
+
+  .log-emoji {
+    font-size: clamp(24px, 7vw, 32px);
+  }
+
+  .log-info {
+    flex: 1;
+  }
+
+  .log-score-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2vw, 10px);
+    flex-wrap: wrap;
+  }
+
+  .log-score {
+    font-size: clamp(15px, 4vw, 18px);
+    font-weight: 700;
+  }
+
+  .log-badge {
+    font-size: clamp(11px, 3vw, 13px);
+    padding: clamp(2px, 0.5vw, 4px) clamp(6px, 2vw, 10px);
+    border-radius: 100px;
+    font-weight: 500;
+  }
+
+  .log-time {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+  }
+
+  .log-notes {
+    margin: clamp(8px, 2vw, 12px) 0 0 0;
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+  }
+
+  /* ===== TIP CARD ===== */
+  .tip-card {
+    background: rgba(29, 155, 240, 0.05);
+    border-left: 3px solid var(--primary);
+  }
+
+  .tip-label {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: clamp(4px, 1vw, 6px);
+  }
+
+  .tip-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: space-around;
+    padding: clamp(6px, 2vw, 10px) 0;
+    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(2px, 1vw, 4px);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
+    color: var(--light-gray);
+  }
+
+  .nav-btn.active {
+    color: var(--primary);
+  }
+
+  .nav-icon {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .nav-label {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 400;
+  }
+
+  .nav-btn.active .nav-label {
+    font-weight: 600;
+  }
+
+  /* ===== TABLET/DESKTOP ===== */
+  @media (min-width: 768px) {
+    .main {
+      padding: 24px;
+      padding-bottom: 120px;
+    }
+    
+    .answers-grid {
+      gap: 12px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .header {
+      padding: 16px 32px;
+    }
+    
+    .main {
+      max-width: 680px;
+    }
+  }
+`
