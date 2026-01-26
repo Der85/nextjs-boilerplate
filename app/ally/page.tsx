@@ -26,7 +26,7 @@ const actions = [
   { text: 'Set a 5-minute timer and just begin', why: 'Starting is the hardest part' },
   { text: 'Write down the very first tiny step', why: 'Clarity reduces overwhelm' },
   { text: 'Move to a different location', why: 'Change of scene can help' },
-  { text: 'Text a friend you\'re about to start', why: 'Accountability helps' },
+  { text: "Text a friend you're about to start", why: 'Accountability helps' },
   { text: 'Do the easiest part first', why: 'Build momentum with a quick win' },
 ]
 
@@ -35,7 +35,8 @@ export default function AllyPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  
+  const [showMenu, setShowMenu] = useState(false)
+
   const [currentStep, setCurrentStep] = useState<Step>('rating')
   const [stuckBefore, setStuckBefore] = useState<number | null>(null)
   const [stuckAfter, setStuckAfter] = useState<number | null>(null)
@@ -56,6 +57,7 @@ export default function AllyPage() {
   const handleComplete = async () => {
     if (!user || !selectedAction) return
     setSaving(true)
+
     await supabase.from('ally_sessions').insert({
       user_id: user.id,
       block_type: selectedBlock,
@@ -65,6 +67,7 @@ export default function AllyPage() {
       challenge_after: stuckAfter,
       completed: true
     })
+
     setCurrentStep('done')
     setSaving(false)
   }
@@ -80,31 +83,81 @@ export default function AllyPage() {
 
   if (loading) {
     return (
-      <div className="app-container flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      <div className="ally-page">
+        <div className="loading-container">
+          <div className="spinner" />
+          <p>Loading...</p>
+        </div>
+        <style jsx>{styles}</style>
       </div>
     )
   }
 
-  const stepLabels = ['How stuck?', 'What\'s blocked?', 'Inner critic', 'Reframe', 'Next step']
+  const stepLabels = ["How stuck?", "What's blocked?", "Inner critic", "Reframe", "Next step"]
   const stepIndex = ['rating', 'block', 'thought', 'reframe', 'action'].indexOf(currentStep)
 
   return (
-    <div className="app-container">
-      <div className="top-bar">
-        <div className="top-bar-inner">
-          <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-icon">←</button>
-          <h1 style={{ fontSize: '19px', fontWeight: 800 }}>I'm Stuck</h1>
-          <div style={{ width: '36px' }} />
+    <div className="ally-page">
+      {/* Header - Consistent with Dashboard */}
+      <header className="header">
+        <button onClick={() => router.push('/dashboard')} className="logo">
+          ADHDer.io
+        </button>
+        
+        <div className="header-actions">
+          <button className="icon-btn purple active" title="I'm stuck">
+            💜
+          </button>
+          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">
+            🛑
+          </button>
+          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
+            ☰
+          </button>
         </div>
-      </div>
 
-      <div className="main-content">
+        {showMenu && (
+          <div className="dropdown-menu">
+            <button onClick={() => { router.push('/dashboard'); setShowMenu(false) }} className="menu-item">
+              🏠 Dashboard
+            </button>
+            <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
+              ⏱️ Focus Mode
+            </button>
+            <button onClick={() => { router.push('/goals'); setShowMenu(false) }} className="menu-item">
+              🎯 Goals
+            </button>
+            <button onClick={() => { router.push('/burnout'); setShowMenu(false) }} className="menu-item">
+              ⚡ Energy Tracker
+            </button>
+            <button onClick={() => { router.push('/village'); setShowMenu(false) }} className="menu-item">
+              👥 My Village
+            </button>
+            <div className="menu-divider" />
+            <button 
+              onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
+              className="menu-item logout"
+            >
+              Log out
+            </button>
+          </div>
+        )}
+      </header>
+
+      {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
+
+      <main className="main">
+        {/* Page Title */}
+        <div className="page-header-title">
+          <h1>💜 I'm Stuck</h1>
+        </div>
+
+        {/* Progress Bar */}
         {currentStep !== 'done' && (
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span className="text-sm font-bold">{stepLabels[stepIndex]}</span>
-              <span className="text-sm text-muted">{stepIndex + 1} of 5</span>
+          <div className="card progress-card">
+            <div className="progress-header">
+              <span className="progress-label">{stepLabels[stepIndex]}</span>
+              <span className="progress-count">{stepIndex + 1} of 5</span>
             </div>
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${((stepIndex + 1) / 5) * 100}%` }} />
@@ -112,122 +165,798 @@ export default function AllyPage() {
           </div>
         )}
 
+        {/* Step: Rating */}
         {currentStep === 'rating' && (
-          <div className="card text-center" style={{ padding: '30px 15px' }}>
-            <span className="emoji-large">💜</span>
-            <h2 className="text-xl font-extrabold mt-3 mb-2">How stuck are you?</h2>
-            <p className="text-muted mb-4">1 = a little, 5 = completely frozen</p>
-            <div className="rating-grid" style={{ justifyContent: 'center' }}>
-              {[1,2,3,4,5].map((n) => (
-                <button key={n} onClick={() => { setStuckBefore(n); setCurrentStep('block') }}
-                  className="rating-btn" style={{ width: '56px', height: '56px', fontSize: '20px' }}>{n}</button>
+          <div className="card rating-card">
+            <span className="rating-emoji">💜</span>
+            <h2 className="rating-title">How stuck are you?</h2>
+            <p className="rating-desc">1 = a little, 5 = completely frozen</p>
+            <div className="rating-grid">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => { setStuckBefore(n); setCurrentStep('block') }}
+                  className="rating-btn"
+                >
+                  {n}
+                </button>
               ))}
             </div>
           </div>
         )}
 
+        {/* Step: Block Type */}
         {currentStep === 'block' && (
           <>
-            <div className="page-header"><h2 className="page-title">What feels blocked?</h2></div>
+            <div className="section-header">
+              <h2>What feels blocked?</h2>
+            </div>
             {blocks.map((b) => (
-              <div key={b.id} className="card card-clickable" onClick={() => { setSelectedBlock(b.id); setCurrentStep('thought') }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span className="emoji-medium">{b.icon}</span>
-                  <div style={{ flex: 1 }}><p className="font-bold">{b.label}</p><p className="text-sm text-muted">{b.desc}</p></div>
-                  <span className="text-muted">→</span>
+              <div
+                key={b.id}
+                className="card option-card"
+                onClick={() => { setSelectedBlock(b.id); setCurrentStep('thought') }}
+              >
+                <span className="option-icon">{b.icon}</span>
+                <div className="option-content">
+                  <p className="option-label">{b.label}</p>
+                  <p className="option-desc">{b.desc}</p>
                 </div>
+                <span className="option-arrow">→</span>
               </div>
             ))}
           </>
         )}
 
+        {/* Step: Inner Critic Thought */}
         {currentStep === 'thought' && (
           <>
-            <div className="page-header"><h2 className="page-title">The inner critic says...</h2></div>
+            <div className="section-header">
+              <h2>The inner critic says...</h2>
+            </div>
             {thoughts.map((t, i) => (
-              <div key={i} className="card card-clickable" onClick={() => { setSelectedThought(t); setCurrentStep('reframe') }}
-                style={{ borderLeft: '3px solid var(--danger)' }}>
-                <p style={{ fontStyle: 'italic' }}>"{t}"</p>
+              <div
+                key={i}
+                className="card thought-card"
+                onClick={() => { setSelectedThought(t); setCurrentStep('reframe') }}
+              >
+                <p className="thought-text">"{t}"</p>
               </div>
             ))}
           </>
         )}
 
+        {/* Step: Reframe */}
         {currentStep === 'reframe' && (
           <>
-            <div className="card" style={{ background: 'rgba(224,36,94,0.05)', borderLeft: '3px solid var(--danger)' }}>
-              <p className="text-sm font-bold mb-1" style={{ color: 'var(--danger)' }}>The harsh voice:</p>
-              <p style={{ fontStyle: 'italic' }}>"{selectedThought}"</p>
+            <div className="card harsh-card">
+              <p className="harsh-label">The harsh voice:</p>
+              <p className="harsh-text">"{selectedThought}"</p>
             </div>
-            <div className="card" style={{ background: 'rgba(23,191,99,0.05)', borderLeft: '3px solid var(--success)' }}>
-              <p className="text-sm font-bold mb-2" style={{ color: 'var(--success)' }}>The truth is:</p>
-              <p className="mb-4">Your brain works differently—not wrongly. This challenge is about neurology, not character.</p>
-              <div style={{ background: 'rgba(29,161,242,0.1)', padding: '12px', borderRadius: '8px' }}>
-                <p className="text-sm text-muted mb-1">Say this to yourself:</p>
-                <p className="font-bold" style={{ fontStyle: 'italic', color: 'var(--primary)' }}>"I'm doing the best I can with the brain I have."</p>
+
+            <div className="card truth-card">
+              <p className="truth-label">The truth is:</p>
+              <p className="truth-text">
+                Your brain works differently—not wrongly. This challenge is about neurology, not character.
+              </p>
+              <div className="affirmation-box">
+                <p className="affirmation-prompt">Say this to yourself:</p>
+                <p className="affirmation-text">"I'm doing the best I can with the brain I have."</p>
               </div>
             </div>
+
             <div className="card">
-              <button onClick={() => setCurrentStep('action')} className="btn btn-primary w-full">I hear this → What can I do?</button>
+              <button onClick={() => setCurrentStep('action')} className="btn-primary">
+                I hear this → What can I do?
+              </button>
             </div>
           </>
         )}
 
+        {/* Step: Action */}
         {currentStep === 'action' && (
           <>
-            <div className="page-header"><h2 className="page-title">One tiny step</h2></div>
+            <div className="section-header">
+              <h2>One tiny step</h2>
+            </div>
             {actions.map((a, i) => (
-              <div key={i} className="card card-clickable" onClick={() => setSelectedAction(a.text)}
-                style={{ borderLeft: selectedAction === a.text ? '3px solid var(--primary)' : '3px solid transparent',
-                  background: selectedAction === a.text ? 'rgba(29,161,242,0.05)' : undefined }}>
-                <p className="font-bold">{a.text}</p>
-                <p className="text-sm text-muted mt-1">{a.why}</p>
+              <div
+                key={i}
+                className={`card action-card ${selectedAction === a.text ? 'selected' : ''}`}
+                onClick={() => setSelectedAction(a.text)}
+              >
+                <p className="action-text">{a.text}</p>
+                <p className="action-why">{a.why}</p>
               </div>
             ))}
-            <div className="section-divider" />
+
+            <div className="divider" />
+
             <div className="card">
-              <p className="font-bold mb-3 text-center">How stuck now?</p>
-              <div className="rating-grid" style={{ justifyContent: 'center' }}>
-                {[1,2,3,4,5].map((n) => (
-                  <button key={n} onClick={() => setStuckAfter(n)}
-                    className={`rating-btn ${stuckAfter === n ? 'rating-btn-active' : ''}`}>{n}</button>
+              <p className="stuck-after-label">How stuck now?</p>
+              <div className="rating-grid centered">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setStuckAfter(n)}
+                    className={`rating-btn small ${stuckAfter === n ? 'active' : ''}`}
+                  >
+                    {n}
+                  </button>
                 ))}
               </div>
             </div>
+
             <div className="card">
-              <button onClick={handleComplete} disabled={!selectedAction || saving} className="btn btn-primary btn-large w-full">
+              <button
+                onClick={handleComplete}
+                disabled={!selectedAction || saving}
+                className="btn-primary large"
+              >
                 {saving ? 'Saving...' : "I'll do this →"}
               </button>
             </div>
           </>
         )}
 
+        {/* Step: Done */}
         {currentStep === 'done' && (
-          <div className="card text-center" style={{ padding: '40px 20px' }}>
-            <div style={{ width: '80px', height: '80px', background: 'var(--success)', borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              <span style={{ fontSize: '40px' }}>🌟</span>
+          <div className="card done-card">
+            <div className="done-icon">
+              <span>🌟</span>
             </div>
-            <h2 className="text-xl font-extrabold mb-2">You chose kindness</h2>
-            <p className="text-muted mb-4">You picked support over self-criticism.</p>
+            <h2 className="done-title">You chose kindness</h2>
+            <p className="done-desc">You picked support over self-criticism.</p>
+
             {stuckBefore && stuckAfter && stuckAfter < stuckBefore && (
-              <div className="stats-row" style={{ justifyContent: 'center', marginBottom: '20px' }}>
-                <span className="text-muted">Stuck:</span>
-                <span className="stat-value" style={{ color: 'var(--light-gray)' }}>{stuckBefore}</span>
-                <span className="text-muted">→</span>
-                <span className="stat-value text-primary">{stuckAfter}</span>
-                <span>🎉</span>
+              <div className="improvement-row">
+                <span className="improvement-label">Stuck:</span>
+                <span className="improvement-before">{stuckBefore}</span>
+                <span className="improvement-arrow">→</span>
+                <span className="improvement-after">{stuckAfter}</span>
+                <span className="improvement-emoji">🎉</span>
               </div>
             )}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={reset} className="btn btn-outline" style={{ flex: 1 }}>Another round</button>
-              <button onClick={() => router.push('/dashboard')} className="btn btn-primary" style={{ flex: 1 }}>Done</button>
+
+            <div className="done-buttons">
+              <button onClick={reset} className="btn-secondary">
+                Another round
+              </button>
+              <button onClick={() => router.push('/dashboard')} className="btn-primary">
+                Done
+              </button>
             </div>
           </div>
         )}
+      </main>
 
-        <div style={{ height: '50px' }} />
-      </div>
+      {/* Bottom Nav */}
+      <nav className="bottom-nav">
+        <button onClick={() => router.push('/dashboard')} className="nav-btn">
+          <span className="nav-icon">🏠</span>
+          <span className="nav-label">Home</span>
+        </button>
+        <button onClick={() => router.push('/focus')} className="nav-btn">
+          <span className="nav-icon">⏱️</span>
+          <span className="nav-label">Focus</span>
+        </button>
+        <button onClick={() => router.push('/history')} className="nav-btn">
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Insights</span>
+        </button>
+      </nav>
+
+      <style jsx>{styles}</style>
     </div>
   )
 }
+
+// ============================================
+// RESPONSIVE STYLES
+// ============================================
+const styles = `
+  .ally-page {
+    --primary: #1D9BF0;
+    --success: #00ba7c;
+    --danger: #f4212e;
+    --purple: #805ad5;
+    --bg-gray: #f7f9fa;
+    --dark-gray: #536471;
+    --light-gray: #8899a6;
+    --extra-light-gray: #eff3f4;
+    
+    background: var(--bg-gray);
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* ===== LOADING ===== */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    color: var(--light-gray);
+  }
+  
+  .spinner {
+    width: clamp(24px, 5vw, 32px);
+    height: clamp(24px, 5vw, 32px);
+    border: 3px solid var(--purple);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    position: sticky;
+    top: 0;
+    background: white;
+    border-bottom: 1px solid #eee;
+    padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .logo {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(16px, 4vw, 20px);
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: clamp(6px, 2vw, 10px);
+  }
+
+  .icon-btn {
+    width: clamp(32px, 8vw, 42px);
+    height: clamp(32px, 8vw, 42px);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(14px, 3.5vw, 18px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
+  .icon-btn.purple.active { 
+    background: rgba(128, 90, 213, 0.25); 
+    box-shadow: 0 0 0 2px var(--purple);
+  }
+  .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
+  .icon-btn.menu { 
+    background: white; 
+    border: 1px solid #ddd;
+    font-size: clamp(12px, 3vw, 16px);
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: clamp(50px, 12vw, 60px);
+    right: clamp(12px, 4vw, 20px);
+    background: white;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    padding: clamp(6px, 1.5vw, 10px);
+    min-width: clamp(140px, 40vw, 180px);
+    z-index: 200;
+  }
+
+  .menu-item {
+    display: block;
+    width: 100%;
+    padding: clamp(8px, 2.5vw, 12px) clamp(10px, 3vw, 14px);
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: clamp(6px, 1.5vw, 10px);
+    cursor: pointer;
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+  }
+
+  .menu-item:hover { background: var(--bg-gray); }
+  .menu-item.logout { color: #ef4444; }
+  .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
+  .menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main {
+    padding: clamp(12px, 4vw, 20px);
+    padding-bottom: clamp(80px, 20vw, 110px);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .page-header-title {
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .page-header-title h1 {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 700;
+    margin: 0;
+  }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(12px, 3.5vw, 18px);
+  }
+
+  /* ===== PROGRESS CARD ===== */
+  .progress-card {
+    padding: clamp(12px, 3.5vw, 18px);
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: clamp(6px, 2vw, 10px);
+  }
+
+  .progress-label {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 700;
+  }
+
+  .progress-count {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+  }
+
+  .progress-bar {
+    height: clamp(4px, 1vw, 6px);
+    background: var(--extra-light-gray);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--purple);
+    border-radius: 100px;
+    transition: width 0.3s ease;
+  }
+
+  /* ===== RATING CARD ===== */
+  .rating-card {
+    text-align: center;
+    padding: clamp(24px, 6vw, 36px) clamp(16px, 4vw, 24px);
+  }
+
+  .rating-emoji {
+    font-size: clamp(48px, 14vw, 72px);
+    display: block;
+    margin-bottom: clamp(12px, 3vw, 18px);
+  }
+
+  .rating-title {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 800;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .rating-desc {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0 0 clamp(18px, 5vw, 26px) 0;
+  }
+
+  .rating-grid {
+    display: flex;
+    justify-content: center;
+    gap: clamp(8px, 2.5vw, 14px);
+  }
+
+  .rating-grid.centered {
+    justify-content: center;
+  }
+
+  .rating-btn {
+    width: clamp(48px, 13vw, 60px);
+    height: clamp(48px, 13vw, 60px);
+    border-radius: 50%;
+    border: 2px solid var(--extra-light-gray);
+    background: white;
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--dark-gray);
+  }
+
+  .rating-btn:hover, .rating-btn.active {
+    border-color: var(--purple);
+    background: rgba(128, 90, 213, 0.1);
+    color: var(--purple);
+  }
+
+  .rating-btn.small {
+    width: clamp(40px, 11vw, 50px);
+    height: clamp(40px, 11vw, 50px);
+    font-size: clamp(16px, 4.5vw, 20px);
+  }
+
+  /* ===== SECTION HEADER ===== */
+  .section-header {
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .section-header h2 {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+    margin: 0;
+  }
+
+  /* ===== OPTION CARDS ===== */
+  .option-card {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 3vw, 14px);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .option-card:active {
+    background: var(--bg-gray);
+  }
+
+  .option-icon {
+    font-size: clamp(28px, 8vw, 38px);
+    flex-shrink: 0;
+  }
+
+  .option-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .option-label {
+    font-size: clamp(15px, 4vw, 18px);
+    font-weight: 700;
+    margin: 0 0 clamp(2px, 0.5vw, 4px) 0;
+  }
+
+  .option-desc {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+    margin: 0;
+  }
+
+  .option-arrow {
+    font-size: clamp(16px, 4vw, 20px);
+    color: var(--light-gray);
+    flex-shrink: 0;
+  }
+
+  /* ===== THOUGHT CARDS ===== */
+  .thought-card {
+    border-left: 3px solid var(--danger);
+    cursor: pointer;
+  }
+
+  .thought-card:active {
+    background: var(--bg-gray);
+  }
+
+  .thought-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-style: italic;
+    color: var(--dark-gray);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ===== REFRAME CARDS ===== */
+  .harsh-card {
+    background: rgba(244, 33, 46, 0.05);
+    border-left: 3px solid var(--danger);
+  }
+
+  .harsh-label {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 700;
+    color: var(--danger);
+    margin: 0 0 clamp(4px, 1vw, 6px) 0;
+  }
+
+  .harsh-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-style: italic;
+    color: var(--dark-gray);
+    margin: 0;
+  }
+
+  .truth-card {
+    background: rgba(0, 186, 124, 0.05);
+    border-left: 3px solid var(--success);
+  }
+
+  .truth-label {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 700;
+    color: var(--success);
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .truth-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    margin: 0 0 clamp(14px, 4vw, 20px) 0;
+    line-height: 1.5;
+  }
+
+  .affirmation-box {
+    background: rgba(29, 155, 240, 0.1);
+    padding: clamp(10px, 3vw, 14px);
+    border-radius: clamp(8px, 2vw, 12px);
+  }
+
+  .affirmation-prompt {
+    font-size: clamp(11px, 3vw, 13px);
+    color: var(--light-gray);
+    margin: 0 0 clamp(4px, 1vw, 6px) 0;
+  }
+
+  .affirmation-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 700;
+    font-style: italic;
+    color: var(--primary);
+    margin: 0;
+  }
+
+  /* ===== ACTION CARDS ===== */
+  .action-card {
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .action-card.selected {
+    border-left-color: var(--primary);
+    background: rgba(29, 155, 240, 0.05);
+  }
+
+  .action-card:active {
+    background: var(--bg-gray);
+  }
+
+  .action-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 700;
+    margin: 0 0 clamp(4px, 1vw, 6px) 0;
+  }
+
+  .action-why {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+    margin: 0;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--extra-light-gray);
+    margin: clamp(14px, 4vw, 22px) 0;
+  }
+
+  .stuck-after-label {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 clamp(12px, 3vw, 16px) 0;
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-primary {
+    width: 100%;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-primary.large {
+    padding: clamp(14px, 4vw, 18px);
+    font-size: clamp(15px, 4.2vw, 18px);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: white;
+    color: var(--dark-gray);
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ===== DONE CARD ===== */
+  .done-card {
+    text-align: center;
+    padding: clamp(30px, 8vw, 50px) clamp(16px, 4vw, 24px);
+  }
+
+  .done-icon {
+    width: clamp(64px, 18vw, 90px);
+    height: clamp(64px, 18vw, 90px);
+    background: var(--success);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto clamp(16px, 4vw, 24px);
+  }
+
+  .done-icon span {
+    font-size: clamp(32px, 9vw, 48px);
+  }
+
+  .done-title {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 800;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .done-desc {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0 0 clamp(18px, 5vw, 26px) 0;
+  }
+
+  .improvement-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2.5vw, 14px);
+    margin-bottom: clamp(18px, 5vw, 26px);
+  }
+
+  .improvement-label {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+  }
+
+  .improvement-before {
+    font-size: clamp(20px, 5.5vw, 26px);
+    font-weight: 700;
+    color: var(--light-gray);
+  }
+
+  .improvement-arrow {
+    font-size: clamp(14px, 3.8vw, 18px);
+    color: var(--light-gray);
+  }
+
+  .improvement-after {
+    font-size: clamp(20px, 5.5vw, 26px);
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .improvement-emoji {
+    font-size: clamp(20px, 5.5vw, 26px);
+  }
+
+  .done-buttons {
+    display: flex;
+    gap: clamp(10px, 3vw, 14px);
+  }
+
+  .done-buttons .btn-primary {
+    flex: 1;
+  }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: space-around;
+    padding: clamp(6px, 2vw, 10px) 0;
+    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(2px, 1vw, 4px);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
+    color: var(--light-gray);
+  }
+
+  .nav-btn.active {
+    color: var(--primary);
+  }
+
+  .nav-icon {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .nav-label {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 400;
+  }
+
+  .nav-btn.active .nav-label {
+    font-weight: 600;
+  }
+
+  /* ===== TABLET/DESKTOP ===== */
+  @media (min-width: 768px) {
+    .main {
+      padding: 24px;
+      padding-bottom: 120px;
+    }
+    
+    .rating-grid {
+      gap: 16px;
+    }
+
+    .option-card:hover {
+      background: var(--bg-gray);
+    }
+
+    .thought-card:hover,
+    .action-card:hover {
+      background: var(--bg-gray);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .header {
+      padding: 16px 32px;
+    }
+    
+    .main {
+      max-width: 680px;
+    }
+  }
+`
