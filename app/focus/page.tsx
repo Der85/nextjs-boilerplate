@@ -22,7 +22,6 @@ export default function FocusPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  
   const [view, setView] = useState<'list' | 'create'>('list')
   const [plans, setPlans] = useState<Plan[]>([])
   const [taskName, setTaskName] = useState('')
@@ -46,11 +45,12 @@ export default function FocusPage() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10)
+
     if (data) setPlans(data.map(p => ({ ...p, steps: p.steps || [] })))
   }
 
   const addStep = () => setSteps([...steps, ''])
-  
+
   const updateStep = (i: number, val: string) => {
     const newSteps = [...steps]
     newSteps[i] = val
@@ -65,10 +65,10 @@ export default function FocusPage() {
     if (!user || !taskName.trim()) return
     const validSteps = steps.filter(s => s.trim())
     if (validSteps.length === 0) return
-    
+
     setSaving(true)
     const stepsData = validSteps.map((text, i) => ({ id: `step-${i}`, text, completed: false }))
-    
+
     await supabase.from('focus_plans').insert({
       user_id: user.id,
       task_name: taskName,
@@ -89,10 +89,13 @@ export default function FocusPage() {
     const plan = plans.find(p => p.id === planId)
     if (!plan) return
 
-    const updatedSteps = plan.steps.map(s => s.id === stepId ? { ...s, completed: !s.completed } : s)
+    const updatedSteps = plan.steps.map(s =>
+      s.id === stepId ? { ...s, completed: !s.completed } : s
+    )
     const completedCount = updatedSteps.filter(s => s.completed).length
 
     if (!user) return
+
     await supabase.from('focus_plans').update({
       steps: updatedSteps,
       steps_completed: completedCount,
@@ -104,63 +107,97 @@ export default function FocusPage() {
 
   if (loading) {
     return (
-      <div className="app-container flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      <div className="focus-page">
+        <div className="loading-container">
+          <div className="spinner" />
+          <p>Loading...</p>
+        </div>
+        <style jsx>{styles}</style>
       </div>
     )
   }
 
   return (
-    <div className="app-container">
-      <div className="top-bar">
-        <div className="top-bar-inner">
-          <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-icon">←</button>
-          <h1 style={{ fontSize: '19px', fontWeight: 800 }}>Break it down</h1>
-          <div style={{ width: '36px' }} />
-        </div>
-      </div>
+    <div className="focus-page">
+      {/* Header */}
+      <header className="header">
+        <button onClick={() => router.push('/dashboard')} className="back-btn">←</button>
+        <h1 className="page-title">Break it down</h1>
+        <div className="header-spacer" />
+      </header>
 
-      <div className="main-content">
+      <main className="main">
+        {/* Tabs */}
         <div className="tabs">
-          <button className={`tab ${view === 'list' ? 'tab-active' : ''}`} onClick={() => setView('list')}>My tasks</button>
-          <button className={`tab ${view === 'create' ? 'tab-active' : ''}`} onClick={() => setView('create')}>New task</button>
+          <button 
+            className={`tab ${view === 'list' ? 'active' : ''}`} 
+            onClick={() => setView('list')}
+          >
+            My tasks
+          </button>
+          <button 
+            className={`tab ${view === 'create' ? 'active' : ''}`} 
+            onClick={() => setView('create')}
+          >
+            New task
+          </button>
         </div>
 
+        {/* Create View */}
         {view === 'create' && (
-          <div className="compose-box">
-            <p className="font-bold mb-2">What's the task?</p>
-            <input type="text" value={taskName} onChange={(e) => setTaskName(e.target.value)}
-              placeholder="e.g., Clean my room" className="input mb-4" />
+          <div className="card create-card">
+            <p className="label">What's the task?</p>
+            <input
+              type="text"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              placeholder="e.g., Clean my room"
+              className="text-input"
+            />
 
-            <p className="font-bold mb-2">Break it into steps:</p>
+            <p className="label">Break it into steps:</p>
+            
             {steps.map((step, i) => (
-              <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <span className="text-muted" style={{ padding: '12px 0', minWidth: '24px' }}>{i + 1}.</span>
-                <input type="text" value={step} onChange={(e) => updateStep(i, e.target.value)}
-                  placeholder={`Step ${i + 1}`} className="input" style={{ flex: 1 }} />
+              <div key={i} className="step-row">
+                <span className="step-number">{i + 1}.</span>
+                <input
+                  type="text"
+                  value={step}
+                  onChange={(e) => updateStep(i, e.target.value)}
+                  placeholder={`Step ${i + 1}`}
+                  className="text-input step-input"
+                />
                 {steps.length > 1 && (
-                  <button onClick={() => removeStep(i)} className="btn btn-ghost btn-icon" style={{ color: 'var(--danger)' }}>×</button>
+                  <button onClick={() => removeStep(i)} className="remove-btn">×</button>
                 )}
               </div>
             ))}
 
-            <button onClick={addStep} className="btn btn-ghost text-sm mb-4">+ Add another step</button>
+            <button onClick={addStep} className="add-step-btn">
+              + Add another step
+            </button>
 
-            <button onClick={handleCreate} disabled={!taskName.trim() || steps.filter(s => s.trim()).length === 0 || saving}
-              className="btn btn-primary w-full">
+            <button
+              onClick={handleCreate}
+              disabled={!taskName.trim() || steps.filter(s => s.trim()).length === 0 || saving}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Create task'}
             </button>
           </div>
         )}
 
+        {/* List View */}
         {view === 'list' && (
           <>
             {plans.length === 0 ? (
-              <div className="card text-center" style={{ padding: '40px 15px' }}>
-                <span className="emoji-large">🔨</span>
-                <p className="font-bold mt-3">No tasks yet</p>
-                <p className="text-sm text-muted mt-1">Break down a task to get started</p>
-                <button onClick={() => setView('create')} className="btn btn-primary mt-4">Create first task</button>
+              <div className="card empty-state">
+                <span className="empty-emoji">🔨</span>
+                <p className="empty-title">No tasks yet</p>
+                <p className="empty-subtitle">Break down a task to get started</p>
+                <button onClick={() => setView('create')} className="btn-primary">
+                  Create first task
+                </button>
               </div>
             ) : (
               plans.map((plan) => {
@@ -169,29 +206,28 @@ export default function FocusPage() {
                 const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
                 return (
-                  <div key={plan.id} className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <p className="font-bold">{plan.task_name}</p>
-                      <span className="text-sm text-muted">{done}/{total}</span>
+                  <div key={plan.id} className="card task-card">
+                    <div className="task-header">
+                      <p className="task-name">{plan.task_name}</p>
+                      <span className="task-progress-text">{done}/{total}</span>
                     </div>
-                    
-                    <div className="progress-bar mb-3">
+
+                    <div className="progress-bar">
                       <div className="progress-fill" style={{ width: `${pct}%` }} />
                     </div>
 
                     {plan.steps.map((step) => (
-                      <div key={step.id} onClick={() => toggleStep(plan.id, step.id)} className="card-clickable"
-                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0',
-                          borderBottom: '1px solid var(--extra-light-gray)' }}>
-                        <div style={{ width: '22px', height: '22px', borderRadius: '50%',
-                          border: step.completed ? 'none' : '2px solid var(--light-gray)',
-                          background: step.completed ? 'var(--success)' : 'transparent',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'white', fontSize: '14px' }}>
+                      <div
+                        key={step.id}
+                        onClick={() => toggleStep(plan.id, step.id)}
+                        className="step-item"
+                      >
+                        <div className={`checkbox ${step.completed ? 'checked' : ''}`}>
                           {step.completed && '✓'}
                         </div>
-                        <span style={{ textDecoration: step.completed ? 'line-through' : 'none',
-                          color: step.completed ? 'var(--light-gray)' : 'var(--black)' }}>{step.text}</span>
+                        <span className={`step-text ${step.completed ? 'completed' : ''}`}>
+                          {step.text}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -200,9 +236,455 @@ export default function FocusPage() {
             )}
           </>
         )}
+      </main>
 
-        <div style={{ height: '50px' }} />
-      </div>
+      {/* Bottom Nav */}
+      <nav className="bottom-nav">
+        <button onClick={() => router.push('/dashboard')} className="nav-btn">
+          <span className="nav-icon">🏠</span>
+          <span className="nav-label">Home</span>
+        </button>
+        <button className="nav-btn active">
+          <span className="nav-icon">⏱️</span>
+          <span className="nav-label">Focus</span>
+        </button>
+        <button onClick={() => router.push('/history')} className="nav-btn">
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Insights</span>
+        </button>
+      </nav>
+
+      <style jsx>{styles}</style>
     </div>
   )
 }
+
+// ============================================
+// RESPONSIVE STYLES
+// ============================================
+const styles = `
+  .focus-page {
+    --primary: #1D9BF0;
+    --success: #00ba7c;
+    --danger: #f4212e;
+    --bg-gray: #f7f9fa;
+    --dark-gray: #536471;
+    --light-gray: #8899a6;
+    --extra-light-gray: #eff3f4;
+    
+    background: var(--bg-gray);
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* ===== LOADING ===== */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    color: var(--light-gray);
+  }
+  
+  .spinner {
+    width: clamp(24px, 5vw, 32px);
+    height: clamp(24px, 5vw, 32px);
+    border: 3px solid var(--primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    position: sticky;
+    top: 0;
+    background: white;
+    border-bottom: 1px solid #eee;
+    padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+  }
+
+  .back-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(18px, 5vw, 24px);
+    padding: clamp(6px, 1.5vw, 10px);
+    color: var(--dark-gray);
+    line-height: 1;
+    width: clamp(36px, 9vw, 44px);
+    height: clamp(36px, 9vw, 44px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .back-btn:hover {
+    background: var(--extra-light-gray);
+  }
+
+  .page-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .header-spacer {
+    width: clamp(36px, 9vw, 44px);
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main {
+    padding: clamp(12px, 4vw, 20px);
+    padding-bottom: clamp(80px, 20vw, 110px);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* ===== TABS ===== */
+  .tabs {
+    display: flex;
+    gap: clamp(4px, 1.5vw, 8px);
+    margin-bottom: clamp(14px, 4vw, 20px);
+    background: white;
+    padding: clamp(4px, 1vw, 6px);
+    border-radius: clamp(10px, 2.5vw, 14px);
+  }
+
+  .tab {
+    flex: 1;
+    padding: clamp(10px, 3vw, 14px);
+    border: none;
+    background: transparent;
+    border-radius: clamp(8px, 2vw, 10px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    color: var(--dark-gray);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tab.active {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+  }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(12px, 3.5vw, 18px);
+  }
+
+  /* ===== CREATE FORM ===== */
+  .create-card {
+    /* inherits from .card */
+  }
+
+  .label {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 700;
+    margin: 0 0 clamp(8px, 2vw, 12px) 0;
+  }
+
+  .text-input {
+    width: 100%;
+    padding: clamp(10px, 3vw, 14px);
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(8px, 2vw, 12px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-family: inherit;
+    margin-bottom: clamp(14px, 4vw, 20px);
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+  }
+
+  .text-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .step-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2vw, 10px);
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .step-number {
+    color: var(--light-gray);
+    font-size: clamp(13px, 3.5vw, 15px);
+    min-width: clamp(20px, 5vw, 28px);
+    padding: clamp(10px, 3vw, 14px) 0;
+  }
+
+  .step-input {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  .remove-btn {
+    width: clamp(32px, 8vw, 40px);
+    height: clamp(32px, 8vw, 40px);
+    border: none;
+    background: none;
+    color: var(--danger);
+    font-size: clamp(18px, 5vw, 24px);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .remove-btn:hover {
+    background: rgba(244, 33, 46, 0.1);
+  }
+
+  .add-step-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    cursor: pointer;
+    padding: clamp(8px, 2vw, 12px) 0;
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: clamp(30px, 8vw, 50px) clamp(16px, 4vw, 24px);
+  }
+
+  .empty-emoji {
+    font-size: clamp(40px, 12vw, 60px);
+    display: block;
+    margin-bottom: clamp(12px, 3vw, 18px);
+  }
+
+  .empty-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .empty-subtitle {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0 0 clamp(18px, 5vw, 28px) 0;
+  }
+
+  .empty-state .btn-primary {
+    width: auto;
+    padding: clamp(12px, 3vw, 16px) clamp(24px, 6vw, 36px);
+  }
+
+  /* ===== TASK CARDS ===== */
+  .task-card {
+    /* inherits from .card */
+  }
+
+  .task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .task-name {
+    font-size: clamp(15px, 4vw, 18px);
+    font-weight: 700;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .task-progress-text {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+    flex-shrink: 0;
+    margin-left: clamp(8px, 2vw, 12px);
+  }
+
+  /* ===== PROGRESS BAR ===== */
+  .progress-bar {
+    height: clamp(6px, 1.5vw, 8px);
+    background: var(--extra-light-gray);
+    border-radius: 100px;
+    margin-bottom: clamp(12px, 3vw, 18px);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: 100px;
+    transition: width 0.3s ease;
+  }
+
+  /* ===== STEP ITEMS ===== */
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 3vw, 14px);
+    padding: clamp(10px, 3vw, 14px) 0;
+    border-bottom: 1px solid var(--extra-light-gray);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .step-item:last-child {
+    border-bottom: none;
+  }
+
+  .step-item:active {
+    background: var(--bg-gray);
+    margin: 0 clamp(-16px, -4.5vw, -24px);
+    padding-left: clamp(16px, 4.5vw, 24px);
+    padding-right: clamp(16px, 4.5vw, 24px);
+  }
+
+  .checkbox {
+    width: clamp(20px, 5.5vw, 26px);
+    height: clamp(20px, 5.5vw, 26px);
+    border-radius: 50%;
+    border: 2px solid var(--light-gray);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: clamp(12px, 3vw, 14px);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .checkbox.checked {
+    border: none;
+    background: var(--success);
+  }
+
+  .step-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+  }
+
+  .step-text.completed {
+    text-decoration: line-through;
+    color: var(--light-gray);
+  }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: space-around;
+    padding: clamp(6px, 2vw, 10px) 0;
+    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(2px, 1vw, 4px);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
+    color: var(--light-gray);
+  }
+
+  .nav-btn.active {
+    color: var(--primary);
+  }
+
+  .nav-icon {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .nav-label {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 400;
+  }
+
+  .nav-btn.active .nav-label {
+    font-weight: 600;
+  }
+
+  /* ===== TABLET/DESKTOP ===== */
+  @media (min-width: 768px) {
+    .main {
+      padding: 24px;
+      padding-bottom: 120px;
+    }
+    
+    .tabs {
+      gap: 8px;
+    }
+    
+    .step-item:hover {
+      background: var(--bg-gray);
+      margin: 0 -24px;
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .header {
+      padding: 16px 32px;
+    }
+    
+    .main {
+      max-width: 680px;
+    }
+  }
+`
