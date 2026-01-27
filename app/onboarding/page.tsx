@@ -1,3 +1,15 @@
+This is a great foundation. The logic is solid, but the narrative currently feels a bit like a standard "form filling" exercise. For an ADHD audience, we need to minimize the "chore" factor and maximize the dopamine/engagement factor.
+
+Here is the updated code. I have kept the logic identical but overhauled the copy to be:
+
+1. **More conversational** (breaking down the "wall" between app and user).
+2. **Validation-focused** (making the user feel seen immediately).
+3. **UK English compliant** (as requested in your preferences).
+4. **Momentum-driven** (explaining *why* we need data like emails/passwords to reduce friction).
+
+Here is the updated `OnboardingPage` component:
+
+```javascript
 'use client'
 
 import { useState } from 'react'
@@ -111,13 +123,13 @@ export default function OnboardingPage() {
               <span>🧠</span>
             </div>
             <h1 className="title">Welcome to ADHDer.io</h1>
-            <p className="subtitle">Is this your first time here?</p>
+            <p className="subtitle">Ready to find a system that actually works with your brain, not against it?</p>
             <div className="button-stack">
               <button onClick={handleNext} className="btn-primary">
-                Yes, I'm new here
+                Yes, let's get started
               </button>
               <button onClick={() => router.push('/login')} className="btn-secondary">
-                No, take me to login
+                I already have an account
               </button>
             </div>
           </div>
@@ -127,21 +139,21 @@ export default function OnboardingPage() {
       case 1:
         return (
           <div className="step-content">
-            <h1 className="title">Hello! I'm Der, your ADHD coach.</h1>
+            <h1 className="title">Hi! I'm Der, your pocket coach.</h1>
             <p className="subtitle">
-              It's <span className="text-primary font-bold">ADHD-er</span>, get it? 😄
+              It's short for <span className="text-primary font-bold">ADHD-er</span>. (I know, terrible pun, but stick with me! 😄)
             </p>
-            <p className="subtitle">What's your name?</p>
+            <p className="subtitle">What should I call you?</p>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder="Your name or nickname"
               className="text-input"
               autoFocus
             />
             <button onClick={handleNext} disabled={!name.trim()} className="btn-primary">
-              Continue
+              Nice to meet you
             </button>
           </div>
         )
@@ -150,13 +162,13 @@ export default function OnboardingPage() {
       case 2:
         return (
           <div className="step-content">
-            <h1 className="title">Hi {name}, great to meet you!</h1>
-            <p className="subtitle">What's your email?</p>
+            <h1 className="title">Hi {name}, let's keep this safe.</h1>
+            <p className="subtitle">We're going to build a personal journal of your patterns. Where should I send your daily summary?</p>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+              placeholder="name@example.com"
               className="text-input"
               autoFocus
             />
@@ -170,13 +182,13 @@ export default function OnboardingPage() {
       case 3:
         return (
           <div className="step-content">
-            <h1 className="title">Great! Now create a password</h1>
-            <p className="subtitle">So you can log back in later.</p>
+            <h1 className="title">Last boring bit, I promise.</h1>
+            <p className="subtitle">Set a password so you can access your insights on other devices.</p>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
+              placeholder="Create a secure password"
               className="text-input"
               autoFocus
             />
@@ -186,7 +198,7 @@ export default function OnboardingPage() {
               disabled={!password.trim() || isLoading} 
               className="btn-primary"
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading ? 'Creating your space...' : 'Secure my account'}
             </button>
           </div>
         )
@@ -198,23 +210,23 @@ export default function OnboardingPage() {
             <div className="avatar-photo">
               <img src="/der.png" alt="Der" />
             </div>
-            <h1 className="title">A bit about me...</h1>
+            <h1 className="title">Why am I here?</h1>
             <div className="prose">
               <p>
-                I was only diagnosed with ADHD in my 30s. Suddenly so much made sense, and at the same time there still feels like there's so much to figure out.
-              </p>
-              <p>
-                That's why I'm here — to build <strong>systems with you that work</strong>.
-              </p>
-              <p>
-                Not brand new "expensive" systems that require you to buy a bunch of new things — I'm guessing you've tried that already.
+                I was diagnosed in my 30s. Suddenly my whole life made sense, but I still felt lost. I tried the planners, the apps, the "just try harder" method.
               </p>
               <p className="text-dark">
-                <strong>Systems that are yours, built where you are — not where you imagine you'll be with the new gym membership or supplement from the health food store.</strong>
+                <strong>None of it stuck.</strong>
+              </p>
+              <p>
+                That's why I built this. We aren't going to try to "fix" you with expensive systems or new gym memberships.
+              </p>
+              <p>
+                We're going to build systems that work for <strong>your</strong> brain, right where you are today.
               </p>
             </div>
             <button onClick={handleNext} className="btn-primary">
-              I like the sound of that
+              That sounds like what I need
             </button>
           </div>
         )
@@ -223,16 +235,16 @@ export default function OnboardingPage() {
       case 5:
         return (
           <div className="step-content">
-            <h1 className="title">Let's start with a simple check-in</h1>
+            <h1 className="title">Let's try a check-in</h1>
             <p className="subtitle">
-              Rate how you're feeling right now, with 10 being the best you've ever felt and 0 being the worst.
+              We track mood to find patterns. How is your brain feeling right this second?
             </p>
             
             <div className="mood-slider-container">
               <div className="mood-slider-labels">
-                <span>Worst</span>
+                <span>Overwhelmed</span>
                 <span className="mood-value">{mood}</span>
-                <span>Best</span>
+                <span>Thriving</span>
               </div>
               <input
                 type="range"
@@ -244,17 +256,17 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <p className="subtitle">Why did you pick that number? What's happening?</p>
+            <p className="subtitle">Quick brain dump: What's on your mind? (Don't overthink it).</p>
             <textarea
               value={moodNote}
               onChange={(e) => setMoodNote(e.target.value)}
-              placeholder="Share what's on your mind..."
+              placeholder="I'm feeling..."
               rows={3}
               className="text-input textarea"
             />
             
             <button onClick={handleMoodSubmit} disabled={isLoading} className="btn-primary">
-              {isLoading ? 'Getting advice...' : 'Submit Check-in'}
+              {isLoading ? 'Analysing...' : 'Complete Check-in'}
             </button>
           </div>
         )
@@ -263,23 +275,25 @@ export default function OnboardingPage() {
       case 6:
         return (
           <div className="step-content">
-            <h1 className="title">Here's what I think...</h1>
+            <h1 className="title">My thoughts...</h1>
             <div className="advice-card">
               <p>
-                {coachAdvice || "Thanks for sharing. Remember, checking in with yourself is the first step to understanding your patterns."}
+                {coachAdvice || "Thanks for sharing. Acknowledging where you are is the first step to navigating it."}
               </p>
             </div>
             <div className="prose">
               <p>
-                This was your first coaching session! I'm going to ask you to tell me how you're feeling once per day and offer suggestions like this.
+                This is how we'll work together. You check in, and I'll help you spot the patterns you might miss while you're in the thick of it.
+              </p>
+              <p className="text-dark">
+                 Remember: <strong>You are in the driving seat.</strong>
               </p>
               <p>
-                The goal is to help recognize patterns. There aren't always patterns, but sometimes there are — and helping you recognize them can help build new ones, or choose to continue with the old ones.
+                I'm just the navigator holding the map so you can keep your eyes on the road.
               </p>
-              <p className="text-dark"><strong>You're in the driving seat here!</strong></p>
             </div>
             <button onClick={handleNext} className="btn-primary">
-              Continue
+              Makes sense
             </button>
           </div>
         )
@@ -288,17 +302,17 @@ export default function OnboardingPage() {
       case 7:
         return (
           <div className="step-content">
-            <h1 className="title">There's more I can help with</h1>
+            <h1 className="title">Your Toolkit</h1>
             <p className="subtitle">
-              Helping you recognize your patterns is one thing, but there's a bunch of other stuff on this journey too.
+              Pattern recognition is great, but sometimes you need immediate help. 
             </p>
             <div className="info-card">
               <p>
-                💡 Pressing the menu button after this journey will show you everything I can help with — but don't worry about that for now.
+                💡 The menu button will always hold your full toolkit, but there is one tool I need to show you immediately.
               </p>
             </div>
             <p className="text-dark lead">
-              The first tool I need to show you is <span className="text-danger font-bold">BREAK</span> →
+              It's called <span className="text-danger font-bold">BREAK</span>.
             </p>
             <button onClick={handleNext} className="btn-primary">
               Show me BREAK
@@ -313,23 +327,23 @@ export default function OnboardingPage() {
             <div className="icon-circle danger">
               <span>🛑</span>
             </div>
-            <h1 className="title">BREAK is for when everything is overwhelming</h1>
+            <h1 className="title">For when the noise gets too loud</h1>
             <div className="prose">
               <p>
-                For me, sometimes it's the noise in a busy supermarket. Or being a bit tired and someone asks me a question and I'm snappy, they get annoyed, I get more annoyed…
+                You know that feeling? The supermarket is too bright, someone asks you a simple question and you snap, then you feel guilty, which makes you snappier?
               </p>
-              <p className="text-dark"><strong>You know the story.</strong></p>
+              <p className="text-dark"><strong>That is the red zone.</strong></p>
             </div>
             <div className="warning-card">
               <p>
-                Press the <strong>BREAK</strong> button for 10 seconds. Select if you're frustrated, angry, feel rejected, or upset.
+                When you feel this, hit the <strong>BREAK</strong> button. It helps you pause for just 10 seconds to reset your regulation.
               </p>
             </div>
             <p className="subtitle">
-              ADHD isn't just about focus and dopamine levels — it's so much more. Mainly, it's about <strong className="text-dark">dysregulation</strong>.
+              Because ADHD isn't just about "focus"—it's usually about <strong className="text-dark">emotional dysregulation</strong>.
             </p>
             <button onClick={handleNext} className="btn-primary">
-              Tell me more about dysregulation
+              Dysregulation?
             </button>
           </div>
         )
@@ -341,25 +355,25 @@ export default function OnboardingPage() {
             <div className="icon-circle primary">
               <span>💙</span>
             </div>
-            <h1 className="title">Dysregulation means it's not your fault</h1>
+            <h1 className="title">It's not a character flaw</h1>
             <div className="prose">
               <p>
-                Dysregulation of attention, sure. But also of sleep, food, energy levels, relationships.
+                Dysregulation affects your attention, sleep, food, and energy. It's like having a Ferrari engine with bicycle brakes.
               </p>
               <p>
-                I know you won't fully believe me when I say it's not your fault.
+                <strong>I need you to hear this: It is not your fault.</strong>
               </p>
               <p>
-                You didn't get to grow up with people who could teach you how to cope with the world. But it's not your parents' fault either — ADHD is highly hereditary.
+                You likely didn't grow up with people who knew how to teach you to drive a Ferrari. But we can learn now.
               </p>
             </div>
             <div className="info-card primary">
               <p>
-                🧬 Your brain is wired differently. That's not a flaw — it's just different.
+                🧬 Your brain is wired differently. We work <em>with</em> that wiring, not against it.
               </p>
             </div>
             <button onClick={handleNext} className="btn-primary">
-              Continue
+              I'm listening
             </button>
           </div>
         )
@@ -371,29 +385,23 @@ export default function OnboardingPage() {
             <div className="icon-circle warning">
               <span>🔋</span>
             </div>
-            <h1 className="title">Let's talk about energy</h1>
+            <h1 className="title">Protecting your battery</h1>
             <div className="prose">
               <p>
-                Energy for us ADHDers is, well, <strong className="text-dark">dysregulated</strong>.
+                ADHDers often run on an "all or nothing" energy setting. Hyperfocus or exhaustion.
               </p>
               <p>
-                If it's something we're interested in, everything else disappears. But if it's something we "have" to do, it's nearly impossible to get off the couch.
-              </p>
-              <p>
-                When we're not interested in something but it still needs to be done (think: work), we often rely on <strong className="text-dark">stress and anxiety</strong> to keep us moving.
-              </p>
-              <p>
-                No problem once in a while — but when it becomes our default… <strong className="text-warning">burnout becomes the destination</strong>.
+                We often rely on <strong className="text-dark">stress and anxiety</strong> to force us into action. It works, until it doesn't. That's the fast track to burnout.
               </p>
             </div>
             <div className="warning-card orange">
               <p>
-                ⚡ When your mood is lower or when you share that you've been frustrated, I'm going to ask about your energy levels. The key is to avoid burnout.
+                ⚡ I'm going to help you track your energy alongside your mood. The goal is to keep you out of the burnout zone.
               </p>
             </div>
-            <p className="text-dark lead"><strong>Nothing is more important than taking care of yourself.</strong></p>
+            <p className="text-dark lead"><strong>Nothing is more important than taking care of yourself. Shall we begin?</strong></p>
             <button onClick={handleFinish} className="btn-primary">
-              Let's get started! →
+              Let's go! →
             </button>
           </div>
         )
