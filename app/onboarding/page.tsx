@@ -129,7 +129,7 @@ export default function OnboardingPage() {
           <div className="step-content">
             <h1 className="title">Hello! I'm Der, your ADHD coach.</h1>
             <p className="subtitle">
-              It's <span className="text-primary font-bold">ADHD-er</span>, get it? 😄
+              It's <span className="text-primary font-bold">ADH<span className="underline">Der</span></span>, get it? 😄
             </p>
             <p className="subtitle">What's your name?</p>
             <input
