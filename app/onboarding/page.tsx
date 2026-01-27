@@ -129,7 +129,7 @@ export default function OnboardingPage() {
           <div className="step-content">
             <h1 className="title">Hello! I'm Der, your ADHD coach.</h1>
             <p className="subtitle">
-              It's <span className="text-primary font-bold">ADH<span className="underline">Der</span></span>, get it? 😄
+              It's <span className="text-primary font-bold">ADHD-er</span>, get it? 😄
             </p>
             <p className="subtitle">What's your name?</p>
             <input
@@ -194,7 +194,10 @@ export default function OnboardingPage() {
       // Step 4: Der's story
       case 4:
         return (
-          <div className="step-content">
+          <div className="step-content centered">
+            <div className="avatar-photo">
+              <img src="/der.png" alt="Der" />
+            </div>
             <h1 className="title">A bit about me...</h1>
             <div className="prose">
               <p>
@@ -615,6 +618,23 @@ const styles = `
   .icon-circle.primary { background: var(--primary); }
   .icon-circle.danger { background: var(--danger); }
   .icon-circle.warning { background: var(--warning); }
+
+  /* ===== AVATAR PHOTO ===== */
+  .avatar-photo {
+    width: clamp(80px, 22vw, 110px);
+    height: clamp(80px, 22vw, 110px);
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto clamp(16px, 4vw, 24px);
+    border: 3px solid var(--primary);
+    box-shadow: 0 4px 12px rgba(29, 155, 240, 0.2);
+  }
+
+  .avatar-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
   /* ===== INPUTS ===== */
   .text-input {
