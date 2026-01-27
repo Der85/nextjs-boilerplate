@@ -1,15 +1,3 @@
-This is a great foundation. The logic is solid, but the narrative currently feels a bit like a standard "form filling" exercise. For an ADHD audience, we need to minimize the "chore" factor and maximize the dopamine/engagement factor.
-
-Here is the updated code. I have kept the logic identical but overhauled the copy to be:
-
-1. **More conversational** (breaking down the "wall" between app and user).
-2. **Validation-focused** (making the user feel seen immediately).
-3. **UK English compliant** (as requested in your preferences).
-4. **Momentum-driven** (explaining *why* we need data like emails/passwords to reduce friction).
-
-Here is the updated `OnboardingPage` component:
-
-```javascript
 'use client'
 
 import { useState } from 'react'
