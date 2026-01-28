@@ -207,21 +207,44 @@ export default function GoalsPage() {
     setSaving(true)
 
     try {
-      const { data, error } = await supabase.from('goals').insert({
+      // Build goal data with proper type handling
+      const goalData: Record<string, any> = {
         user_id: user.id,
-        title,
-        description: description || null,
+        title: title.trim(),
         progress_percent: 0,
-        status: 'active',
-        micro_steps: generatedSteps.length > 0 ? generatedSteps : [],
-        used_ai_breakdown: generatedSteps.length > 0,
-        energy_when_created: context.energyLevel || null,
-        mood_when_created: context.mood || null
-      }).select()
+        status: 'active'
+      }
+
+      // Add optional fields
+      if (description && description.trim()) {
+        goalData.description = description.trim()
+      }
+
+      if (generatedSteps.length > 0) {
+        goalData.micro_steps = generatedSteps
+        goalData.used_ai_breakdown = true
+      }
+
+      // Only add energy if it's a valid value
+      if (context.energyLevel && ['green', 'yellow', 'red'].includes(context.energyLevel)) {
+        goalData.energy_when_created = context.energyLevel
+      }
+
+      // Convert mood to integer (round it)
+      if (context.mood !== undefined && context.mood !== null) {
+        goalData.mood_when_created = Math.round(context.mood)
+      }
+
+      console.log('Attempting to insert:', goalData)
+
+      const { data, error } = await supabase
+        .from('goals')
+        .insert(goalData)
+        .select()
 
       if (error) {
         console.error('Supabase error:', error)
-        alert(`Failed to save goal: ${error.message}`)
+        alert(`Failed to save goal: ${error.message}\n\nCode: ${error.code}\nDetails: ${error.details}\nHint: ${error.hint}`)
         setSaving(false)
         return
       }
