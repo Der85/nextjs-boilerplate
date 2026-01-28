@@ -207,17 +207,26 @@ export default function GoalsPage() {
     setSaving(true)
 
     try {
-      await supabase.from('goals').insert({
+      const { data, error } = await supabase.from('goals').insert({
         user_id: user.id,
         title,
         description: description || null,
         progress_percent: 0,
         status: 'active',
-        micro_steps: generatedSteps,
+        micro_steps: generatedSteps.length > 0 ? generatedSteps : [],
         used_ai_breakdown: generatedSteps.length > 0,
         energy_when_created: context.energyLevel || null,
         mood_when_created: context.mood || null
-      })
+      }).select()
+
+      if (error) {
+        console.error('Supabase error:', error)
+        alert(`Failed to save goal: ${error.message}`)
+        setSaving(false)
+        return
+      }
+
+      console.log('Goal created:', data)
 
       // Reset form
       setTitle('')
@@ -229,6 +238,7 @@ export default function GoalsPage() {
       await loadData(user.id)
     } catch (e) {
       console.error('Failed to create goal:', e)
+      alert(`Error: ${e}`)
     }
 
     setSaving(false)
