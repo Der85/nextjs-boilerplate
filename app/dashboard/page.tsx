@@ -266,6 +266,11 @@ export default function Dashboard() {
           ADHDer.io
         </button>
         <div className="header-actions">
+          {/* Phase 2: Village Presence Indicator */}
+          <div className="village-pill">
+            <span className="presence-dot"></span>
+            <span className="presence-count">42 online</span>
+          </div>
           <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
             💜
           </button>
@@ -575,6 +580,42 @@ const styles = `
     background: white;
     border: 1px solid #ddd;
     font-size: clamp(12px, 3vw, 16px);
+  }
+
+  /* ===== PHASE 2: VILLAGE PRESENCE PILL ===== */
+  .village-pill {
+    display: flex;
+    align-items: center;
+    gap: clamp(5px, 1.5vw, 8px);
+    padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.5vw, 12px);
+    background: rgba(0, 186, 124, 0.08);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: 100px;
+  }
+
+  .presence-dot {
+    width: clamp(6px, 1.8vw, 8px);
+    height: clamp(6px, 1.8vw, 8px);
+    background: #00ba7c;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4);
+    }
+    50% {
+      opacity: 0.6;
+      box-shadow: 0 0 0 4px rgba(0, 186, 124, 0);
+    }
+  }
+
+  .presence-count {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 600;
+    color: #00ba7c;
   }
 
   .dropdown-menu {
