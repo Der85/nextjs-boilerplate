@@ -7,6 +7,9 @@ import { supabase } from '@/lib/supabase'
 // Type for onboarding path based on mood score
 type OnboardingPath = 'recovery' | 'maintenance' | 'growth'
 
+// Type for user regulation state
+type RegulationState = 'regulated' | 'dysregulated'
+
 export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState(0)
@@ -30,6 +33,9 @@ export default function OnboardingPage() {
   const [isHolding, setIsHolding] = useState(false)
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null)
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Phase 3: Energy Battery state
+  const [energyLevel, setEnergyLevel] = useState(5)
   
   const HOLD_DURATION = 5000 // 5 seconds for onboarding (reduced from 10s)
   const PROGRESS_UPDATE_INTERVAL = 50 // Update progress every 50ms for smooth animation
@@ -120,8 +126,61 @@ export default function OnboardingPage() {
     }
   }
 
-  const handleFinish = () => {
-    router.push('/dashboard')
+  // Phase 3: Calculate regulation state based on mood + energy
+  const calculateRegulationState = (): RegulationState => {
+    const combinedScore = (mood + energyLevel) / 2
+    // If average is below 4, user is dysregulated
+    // Also dysregulated if there's a large gap between mood and energy (>4 points)
+    const gap = Math.abs(mood - energyLevel)
+    if (combinedScore < 4 || gap > 4) {
+      return 'dysregulated'
+    }
+    return 'regulated'
+  }
+
+  // Phase 3: Get user-friendly mode label
+  const getModeLabel = (): string => {
+    switch (onboardingPath) {
+      case 'recovery':
+        return 'Recovery'
+      case 'growth':
+        return 'Growth'
+      case 'maintenance':
+      default:
+        return 'Steady'
+    }
+  }
+
+  // Phase 3: Enhanced handleFinish with database writes
+  const handleFinish = async () => {
+    setIsLoading(true)
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        const regulationState = calculateRegulationState()
+        const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+        
+        // Write to user_daily_states table (onboarding baseline)
+        await supabase.from('user_daily_states').insert({
+          user_id: user.id,
+          date: today,
+          mood_score: mood,
+          energy_level: energyLevel,
+          regulation_state: regulationState,
+          onboarding_path: onboardingPath,
+        })
+      }
+      
+      router.push('/dashboard')
+    } catch (err) {
+      console.error('Error saving user state:', err)
+      // Still navigate even if save fails - don't block the user
+      router.push('/dashboard')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Phase 2: BREAK button handlers (dead man's switch mechanic)
@@ -242,6 +301,27 @@ export default function OnboardingPage() {
           instruction: "Press and hold the button for 5 seconds to complete the calibration."
         }
     }
+  }
+
+  // Phase 3: Get battery color based on energy level
+  const getBatteryColor = (level: number): string => {
+    if (level <= 3) return '#f4212e' // Red - low energy
+    if (level <= 6) return '#f59e0b' // Yellow/Orange - medium energy
+    return '#00ba7c' // Green - high energy
+  }
+
+  // Phase 3: Get battery fill percentage
+  const getBatteryFill = (level: number): number => {
+    return (level / 10) * 100
+  }
+
+  // Phase 3: Get energy label
+  const getEnergyLabel = (level: number): string => {
+    if (level <= 2) return 'Running on empty'
+    if (level <= 4) return 'Low reserves'
+    if (level <= 6) return 'Holding steady'
+    if (level <= 8) return 'Good charge'
+    return 'Fully powered'
   }
 
   const renderStep = () => {
@@ -592,30 +672,126 @@ export default function OnboardingPage() {
           </div>
         )
 
-      // Step 10: Energy levels & burnout
+      // Step 10: Energy Battery & Final Calibration (Phase 3)
       case 10:
+        const batteryColor = getBatteryColor(energyLevel)
+        const batteryFill = getBatteryFill(energyLevel)
+        const energyLabel = getEnergyLabel(energyLevel)
+        const regulationState = calculateRegulationState()
+        const modeLabel = getModeLabel()
+        
         return (
-          <div className="step-content">
-            <div className="icon-circle warning">
-              <span>🔋</span>
-            </div>
-            <h1 className="title">Protecting your battery</h1>
-            <div className="prose">
-              <p>
-                ADHDers often run on an "all or nothing" energy setting. Hyperfocus or exhaustion.
+          <div className="step-content centered">
+            <h1 className="title">One more reading: Your battery</h1>
+            <p className="subtitle">
+              ADHDers often run on "all or nothing" energy. Let's see where you're at right now.
+            </p>
+            
+            {/* Interactive Battery Visual */}
+            <div className="battery-container">
+              <svg className="battery-svg" viewBox="0 0 120 200">
+                {/* Battery cap */}
+                <rect
+                  x="35"
+                  y="0"
+                  width="50"
+                  height="12"
+                  rx="4"
+                  fill={batteryColor}
+                  opacity="0.6"
+                />
+                {/* Battery body outline */}
+                <rect
+                  x="10"
+                  y="15"
+                  width="100"
+                  height="180"
+                  rx="12"
+                  fill="none"
+                  stroke={batteryColor}
+                  strokeWidth="4"
+                />
+                {/* Battery fill */}
+                <rect
+                  x="18"
+                  y={23 + (164 * (1 - batteryFill / 100))}
+                  width="84"
+                  height={164 * (batteryFill / 100)}
+                  rx="8"
+                  fill={batteryColor}
+                  className="battery-fill"
+                />
+                {/* Energy level text */}
+                <text
+                  x="60"
+                  y="115"
+                  textAnchor="middle"
+                  fill={energyLevel > 5 ? 'white' : batteryColor}
+                  fontSize="36"
+                  fontWeight="bold"
+                  className="battery-text"
+                >
+                  {energyLevel}
+                </text>
+              </svg>
+              <p className="energy-label" style={{ color: batteryColor }}>
+                {energyLabel}
               </p>
-              <p>
-                We often rely on <strong className="text-dark">stress and anxiety</strong> to force us into action. It works, until it doesn't. That's the fast track to burnout.
+            </div>
+            
+            {/* Energy Slider */}
+            <div className="energy-slider-container">
+              <div className="energy-slider-labels">
+                <span>Empty</span>
+                <span>Full</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={energyLevel}
+                onChange={(e) => setEnergyLevel(parseInt(e.target.value))}
+                className="energy-slider"
+                style={{
+                  background: `linear-gradient(to right, ${batteryColor} 0%, ${batteryColor} ${(energyLevel - 1) / 9 * 100}%, #eff3f4 ${(energyLevel - 1) / 9 * 100}%, #eff3f4 100%)`
+                }}
+              />
+            </div>
+            
+            {/* Calibration Summary */}
+            <div className="calibration-card">
+              <h3 className="calibration-title">Profile Calibrated</h3>
+              <div className="calibration-stats">
+                <div className="stat">
+                  <span className="stat-label">Mood</span>
+                  <span className="stat-value">{mood}/10</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-label">Energy</span>
+                  <span className="stat-value">{energyLevel}/10</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-label">Mode</span>
+                  <span className={`stat-value mode-${onboardingPath}`}>{modeLabel}</span>
+                </div>
+              </div>
+              <p className="calibration-status">
+                Status: <strong className={regulationState === 'regulated' ? 'text-success' : 'text-warning'}>
+                  {regulationState === 'regulated' ? 'Regulated ✓' : 'Needs Support'}
+                </strong>
               </p>
             </div>
-            <div className="warning-card orange">
-              <p>
-                ⚡ I'm going to help you track your energy alongside your mood. The goal is to keep you out of the burnout zone.
-              </p>
-            </div>
-            <p className="text-dark lead"><strong>Nothing is more important than taking care of yourself. Shall we begin?</strong></p>
-            <button onClick={handleFinish} className="btn-primary">
-              Let's go! →
+            
+            <p className="text-dark lead">
+              <strong>Nothing is more important than taking care of yourself. Ready?</strong>
+            </p>
+            
+            <button 
+              onClick={handleFinish} 
+              disabled={isLoading}
+              className="btn-primary"
+            >
+              {isLoading ? 'Saving your profile...' : `Let's go! →`}
             </button>
           </div>
         )
@@ -818,6 +994,7 @@ const styles = `
   .text-dark { color: var(--text-dark); }
   .text-danger { color: var(--danger); }
   .text-warning { color: var(--warning); }
+  .text-success { color: var(--success); }
   .font-bold { font-weight: 700; }
 
   /* ===== ICON CIRCLES ===== */
@@ -1226,6 +1403,141 @@ const styles = `
   @keyframes fade-pulse {
     from { opacity: 0.7; }
     to { opacity: 1; }
+  }
+
+  /* ===== PHASE 3: ENERGY BATTERY STYLES ===== */
+  .battery-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: clamp(16px, 4vw, 24px) 0;
+  }
+
+  .battery-svg {
+    width: clamp(80px, 22vw, 100px);
+    height: clamp(130px, 36vw, 165px);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+  }
+
+  .battery-fill {
+    transition: all 0.3s ease;
+  }
+
+  .battery-text {
+    transition: fill 0.3s ease;
+  }
+
+  .energy-label {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    margin-top: clamp(8px, 2vw, 12px);
+    transition: color 0.3s ease;
+  }
+
+  .energy-slider-container {
+    margin-bottom: clamp(20px, 5vw, 28px);
+  }
+
+  .energy-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: clamp(8px, 2vw, 12px);
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+  }
+
+  .energy-slider {
+    width: 100%;
+    height: clamp(8px, 2vw, 10px);
+    border-radius: 100px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .energy-slider::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: clamp(24px, 6.5vw, 30px);
+    height: clamp(24px, 6.5vw, 30px);
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    border: 3px solid currentColor;
+  }
+
+  .energy-slider::-moz-range-thumb {
+    width: clamp(24px, 6.5vw, 30px);
+    height: clamp(24px, 6.5vw, 30px);
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    border: 3px solid currentColor;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+
+  /* Calibration Card */
+  .calibration-card {
+    background: linear-gradient(135deg, rgba(29, 155, 240, 0.08) 0%, rgba(0, 186, 124, 0.08) 100%);
+    border: 1px solid rgba(29, 155, 240, 0.2);
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(16px, 4vw, 24px);
+  }
+
+  .calibration-title {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0 0 clamp(12px, 3vw, 16px) 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .calibration-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: clamp(12px, 3vw, 16px);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(4px, 1vw, 6px);
+  }
+
+  .stat-label {
+    font-size: clamp(11px, 3vw, 13px);
+    color: var(--dark-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .stat-value {
+    font-size: clamp(18px, 5vw, 22px);
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+
+  .stat-value.mode-recovery {
+    color: var(--danger);
+  }
+
+  .stat-value.mode-growth {
+    color: var(--success);
+  }
+
+  .stat-value.mode-maintenance {
+    color: var(--primary);
+  }
+
+  .calibration-status {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0;
   }
 
   /* ===== STEP INDICATOR ===== */
