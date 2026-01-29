@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -21,8 +21,18 @@ export default function OnboardingPage() {
   const [moodNote, setMoodNote] = useState('')
   const [coachAdvice, setCoachAdvice] = useState('')
   
-  // NEW: Onboarding path state for adaptive journey
+  // Phase 1: Onboarding path state for adaptive journey
   const [onboardingPath, setOnboardingPath] = useState<OnboardingPath>('maintenance')
+  
+  // Phase 2: Somatic Proof (BREAK button) state
+  const [breakProgress, setBreakProgress] = useState(0)
+  const [breakCompleted, setBreakCompleted] = useState(false)
+  const [isHolding, setIsHolding] = useState(false)
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  const HOLD_DURATION = 5000 // 5 seconds for onboarding (reduced from 10s)
+  const PROGRESS_UPDATE_INTERVAL = 50 // Update progress every 50ms for smooth animation
 
   const totalSteps = 11
 
@@ -70,7 +80,7 @@ export default function OnboardingPage() {
   const handleMoodSubmit = async () => {
     setIsLoading(true)
     
-    // NEW: Determine onboarding path based on mood score
+    // Phase 1: Determine onboarding path based on mood score
     if (mood <= 3) {
       setOnboardingPath('recovery')
     } else if (mood >= 8) {
@@ -114,7 +124,68 @@ export default function OnboardingPage() {
     router.push('/dashboard')
   }
 
-  // NEW: Helper function to render path-specific content for Step 6
+  // Phase 2: BREAK button handlers (dead man's switch mechanic)
+  const startHolding = useCallback(() => {
+    if (breakCompleted) return
+    
+    setIsHolding(true)
+    const startTime = Date.now()
+    
+    // Progress updater - runs frequently for smooth animation
+    progressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min((elapsed / HOLD_DURATION) * 100, 100)
+      setBreakProgress(progress)
+    }, PROGRESS_UPDATE_INTERVAL)
+    
+    // Completion timer
+    holdTimerRef.current = setTimeout(() => {
+      setBreakProgress(100)
+      setBreakCompleted(true)
+      setIsHolding(false)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+      }
+    }, HOLD_DURATION)
+  }, [breakCompleted])
+
+  const stopHolding = useCallback(() => {
+    if (breakCompleted) return
+    
+    setIsHolding(false)
+    
+    // Clear timers
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current)
+      progressIntervalRef.current = null
+    }
+    
+    // Reset progress immediately (dead man's switch)
+    setBreakProgress(0)
+  }, [breakCompleted])
+
+  // Cleanup timers on unmount or step change
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+    }
+  }, [])
+
+  // Reset BREAK state when leaving step 8
+  useEffect(() => {
+    if (step !== 8) {
+      setBreakProgress(0)
+      setBreakCompleted(false)
+      setIsHolding(false)
+    }
+  }, [step])
+
+  // Phase 1: Helper function to render path-specific content for Step 6
   const renderPathContent = () => {
     switch (onboardingPath) {
       case 'recovery':
@@ -144,6 +215,31 @@ export default function OnboardingPage() {
           message: "Let's build a system to keep you here.",
           explanation: "Maintenance mode is underrated. This is where sustainable habits are built. Let's create some routines that protect this equilibrium.",
           buttonText: "Build my system"
+        }
+    }
+  }
+
+  // Phase 2: Helper function to render path-specific BREAK intro text
+  const getBreakIntroText = () => {
+    switch (onboardingPath) {
+      case 'recovery':
+        return {
+          title: "Let's just breathe for 5 seconds.",
+          subtitle: "You're already in a tough spot. This isn't about fixing anything—just pausing the spiral.",
+          instruction: "Press and hold the button below. Don't let go until it's done."
+        }
+      case 'growth':
+        return {
+          title: "Quick calibration check.",
+          subtitle: "Even when you're flying high, it helps to know you can slow down on command.",
+          instruction: "Press and hold to prove to your nervous system that you're in control."
+        }
+      case 'maintenance':
+      default:
+        return {
+          title: "Let's practice the pause.",
+          subtitle: "This is your emergency brake. Best to test it when you don't need it.",
+          instruction: "Press and hold the button for 5 seconds to complete the calibration."
         }
     }
   }
@@ -315,7 +411,7 @@ export default function OnboardingPage() {
           </div>
         )
 
-      // Step 6: Show coach advice - NOW WITH ADAPTIVE BRANCHING
+      // Step 6: Show coach advice - WITH ADAPTIVE BRANCHING (Phase 1)
       case 6:
         const pathContent = renderPathContent()
         return (
@@ -372,31 +468,97 @@ export default function OnboardingPage() {
           </div>
         )
 
-      // Step 8: BREAK explanation
+      // Step 8: BREAK - Interactive Somatic Proof (Phase 2)
       case 8:
+        const breakIntro = getBreakIntroText()
         return (
-          <div className="step-content">
-            <div className="icon-circle danger">
-              <span>🛑</span>
-            </div>
-            <h1 className="title">For when the noise gets too loud</h1>
-            <div className="prose">
-              <p>
-                You know that feeling? The supermarket is too bright, someone asks you a simple question and you snap, then you feel guilty, which makes you snappier?
-              </p>
-              <p className="text-dark"><strong>That is the red zone.</strong></p>
-            </div>
-            <div className="warning-card">
-              <p>
-                When you feel this, hit the <strong>BREAK</strong> button. It helps you pause for just 10 seconds to reset your regulation.
-              </p>
-            </div>
-            <p className="subtitle">
-              Because ADHD isn't just about "focus"—it's usually about <strong className="text-dark">emotional dysregulation</strong>.
-            </p>
-            <button onClick={handleNext} className="btn-primary">
-              Dysregulation?
-            </button>
+          <div className="step-content centered">
+            {breakCompleted ? (
+              // Success state
+              <>
+                <div className="icon-circle success pulse-success">
+                  <span>✓</span>
+                </div>
+                <h1 className="title">Nervous system calibrated.</h1>
+                <div className="success-message-card">
+                  <p>You just proved you can pause on command. That's the whole skill.</p>
+                </div>
+                <div className="prose">
+                  <p>
+                    When the noise gets too loud—the supermarket lights, the snappy comment, the guilt spiral—you now have a tool.
+                  </p>
+                  <p className="text-dark">
+                    <strong>BREAK</strong> will always be in your menu. Use it whenever you need to reset.
+                  </p>
+                </div>
+                <button onClick={handleNext} className="btn-primary">
+                  Got it, let's continue
+                </button>
+              </>
+            ) : (
+              // Interactive hold state
+              <>
+                <h1 className="title">{breakIntro.title}</h1>
+                <p className="subtitle">{breakIntro.subtitle}</p>
+                
+                {/* The interactive BREAK button with progress ring */}
+                <div className="break-button-container">
+                  <svg className="progress-ring" viewBox="0 0 200 200">
+                    {/* Background ring */}
+                    <circle
+                      className="progress-ring-bg"
+                      cx="100"
+                      cy="100"
+                      r="90"
+                      fill="none"
+                      strokeWidth="8"
+                    />
+                    {/* Progress ring */}
+                    <circle
+                      className="progress-ring-fill"
+                      cx="100"
+                      cy="100"
+                      r="90"
+                      fill="none"
+                      strokeWidth="8"
+                      strokeDasharray={`${2 * Math.PI * 90}`}
+                      strokeDashoffset={`${2 * Math.PI * 90 * (1 - breakProgress / 100)}`}
+                      transform="rotate(-90 100 100)"
+                    />
+                  </svg>
+                  <button
+                    className={`break-button ${isHolding ? 'holding' : ''}`}
+                    onMouseDown={startHolding}
+                    onMouseUp={stopHolding}
+                    onMouseLeave={stopHolding}
+                    onTouchStart={(e) => { e.preventDefault(); startHolding(); }}
+                    onTouchEnd={stopHolding}
+                    onTouchCancel={stopHolding}
+                  >
+                    <span className="break-text">BREAK</span>
+                    <span className="break-instruction">
+                      {isHolding ? `${Math.ceil((100 - breakProgress) / 20)}s` : 'Hold'}
+                    </span>
+                  </button>
+                </div>
+                
+                <p className="instruction-text">{breakIntro.instruction}</p>
+                
+                {/* Progress hint */}
+                {breakProgress > 0 && breakProgress < 100 && (
+                  <p className="progress-hint">Keep holding... {Math.round(breakProgress)}%</p>
+                )}
+                
+                {/* Disabled next button until completed */}
+                <button 
+                  onClick={handleNext} 
+                  className="btn-primary"
+                  disabled={!breakCompleted}
+                >
+                  Complete the hold first
+                </button>
+              </>
+            )}
           </div>
         )
 
@@ -683,6 +845,25 @@ const styles = `
   .icon-circle.warning { background: var(--warning); }
   .icon-circle.success { background: var(--success); }
 
+  /* Success pulse animation */
+  .pulse-success {
+    animation: pulse-success 0.6s ease-out;
+  }
+
+  @keyframes pulse-success {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
   /* ===== AVATAR PHOTO ===== */
   .avatar-photo {
     width: clamp(80px, 22vw, 110px);
@@ -848,7 +1029,7 @@ const styles = `
     line-height: 1.5;
   }
 
-  /* NEW: Path message card for adaptive branching */
+  /* Path message card for adaptive branching */
   .path-message-card {
     background: linear-gradient(135deg, rgba(29, 155, 240, 0.1) 0%, rgba(0, 186, 124, 0.1) 100%);
     border: 1px solid rgba(29, 155, 240, 0.2);
@@ -863,6 +1044,23 @@ const styles = `
     color: var(--text-dark);
     margin: 0;
     line-height: 1.4;
+  }
+
+  /* Success message card for BREAK completion */
+  .success-message-card {
+    background: rgba(0, 186, 124, 0.1);
+    border: 1px solid rgba(0, 186, 124, 0.3);
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(16px, 4vw, 24px);
+  }
+
+  .success-message-card p {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 500;
+    color: #065f46;
+    margin: 0;
+    line-height: 1.5;
   }
 
   .info-card {
@@ -914,6 +1112,122 @@ const styles = `
     color: #c2410c;
   }
 
+  /* ===== PHASE 2: BREAK BUTTON STYLES ===== */
+  .break-button-container {
+    position: relative;
+    width: clamp(160px, 45vw, 200px);
+    height: clamp(160px, 45vw, 200px);
+    margin: clamp(20px, 5vw, 32px) auto;
+  }
+
+  .progress-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .progress-ring-bg {
+    stroke: var(--extra-light-gray);
+  }
+
+  .progress-ring-fill {
+    stroke: var(--danger);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.05s linear;
+  }
+
+  .break-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: clamp(120px, 34vw, 150px);
+    height: clamp(120px, 34vw, 150px);
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(145deg, #f4212e, #dc1b25);
+    box-shadow: 
+      0 6px 20px rgba(244, 33, 46, 0.4),
+      0 2px 4px rgba(0, 0, 0, 0.1),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+      inset 0 2px 4px rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(4px, 1vw, 8px);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .break-button:active,
+  .break-button.holding {
+    transform: translate(-50%, -50%) scale(0.95);
+    box-shadow: 
+      0 3px 10px rgba(244, 33, 46, 0.5),
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      inset 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .break-button.holding {
+    animation: pulse-holding 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse-holding {
+    0%, 100% {
+      box-shadow: 
+        0 3px 10px rgba(244, 33, 46, 0.5),
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        inset 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+      box-shadow: 
+        0 3px 20px rgba(244, 33, 46, 0.7),
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        inset 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  .break-text {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 800;
+    color: white;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .break-instruction {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .instruction-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0 0 clamp(12px, 3vw, 16px) 0;
+    line-height: 1.5;
+  }
+
+  .progress-hint {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--danger);
+    font-weight: 600;
+    margin: 0 0 clamp(16px, 4vw, 24px) 0;
+    animation: fade-pulse 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes fade-pulse {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+  }
+
   /* ===== STEP INDICATOR ===== */
   .step-indicator {
     position: fixed;
@@ -946,6 +1260,10 @@ const styles = `
     .btn-primary:hover,
     .btn-secondary:hover {
       transform: translateY(-1px);
+    }
+
+    .break-button:hover:not(.holding) {
+      transform: translate(-50%, -50%) scale(1.02);
     }
   }
 
