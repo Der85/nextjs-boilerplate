@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+// Type for onboarding path based on mood score
+type OnboardingPath = 'recovery' | 'maintenance' | 'growth'
+
 export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState(0)
@@ -17,6 +20,9 @@ export default function OnboardingPage() {
   const [mood, setMood] = useState(5)
   const [moodNote, setMoodNote] = useState('')
   const [coachAdvice, setCoachAdvice] = useState('')
+  
+  // NEW: Onboarding path state for adaptive journey
+  const [onboardingPath, setOnboardingPath] = useState<OnboardingPath>('maintenance')
 
   const totalSteps = 11
 
@@ -37,10 +43,10 @@ export default function OnboardingPage() {
       setError('Please fill in all fields')
       return
     }
-    
+
     setIsLoading(true)
     setError('')
-    
+
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -51,9 +57,8 @@ export default function OnboardingPage() {
           }
         }
       })
-      
+
       if (signUpError) throw signUpError
-      
       handleNext()
     } catch (err: any) {
       setError(err.message || 'Registration failed')
@@ -65,20 +70,28 @@ export default function OnboardingPage() {
   const handleMoodSubmit = async () => {
     setIsLoading(true)
     
+    // NEW: Determine onboarding path based on mood score
+    if (mood <= 3) {
+      setOnboardingPath('recovery')
+    } else if (mood >= 8) {
+      setOnboardingPath('growth')
+    } else {
+      setOnboardingPath('maintenance')
+    }
+    
     try {
-      // Get coach advice
+      // Get coach advice (existing Supabase call - kept intact)
       const response = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ moodScore: mood, note: moodNote }),
       })
-      
+
       const data = await response.json()
       setCoachAdvice(data.advice)
-      
-      // Save mood entry
+
+      // Save mood entry (existing Supabase call - kept intact)
       const { data: { user } } = await supabase.auth.getUser()
-      
       if (user) {
         await supabase.from('mood_entries').insert({
           user_id: user.id,
@@ -87,7 +100,7 @@ export default function OnboardingPage() {
           coach_advice: data.advice,
         })
       }
-      
+
       handleNext()
     } catch (err) {
       console.error('Error:', err)
@@ -99,6 +112,40 @@ export default function OnboardingPage() {
 
   const handleFinish = () => {
     router.push('/dashboard')
+  }
+
+  // NEW: Helper function to render path-specific content for Step 6
+  const renderPathContent = () => {
+    switch (onboardingPath) {
+      case 'recovery':
+        return {
+          icon: '🫂',
+          iconClass: 'danger',
+          title: "It sounds like a heavy day.",
+          message: "Let's skip the goal setting and focus on regulation.",
+          explanation: "When you're in the red zone, adding more tasks only makes things worse. Today, we're going to focus on getting you back to baseline. No pressure, no productivity hacks—just gentle support.",
+          buttonText: "Focus on regulation"
+        }
+      case 'growth':
+        return {
+          icon: '🚀',
+          iconClass: 'success',
+          title: "You're in a great spot!",
+          message: "Let's harness this momentum.",
+          explanation: "This is the perfect time to tackle something meaningful. Your brain is primed for action. Let's capture this energy and point it somewhere that matters to you.",
+          buttonText: "Let's build something"
+        }
+      case 'maintenance':
+      default:
+        return {
+          icon: '⚖️',
+          iconClass: 'primary',
+          title: "Steady is good.",
+          message: "Let's build a system to keep you here.",
+          explanation: "Maintenance mode is underrated. This is where sustainable habits are built. Let's create some routines that protect this equilibrium.",
+          buttonText: "Build my system"
+        }
+    }
   }
 
   const renderStep = () => {
@@ -140,7 +187,11 @@ export default function OnboardingPage() {
               className="text-input"
               autoFocus
             />
-            <button onClick={handleNext} disabled={!name.trim()} className="btn-primary">
+            <button
+              onClick={handleNext}
+              disabled={!name.trim()}
+              className="btn-primary"
+            >
               Nice to meet you
             </button>
           </div>
@@ -160,7 +211,11 @@ export default function OnboardingPage() {
               className="text-input"
               autoFocus
             />
-            <button onClick={handleNext} disabled={!email.trim()} className="btn-primary">
+            <button
+              onClick={handleNext}
+              disabled={!email.trim()}
+              className="btn-primary"
+            >
               Continue
             </button>
           </div>
@@ -181,9 +236,9 @@ export default function OnboardingPage() {
               autoFocus
             />
             {error && <p className="error-text">{error}</p>}
-            <button 
-              onClick={handleRegister} 
-              disabled={!password.trim() || isLoading} 
+            <button
+              onClick={handleRegister}
+              disabled={!password.trim() || isLoading}
               className="btn-primary"
             >
               {isLoading ? 'Creating your space...' : 'Secure my account'}
@@ -227,7 +282,6 @@ export default function OnboardingPage() {
             <p className="subtitle">
               We track mood to find patterns. How is your brain feeling right this second?
             </p>
-            
             <div className="mood-slider-container">
               <div className="mood-slider-labels">
                 <span>Overwhelmed</span>
@@ -243,7 +297,6 @@ export default function OnboardingPage() {
                 className="mood-slider"
               />
             </div>
-
             <p className="subtitle">Quick brain dump: What's on your mind? (Don't overthink it).</p>
             <textarea
               value={moodNote}
@@ -252,36 +305,47 @@ export default function OnboardingPage() {
               rows={3}
               className="text-input textarea"
             />
-            
-            <button onClick={handleMoodSubmit} disabled={isLoading} className="btn-primary">
+            <button
+              onClick={handleMoodSubmit}
+              disabled={isLoading}
+              className="btn-primary"
+            >
               {isLoading ? 'Analysing...' : 'Complete Check-in'}
             </button>
           </div>
         )
 
-      // Step 6: Show coach advice
+      // Step 6: Show coach advice - NOW WITH ADAPTIVE BRANCHING
       case 6:
+        const pathContent = renderPathContent()
         return (
-          <div className="step-content">
-            <h1 className="title">My thoughts...</h1>
-            <div className="advice-card">
-              <p>
-                {coachAdvice || "Thanks for sharing. Acknowledging where you are is the first step to navigating it."}
-              </p>
+          <div className="step-content centered">
+            <div className={`icon-circle ${pathContent.iconClass}`}>
+              <span>{pathContent.icon}</span>
             </div>
+            <h1 className="title">{pathContent.title}</h1>
+            <div className="path-message-card">
+              <p className="path-message">{pathContent.message}</p>
+            </div>
+            
+            {/* Still show coach advice if available */}
+            {coachAdvice && (
+              <div className="advice-card">
+                <p>{coachAdvice}</p>
+              </div>
+            )}
+            
             <div className="prose">
-              <p>
-                This is how we'll work together. You check in, and I'll help you spot the patterns you might miss while you're in the thick of it.
-              </p>
+              <p>{pathContent.explanation}</p>
               <p className="text-dark">
-                 Remember: <strong>You are in the driving seat.</strong>
+                Remember: <strong>You are in the driving seat.</strong>
               </p>
               <p>
                 I'm just the navigator holding the map so you can keep your eyes on the road.
               </p>
             </div>
             <button onClick={handleNext} className="btn-primary">
-              Makes sense
+              {pathContent.buttonText}
             </button>
           </div>
         )
@@ -292,7 +356,7 @@ export default function OnboardingPage() {
           <div className="step-content">
             <h1 className="title">Your Toolkit</h1>
             <p className="subtitle">
-              Pattern recognition is great, but sometimes you need immediate help. 
+              Pattern recognition is great, but sometimes you need immediate help.
             </p>
             <div className="info-card">
               <p>
@@ -404,7 +468,10 @@ export default function OnboardingPage() {
       {/* Progress bar */}
       {step > 0 && (
         <div className="progress-bar-container">
-          <div className="progress-bar-fill" style={{ width: `${(step / (totalSteps - 1)) * 100}%` }} />
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${(step / (totalSteps - 1)) * 100}%` }}
+          />
         </div>
       )}
 
@@ -614,6 +681,7 @@ const styles = `
   .icon-circle.primary { background: var(--primary); }
   .icon-circle.danger { background: var(--danger); }
   .icon-circle.warning { background: var(--warning); }
+  .icon-circle.success { background: var(--success); }
 
   /* ===== AVATAR PHOTO ===== */
   .avatar-photo {
@@ -778,6 +846,23 @@ const styles = `
     color: var(--text-dark);
     margin: 0;
     line-height: 1.5;
+  }
+
+  /* NEW: Path message card for adaptive branching */
+  .path-message-card {
+    background: linear-gradient(135deg, rgba(29, 155, 240, 0.1) 0%, rgba(0, 186, 124, 0.1) 100%);
+    border: 1px solid rgba(29, 155, 240, 0.2);
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(16px, 4vw, 24px);
+  }
+
+  .path-message {
+    font-size: clamp(16px, 4.2vw, 20px);
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0;
+    line-height: 1.4;
   }
 
   .info-card {
