@@ -60,9 +60,13 @@ export default function Dashboard() {
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
 
+  // Phase 2: Random online count for Village presence
+  const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
+
   // UI state
   const [showHistory, setShowHistory] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [showCheckInAnyway, setShowCheckInAnyway] = useState(false) // Phase 3: Allow check-in in Recovery/Growth modes
 
   useEffect(() => {
     const init = async () => {
@@ -175,6 +179,7 @@ export default function Dashboard() {
     setCoachResponse(null)
     setMoodScore(null)
     setNote('')
+    setShowCheckInAnyway(false) // Phase 3: Reset check-in anyway state
     if (user) await fetchData(user.id)
   }
 
@@ -269,7 +274,7 @@ export default function Dashboard() {
           {/* Phase 2: Village Presence Indicator */}
           <div className="village-pill">
             <span className="presence-dot"></span>
-            <span className="presence-count">42 online</span>
+            <span className="presence-count">{onlineCount} online</span>
           </div>
           <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
             💜
@@ -329,84 +334,136 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Main Card */}
-        <div className="card main-card">
-          <div className="greeting">
-            <h1>{getGreeting()} 👋</h1>
-            {getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
-          </div>
-
-          {checkInComplete && coachResponse ? (
-            <div className="checkin-complete">
-              <div className="logged-mood">
-                <span className="emoji-large">{getMoodEmoji(moodScore!)}</span>
-                <div>
-                  <span className="mood-score">{moodScore}/10</span>
-                  <span className="mood-time">Logged just now</span>
-                </div>
+        {/* Phase 3: Pinned Context Card - Dynamic based on userMode */}
+        {userMode === 'recovery' && !showCheckInAnyway && !checkInComplete ? (
+          // RECOVERY MODE CARD
+          <div className="card pinned-card recovery">
+            <div className="pinned-header">
+              <span className="pinned-icon">🫂</span>
+              <div className="pinned-titles">
+                <h2 className="pinned-title">Low Power Mode Active</h2>
+                <p className="pinned-subtitle">Energy is low — let's skip the big tasks.</p>
               </div>
+            </div>
+            <p className="pinned-message">
+              Your last check-in showed you're running on fumes. Today isn't about productivity — it's about getting back to baseline.
+            </p>
+            <button onClick={() => router.push('/brake')} className="btn-action recovery">
+              🛑 Start 10s Reset
+            </button>
+            <button onClick={() => setShowCheckInAnyway(true)} className="btn-text">
+              Check in anyway →
+            </button>
+          </div>
+        ) : userMode === 'growth' && !showCheckInAnyway && !checkInComplete ? (
+          // GROWTH MODE CARD
+          <div className="card pinned-card growth">
+            <div className="pinned-header">
+              <span className="pinned-icon">🚀</span>
+              <div className="pinned-titles">
+                <h2 className="pinned-title">Momentum Detected</h2>
+                <p className="pinned-subtitle">You are in the zone.</p>
+              </div>
+            </div>
+            <p className="pinned-message">
+              Your mood is high and you've been consistent. Let's channel this energy into something meaningful before it fades.
+            </p>
+            <button onClick={() => router.push('/focus')} className="btn-action growth">
+              ⏱️ Start Focus Session
+            </button>
+            <button onClick={() => setShowCheckInAnyway(true)} className="btn-text">
+              Check in anyway →
+            </button>
+          </div>
+        ) : (
+          // MAINTENANCE MODE CARD (or check-in anyway)
+          <div className="card main-card">
+            <div className="greeting">
+              <h1>{getGreeting()} 👋</h1>
+              {!showCheckInAnyway && getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
+              {showCheckInAnyway && (
+                <p className="context-msg">
+                  <button onClick={() => setShowCheckInAnyway(false)} className="back-link">
+                    ← Back to {userMode === 'recovery' ? 'Recovery' : 'Growth'} mode
+                  </button>
+                </p>
+              )}
+            </div>
 
-              <div className="ai-response">
-                <p>{coachResponse.advice}</p>
-                {coachResponse.context?.currentStreak && (
-                  <div className="context-badge">
-                    {coachResponse.context.currentStreak.type === 'low_mood' ? '💙' : '🔥'}
-                    {coachResponse.context.currentStreak.days} day{coachResponse.context.currentStreak.days > 1 ? 's' : ''}
-                    {coachResponse.context.currentStreak.type === 'low_mood' ? ' - I see you' : ' streak'}
+            {checkInComplete && coachResponse ? (
+              <div className="checkin-complete">
+                <div className="logged-mood">
+                  <span className="emoji-large">{getMoodEmoji(moodScore!)}</span>
+                  <div>
+                    <span className="mood-score">{moodScore}/10</span>
+                    <span className="mood-time">Logged just now</span>
+                  </div>
+                </div>
+
+                <div className="ai-response">
+                  <p>{coachResponse.advice}</p>
+                  {coachResponse.context?.currentStreak && (
+                    <div className="context-badge">
+                      {coachResponse.context.currentStreak.type === 'low_mood' ? '💙' : '🔥'}
+                      {coachResponse.context.currentStreak.days} day{coachResponse.context.currentStreak.days > 1 ? 's' : ''}
+                      {coachResponse.context.currentStreak.type === 'low_mood' ? ' - I see you' : ' streak'}
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={resetCheckIn} className="btn-secondary">
+                  ✓ Done — check in again later
+                </button>
+              </div>
+            ) : (
+              <div className="checkin-form">
+                <p className="checkin-prompt">
+                  {userMode === 'maintenance' ? 'Daily Pulse — How are you feeling right now?' : 'Quick check-in:'}
+                </p>
+
+                <div className="mood-grid">
+                  {[0,1,2,3,4,5,6,7,8,9,10].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setMoodScore(n)}
+                      className={`mood-btn ${moodScore === n ? 'active' : ''}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+
+                {moodScore !== null && (
+                  <div className="mood-selected">
+                    <div className="selected-display">
+                      <span className="emoji-xlarge">{getMoodEmoji(moodScore)}</span>
+                      <span className="score-large">{moodScore}/10</span>
+                    </div>
+
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="What's on your mind? (helps me give better advice)"
+                      className="note-input"
+                      rows={2}
+                    />
+
+                    <button onClick={handleSubmit} disabled={saving} className="btn-primary">
+                      {saving ? (
+                        <span className="btn-loading">
+                          <span className="spinner-small" />
+                          Thinking...
+                        </span>
+                      ) : (
+                        'Log & Get Advice'
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
-
-              <button onClick={resetCheckIn} className="btn-secondary">
-                ✓ Done — check in again later
-              </button>
-            </div>
-          ) : (
-            <div className="checkin-form">
-              <p className="checkin-prompt">How are you feeling right now?</p>
-
-              <div className="mood-grid">
-                {[0,1,2,3,4,5,6,7,8,9,10].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setMoodScore(n)}
-                    className={`mood-btn ${moodScore === n ? 'active' : ''}`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-
-              {moodScore !== null && (
-                <div className="mood-selected">
-                  <div className="selected-display">
-                    <span className="emoji-xlarge">{getMoodEmoji(moodScore)}</span>
-                    <span className="score-large">{moodScore}/10</span>
-                  </div>
-
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="What's on your mind? (helps me give better advice)"
-                    className="note-input"
-                    rows={2}
-                  />
-
-                  <button onClick={handleSubmit} disabled={saving} className="btn-primary">
-                    {saving ? (
-                      <span className="btn-loading">
-                        <span className="spinner-small" />
-                        Thinking...
-                      </span>
-                    ) : (
-                      'Log & Get Advice'
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Stats Row */}
         {insights && insights.totalCheckIns > 0 && (
@@ -670,6 +727,127 @@ const styles = `
     padding: clamp(16px, 5vw, 28px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  /* ===== PHASE 3: PINNED CONTEXT CARDS ===== */
+  .pinned-card {
+    padding: clamp(20px, 5.5vw, 32px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: clamp(12px, 4vw, 18px);
+    border: 1px solid;
+  }
+
+  .pinned-card.recovery {
+    background: rgba(244, 33, 46, 0.04);
+    border-color: rgba(244, 33, 46, 0.15);
+  }
+
+  .pinned-card.growth {
+    background: rgba(0, 186, 124, 0.04);
+    border-color: rgba(0, 186, 124, 0.15);
+  }
+
+  .pinned-header {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(12px, 3.5vw, 18px);
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .pinned-icon {
+    font-size: clamp(32px, 9vw, 44px);
+    flex-shrink: 0;
+  }
+
+  .pinned-titles {
+    flex: 1;
+  }
+
+  .pinned-title {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    color: var(--text-dark, #0f1419);
+    margin: 0 0 clamp(2px, 0.8vw, 4px) 0;
+  }
+
+  .pinned-card.recovery .pinned-title {
+    color: #dc2626;
+  }
+
+  .pinned-card.growth .pinned-title {
+    color: #059669;
+  }
+
+  .pinned-subtitle {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0;
+  }
+
+  .pinned-message {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    line-height: 1.6;
+    margin: 0 0 clamp(18px, 5vw, 26px) 0;
+  }
+
+  .btn-action {
+    width: 100%;
+    padding: clamp(14px, 4vw, 18px);
+    border: none;
+    border-radius: clamp(12px, 3vw, 16px);
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 12px);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .btn-action:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-action.recovery {
+    background: linear-gradient(135deg, #f4212e 0%, #dc2626 100%);
+    color: white;
+    box-shadow: 0 4px 14px rgba(244, 33, 46, 0.3);
+  }
+
+  .btn-action.growth {
+    background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 4px 14px rgba(0, 186, 124, 0.3);
+  }
+
+  .btn-text {
+    width: 100%;
+    margin-top: clamp(12px, 3vw, 16px);
+    padding: clamp(8px, 2.5vw, 12px);
+    background: none;
+    border: none;
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .btn-text:hover {
+    color: var(--primary);
+  }
+
+  .back-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    color: var(--primary);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   /* ===== PHASE 1: MODE BANNER ===== */
