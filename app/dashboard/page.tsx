@@ -64,7 +64,6 @@ export default function Dashboard() {
   const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
 
   // UI state
-  const [showHistory, setShowHistory] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showCheckInAnyway, setShowCheckInAnyway] = useState(false) // Phase 3: Allow check-in in Recovery/Growth modes
 
@@ -465,55 +464,60 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Stats Row */}
-        {insights && insights.totalCheckIns > 0 && (
-          <div className="stats-row">
-            <div className="stat-card">
-              <span className="stat-emoji">{insights.recentAverage ? getMoodEmoji(insights.recentAverage) : '📊'}</span>
-              <p className="stat-value">{insights.recentAverage?.toFixed(1) || '-'}</p>
-              <p className="stat-label">This week</p>
-            </div>
-            <div className="stat-card">
-              <span className="stat-emoji">📝</span>
-              <p className="stat-value">{insights.totalCheckIns}</p>
-              <p className="stat-label">Check-ins</p>
-            </div>
-            <div className="stat-card">
-              <span className="stat-emoji">{insights.trend === 'up' ? '📈' : insights.trend === 'down' ? '📉' : '➡️'}</span>
-              <p className="stat-value">{insights.trend === 'up' ? 'Up' : insights.trend === 'down' ? 'Down' : 'Steady'}</p>
-              <p className="stat-label">Trend</p>
+        {/* Phase 4: Insight Card (replaces stats-row) */}
+        {insights && (insights.trend === 'up' || insights.trend === 'down') && (
+          <div className="card insight-card">
+            <span className="insight-icon">💡</span>
+            <div className="insight-content">
+              <span className="insight-label">Insight</span>
+              <p className="insight-text">
+                Your mood is trending <strong>{insights.trend === 'up' ? 'up 📈' : 'down 📉'}</strong> this week.
+                {insights.trend === 'up' 
+                  ? " You're building momentum — keep it going!"
+                  : " Be gentle with yourself. Consider using BREAK today."
+                }
+              </p>
             </div>
           </div>
         )}
 
-        {/* Expandable History */}
+        {/* Phase 4: Activity Feed (Twitter-style stream) */}
         {recentMoods.length > 0 && (
-          <div className="card history-card">
-            <button onClick={() => setShowHistory(!showHistory)} className="history-toggle">
-              <span>Recent Check-ins</span>
-              <span className={`arrow ${showHistory ? 'open' : ''}`}>▼</span>
-            </button>
-
-            {showHistory && (
-              <div className="history-list">
-                {recentMoods.slice(0, 5).map((entry, i) => (
-                  <div key={entry.id} className={`history-item ${i > 0 ? 'bordered' : ''}`}>
-                    <span className="history-emoji">{getMoodEmoji(entry.mood_score)}</span>
-                    <div className="history-content">
-                      <div className="history-header">
-                        <span className="history-score">{entry.mood_score}/10</span>
-                        <span className="history-time">{formatTime(entry.created_at)}</span>
-                      </div>
-                      {entry.note && <p className="history-note">{entry.note}</p>}
-                    </div>
+          <div className="activity-feed">
+            <h3 className="feed-header">Recent Activity</h3>
+            
+            {recentMoods.map((entry) => (
+              <div key={entry.id} className="feed-item">
+                {/* Tweet-style layout: Avatar left, content right */}
+                <div className="feed-avatar">
+                  <span className="feed-emoji">{getMoodEmoji(entry.mood_score)}</span>
+                </div>
+                
+                <div className="feed-body">
+                  <div className="feed-meta">
+                    <span className="feed-score">{entry.mood_score}/10</span>
+                    <span className="feed-dot">·</span>
+                    <span className="feed-time">{formatTime(entry.created_at)}</span>
                   </div>
-                ))}
-
-                <button onClick={() => router.push('/history')} className="view-all-btn">
-                  View full history & charts →
-                </button>
+                  
+                  {entry.note && (
+                    <p className="feed-note">{entry.note}</p>
+                  )}
+                  
+                  {/* Coach advice bubble */}
+                  {entry.coach_advice && (
+                    <div className="coach-bubble">
+                      <span className="coach-label">Der's advice</span>
+                      <p className="coach-text">{entry.coach_advice}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
+            
+            <button onClick={() => router.push('/history')} className="feed-view-all">
+              View full history & charts →
+            </button>
           </div>
         )}
       </main>
@@ -1049,99 +1053,164 @@ const styles = `
     color: var(--primary);
   }
 
-  /* ===== STATS ROW ===== */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: clamp(8px, 2.5vw, 12px);
+  /* ===== PHASE 4: INSIGHT CARD ===== */
+  .insight-card {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(12px, 3.5vw, 16px);
+    padding: clamp(16px, 4.5vw, 22px);
     margin-bottom: clamp(12px, 4vw, 18px);
+    background: linear-gradient(135deg, rgba(29, 155, 240, 0.06) 0%, rgba(0, 186, 124, 0.06) 100%);
+    border: 1px solid rgba(29, 155, 240, 0.15);
   }
 
-  .stat-card {
-    background: white;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    padding: clamp(10px, 3vw, 16px);
-    text-align: center;
+  .insight-icon {
+    font-size: clamp(24px, 7vw, 32px);
+    flex-shrink: 0;
   }
 
-  .stat-emoji { font-size: clamp(18px, 5vw, 26px); }
-  .stat-value {
-    font-size: clamp(16px, 4.5vw, 22px);
+  .insight-content {
+    flex: 1;
+  }
+
+  .insight-label {
+    font-size: clamp(11px, 3vw, 13px);
     font-weight: 700;
-    margin: clamp(2px, 1vw, 6px) 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--primary);
+    display: block;
+    margin-bottom: clamp(4px, 1vw, 6px);
   }
-  .stat-label {
-    font-size: clamp(10px, 2.8vw, 12px);
-    color: var(--light-gray);
+
+  .insight-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    line-height: 1.5;
     margin: 0;
   }
 
-  /* ===== HISTORY ===== */
-  .history-card { margin-bottom: clamp(12px, 4vw, 18px); }
-
-  .history-toggle {
-    width: 100%;
-    padding: clamp(14px, 4vw, 18px);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(14px, 3.8vw, 17px);
-    font-weight: 600;
+  .insight-text strong {
+    color: var(--primary);
   }
 
-  .arrow {
-    transition: transform 0.2s ease;
+  /* ===== PHASE 4: ACTIVITY FEED ===== */
+  .activity-feed {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 3.5vw, 16px);
+  }
+
+  .feed-header {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    margin: 0 0 clamp(4px, 1vw, 8px) 0;
+    padding-left: clamp(4px, 1vw, 8px);
+  }
+
+  .feed-item {
+    display: flex;
+    gap: clamp(12px, 3.5vw, 16px);
+    padding: clamp(16px, 4.5vw, 22px);
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+
+  .feed-avatar {
+    flex-shrink: 0;
+    width: clamp(40px, 11vw, 52px);
+    height: clamp(40px, 11vw, 52px);
+    background: var(--bg-gray);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .feed-emoji {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+
+  .feed-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .feed-meta {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 8px);
+    margin-bottom: clamp(6px, 1.5vw, 10px);
+  }
+
+  .feed-score {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 700;
+    color: var(--text-dark, #0f1419);
+  }
+
+  .feed-dot {
+    color: var(--light-gray);
     font-size: clamp(10px, 2.5vw, 12px);
   }
-  .arrow.open { transform: rotate(180deg); }
 
-  .history-list {
-    padding: 0 clamp(14px, 4vw, 18px) clamp(14px, 4vw, 18px);
+  .feed-time {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
   }
 
-  .history-item {
-    display: flex;
-    align-items: flex-start;
-    gap: clamp(10px, 3vw, 14px);
-    padding: clamp(10px, 3vw, 14px) 0;
-  }
-
-  .history-item.bordered { border-top: 1px solid #f0f0f0; }
-  .history-emoji { font-size: clamp(22px, 6vw, 30px); flex-shrink: 0; }
-
-  .history-content { flex: 1; min-width: 0; }
-
-  .history-header {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 2vw, 10px);
-  }
-
-  .history-score { font-weight: 600; font-size: clamp(14px, 3.8vw, 16px); }
-  .history-time { color: var(--light-gray); font-size: clamp(11px, 3vw, 14px); }
-
-  .history-note {
-    font-size: clamp(13px, 3.5vw, 15px);
+  .feed-note {
+    font-size: clamp(14px, 3.8vw, 16px);
     color: var(--dark-gray);
-    margin: clamp(3px, 1vw, 6px) 0 0 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.5;
+    margin: 0 0 clamp(10px, 3vw, 14px) 0;
+    word-wrap: break-word;
   }
 
-  .view-all-btn {
-    width: 100%;
+  /* Coach advice bubble */
+  .coach-bubble {
+    background: linear-gradient(135deg, rgba(29, 155, 240, 0.08) 0%, rgba(29, 155, 240, 0.03) 100%);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 clamp(10px, 2.5vw, 14px) clamp(10px, 2.5vw, 14px) 0;
     padding: clamp(10px, 3vw, 14px);
     margin-top: clamp(8px, 2vw, 12px);
-    background: var(--bg-gray);
-    border: none;
-    border-radius: clamp(8px, 2vw, 10px);
+  }
+
+  .coach-label {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 600;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: clamp(4px, 1vw, 6px);
+  }
+
+  .coach-text {
     font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .feed-view-all {
+    width: 100%;
+    padding: clamp(14px, 4vw, 18px);
+    background: white;
+    border: 1px solid var(--extra-light-gray, #eff3f4);
+    border-radius: clamp(12px, 3vw, 16px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
     color: var(--primary);
     cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .feed-view-all:hover {
+    background: var(--bg-gray);
   }
 
   /* ===== BOTTOM NAV ===== */
