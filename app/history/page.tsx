@@ -34,11 +34,17 @@ export default function HistoryPage() {
     monthlyAvg: 0
   })
   const [showMenu, setShowMenu] = useState(false)
+  
+  // Phase 1: Random online count for Village presence (matches Dashboard)
+  const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
 
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
+      if (!session) {
+        router.push('/login')
+        return
+      }
       await fetchHistory(session.user.id)
       setLoading(false)
     }
@@ -58,7 +64,6 @@ export default function HistoryPage() {
 
     if (data) {
       setEntries(data)
-      
       if (data.length > 0) {
         const scores = data.map(e => e.mood_score)
         const oneWeekAgo = new Date()
@@ -74,8 +79,8 @@ export default function HistoryPage() {
           average: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10,
           highest: Math.max(...scores),
           lowest: Math.min(...scores),
-          weeklyAvg: weekEntries.length > 0 
-            ? Math.round(weekEntries.reduce((a, e) => a + e.mood_score, 0) / weekEntries.length * 10) / 10 
+          weeklyAvg: weekEntries.length > 0
+            ? Math.round(weekEntries.reduce((a, e) => a + e.mood_score, 0) / weekEntries.length * 10) / 10
             : 0,
           monthlyAvg: monthEntries.length > 0
             ? Math.round(monthEntries.reduce((a, e) => a + e.mood_score, 0) / monthEntries.length * 10) / 10
@@ -87,9 +92,9 @@ export default function HistoryPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
@@ -115,8 +120,12 @@ export default function HistoryPage() {
         <button onClick={() => router.push('/dashboard')} className="logo">
           ADHDer.io
         </button>
-        
         <div className="header-actions">
+          {/* Phase 1: Village Presence Indicator (matches Dashboard) */}
+          <div className="village-pill">
+            <span className="presence-dot"></span>
+            <span className="presence-count">{onlineCount} online</span>
+          </div>
           <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
             💜
           </button>
@@ -146,7 +155,7 @@ export default function HistoryPage() {
               👥 My Village
             </button>
             <div className="menu-divider" />
-            <button 
+            <button
               onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
               className="menu-item logout"
             >
@@ -163,6 +172,7 @@ export default function HistoryPage() {
         <div className="page-header-title">
           <h1>📊 Mood Insights</h1>
         </div>
+
         {/* Summary Stats */}
         <div className="stats-grid">
           <div className="stat-card highlight">
@@ -197,7 +207,6 @@ export default function HistoryPage() {
           <div className="entries-header">
             <h2>All Check-ins ({stats.total})</h2>
           </div>
-
           <div className="entries-list">
             {entries.length === 0 ? (
               <div className="empty-state">
@@ -259,10 +268,11 @@ export default function HistoryPage() {
 const styles = `
   .history-page {
     --primary: #1D9BF0;
+    --success: #00ba7c;
     --bg-gray: #f7f9fa;
     --dark-gray: #536471;
     --light-gray: #8899a6;
-    
+
     background: var(--bg-gray);
     min-height: 100vh;
     min-height: 100dvh;
@@ -279,7 +289,7 @@ const styles = `
     min-height: 100dvh;
     color: var(--light-gray);
   }
-  
+
   .spinner {
     width: clamp(24px, 5vw, 32px);
     height: clamp(24px, 5vw, 32px);
@@ -335,10 +345,46 @@ const styles = `
 
   .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
   .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
-  .icon-btn.menu { 
-    background: white; 
+  .icon-btn.menu {
+    background: white;
     border: 1px solid #ddd;
     font-size: clamp(12px, 3vw, 16px);
+  }
+
+  /* ===== PHASE 1: VILLAGE PRESENCE PILL ===== */
+  .village-pill {
+    display: flex;
+    align-items: center;
+    gap: clamp(5px, 1.5vw, 8px);
+    padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.5vw, 12px);
+    background: rgba(0, 186, 124, 0.08);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: 100px;
+  }
+
+  .presence-dot {
+    width: clamp(6px, 1.8vw, 8px);
+    height: clamp(6px, 1.8vw, 8px);
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4);
+    }
+    50% {
+      opacity: 0.6;
+      box-shadow: 0 0 0 4px rgba(0, 186, 124, 0);
+    }
+  }
+
+  .presence-count {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 600;
+    color: var(--success);
   }
 
   .dropdown-menu {
@@ -371,10 +417,7 @@ const styles = `
   .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
   .menu-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     z-index: 99;
   }
 
@@ -591,22 +634,10 @@ const styles = `
     color: var(--light-gray);
   }
 
-  .nav-btn.active {
-    color: var(--primary);
-  }
-
-  .nav-icon {
-    font-size: clamp(18px, 5vw, 24px);
-  }
-
-  .nav-label {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 400;
-  }
-
-  .nav-btn.active .nav-label {
-    font-weight: 600;
-  }
+  .nav-btn.active { color: var(--primary); }
+  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
+  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
+  .nav-btn.active .nav-label { font-weight: 600; }
 
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {
@@ -614,11 +645,11 @@ const styles = `
       padding: 24px;
       padding-bottom: 120px;
     }
-    
+
     .stats-grid {
       gap: 16px;
     }
-    
+
     .entries-list {
       max-height: 600px;
     }
@@ -628,7 +659,7 @@ const styles = `
     .header {
       padding: 16px 32px;
     }
-    
+
     .main {
       max-width: 680px;
     }
