@@ -23,6 +23,9 @@ interface UserInsights {
   trend: 'up' | 'down' | 'stable' | null
 }
 
+// Phase 1: User Mode type for holistic state
+type UserMode = 'recovery' | 'maintenance' | 'growth'
+
 const getMoodEmoji = (score: number): string => {
   if (score <= 2) return '😢'
   if (score <= 4) return '😔'
@@ -43,17 +46,20 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  
+
   // Mood check-in state
   const [moodScore, setMoodScore] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [coachResponse, setCoachResponse] = useState<CoachResponse | null>(null)
   const [checkInComplete, setCheckInComplete] = useState(false)
-  
+
   // Data state
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([])
   const [insights, setInsights] = useState<UserInsights | null>(null)
   
+  // Phase 1: User Mode state for holistic dashboard
+  const [userMode, setUserMode] = useState<UserMode>('maintenance')
+
   // UI state
   const [showHistory, setShowHistory] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
@@ -61,7 +67,10 @@ export default function Dashboard() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
+      if (!session) {
+        router.push('/login')
+        return
+      }
       setUser(session.user)
       await fetchData(session.user.id)
       setLoading(false)
@@ -76,15 +85,16 @@ export default function Dashboard() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(14)
-    
+
     if (data && data.length > 0) {
       setRecentMoods(data)
-      
+
       const lastEntry = data[0]
       const daysSince = Math.floor(
         (Date.now() - new Date(lastEntry.created_at).getTime()) / (1000 * 60 * 60 * 24)
       )
-      
+
+      // Calculate streak
       let streak = 1
       for (let i = 1; i < data.length; i++) {
         const curr = new Date(data[i - 1].created_at)
@@ -94,6 +104,7 @@ export default function Dashboard() {
         else break
       }
 
+      // Calculate trend
       let trend: 'up' | 'down' | 'stable' | null = null
       if (data.length >= 6) {
         const recent3 = data.slice(0, 3).reduce((s, m) => s + m.mood_score, 0) / 3
@@ -105,6 +116,7 @@ export default function Dashboard() {
 
       const recentAvg = data.slice(0, 7).reduce((s, m) => s + m.mood_score, 0) / Math.min(data.length, 7)
 
+      // Set insights (existing logic)
       setInsights({
         totalCheckIns: data.length,
         currentStreak: streak >= 2 ? { type: 'checking_in', days: streak } : null,
@@ -114,7 +126,30 @@ export default function Dashboard() {
         recentAverage: Math.round(recentAvg * 10) / 10,
         trend
       })
+
+      // Phase 1: Calculate User Mode based on mood data
+      const calculatedMode = calculateUserMode(lastEntry, streak)
+      setUserMode(calculatedMode)
     }
+  }
+
+  // Phase 1: User Mode calculation logic
+  const calculateUserMode = (lastEntry: MoodEntry, streak: number): UserMode => {
+    const lastMood = lastEntry.mood_score
+    const lastNote = lastEntry.note?.toLowerCase() || ''
+    
+    // Recovery: If the last mood score was ≤ 3 OR the last note mentions 'overwhelmed'
+    if (lastMood <= 3 || lastNote.includes('overwhelmed')) {
+      return 'recovery'
+    }
+    
+    // Growth: If the last mood score was ≥ 8 AND there is a current streak > 2 days
+    if (lastMood >= 8 && streak > 2) {
+      return 'growth'
+    }
+    
+    // Maintenance: Everything else (default)
+    return 'maintenance'
   }
 
   const handleSubmit = async () => {
@@ -122,7 +157,7 @@ export default function Dashboard() {
     setSaving(true)
 
     const response = await getADHDCoachAdvice(moodScore, note || null)
-    
+
     await supabase.from('mood_entries').insert({
       user_id: user.id,
       mood_score: moodScore,
@@ -150,7 +185,7 @@ export default function Dashboard() {
     const mins = Math.floor(diff / 60000)
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
-    
+
     if (mins < 60) return `${mins}m ago`
     if (hours < 24) return `${hours}h ago`
     if (days === 1) return 'Yesterday'
@@ -159,24 +194,54 @@ export default function Dashboard() {
 
   const getContextMessage = (): string | null => {
     if (!insights) return null
-    
+
     if (insights.daysSinceLastCheckIn > 3) {
       return `Welcome back! It's been ${insights.daysSinceLastCheckIn} days.`
     }
-    
     if (insights.currentStreak && insights.currentStreak.days >= 3) {
       return `🔥 ${insights.currentStreak.days}-day streak! Keep it going.`
     }
-    
     if (insights.trend === 'up') {
       return `📈 Your mood has been trending up lately.`
     }
-    
     if (insights.trend === 'down' && insights.lastMood && insights.lastMood <= 4) {
       return `I noticed things have been tough. I'm here.`
     }
-    
     return null
+  }
+
+  // Phase 1: Get mode-specific styling and content
+  const getModeConfig = () => {
+    switch (userMode) {
+      case 'recovery':
+        return {
+          color: '#f4212e',
+          bgColor: 'rgba(244, 33, 46, 0.08)',
+          borderColor: 'rgba(244, 33, 46, 0.2)',
+          icon: '🫂',
+          label: 'Recovery Mode',
+          message: "Let's take it easy today. Focus on regulation, not productivity."
+        }
+      case 'growth':
+        return {
+          color: '#00ba7c',
+          bgColor: 'rgba(0, 186, 124, 0.08)',
+          borderColor: 'rgba(0, 186, 124, 0.2)',
+          icon: '🚀',
+          label: 'Growth Mode',
+          message: "You're on fire! Let's channel this energy into something meaningful."
+        }
+      case 'maintenance':
+      default:
+        return {
+          color: '#1D9BF0',
+          bgColor: 'rgba(29, 155, 240, 0.08)',
+          borderColor: 'rgba(29, 155, 240, 0.2)',
+          icon: '⚖️',
+          label: 'Steady Mode',
+          message: "Consistency is key. Keep building those sustainable habits."
+        }
+    }
   }
 
   if (loading) {
@@ -191,6 +256,8 @@ export default function Dashboard() {
     )
   }
 
+  const modeConfig = getModeConfig()
+
   return (
     <div className="dashboard">
       {/* Header */}
@@ -198,7 +265,6 @@ export default function Dashboard() {
         <button onClick={() => router.push('/dashboard')} className="logo">
           ADHDer.io
         </button>
-        
         <div className="header-actions">
           <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
             💜
@@ -226,7 +292,7 @@ export default function Dashboard() {
               👥 My Village
             </button>
             <div className="menu-divider" />
-            <button 
+            <button
               onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
               className="menu-item logout"
             >
@@ -239,6 +305,25 @@ export default function Dashboard() {
       {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
 
       <main className="main">
+        {/* Phase 1: Mode Indicator Banner */}
+        {insights && insights.totalCheckIns > 0 && (
+          <div 
+            className="mode-banner"
+            style={{ 
+              background: modeConfig.bgColor, 
+              borderColor: modeConfig.borderColor 
+            }}
+          >
+            <span className="mode-icon">{modeConfig.icon}</span>
+            <div className="mode-content">
+              <span className="mode-label" style={{ color: modeConfig.color }}>
+                {modeConfig.label}
+              </span>
+              <span className="mode-message">{modeConfig.message}</span>
+            </div>
+          </div>
+        )}
+
         {/* Main Card */}
         <div className="card main-card">
           <div className="greeting">
@@ -258,7 +343,6 @@ export default function Dashboard() {
 
               <div className="ai-response">
                 <p>{coachResponse.advice}</p>
-                
                 {coachResponse.context?.currentStreak && (
                   <div className="context-badge">
                     {coachResponse.context.currentStreak.type === 'low_mood' ? '💙' : '🔥'}
@@ -400,10 +484,12 @@ export default function Dashboard() {
 const styles = `
   .dashboard {
     --primary: #1D9BF0;
+    --success: #00ba7c;
+    --danger: #f4212e;
     --bg-gray: #f7f9fa;
     --dark-gray: #536471;
     --light-gray: #8899a6;
-    
+
     background: var(--bg-gray);
     min-height: 100vh;
     min-height: 100dvh;
@@ -419,7 +505,7 @@ const styles = `
     min-height: 100vh;
     min-height: 100dvh;
   }
-  
+
   .spinner {
     width: clamp(24px, 5vw, 32px);
     height: clamp(24px, 5vw, 32px);
@@ -429,7 +515,7 @@ const styles = `
     animation: spin 1s linear infinite;
     margin-bottom: 12px;
   }
-  
+
   .spinner-small {
     width: clamp(14px, 3vw, 18px);
     height: clamp(14px, 3vw, 18px);
@@ -485,8 +571,8 @@ const styles = `
 
   .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
   .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
-  .icon-btn.menu { 
-    background: white; 
+  .icon-btn.menu {
+    background: white;
     border: 1px solid #ddd;
     font-size: clamp(12px, 3vw, 16px);
   }
@@ -521,10 +607,7 @@ const styles = `
   .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
   .menu-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     z-index: 99;
   }
 
@@ -546,6 +629,41 @@ const styles = `
     padding: clamp(16px, 5vw, 28px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  /* ===== PHASE 1: MODE BANNER ===== */
+  .mode-banner {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 16px);
+    padding: clamp(12px, 3.5vw, 18px);
+    border-radius: clamp(12px, 3vw, 16px);
+    border: 1px solid;
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  .mode-icon {
+    font-size: clamp(24px, 7vw, 32px);
+    flex-shrink: 0;
+  }
+
+  .mode-content {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2px, 0.5vw, 4px);
+  }
+
+  .mode-label {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .mode-message {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+    line-height: 1.4;
   }
 
   /* ===== GREETING ===== */
@@ -615,14 +733,8 @@ const styles = `
     margin-bottom: clamp(12px, 3vw, 16px);
   }
 
-  .emoji-xlarge {
-    font-size: clamp(36px, 10vw, 52px);
-  }
-
-  .score-large {
-    font-size: clamp(24px, 7vw, 34px);
-    font-weight: 800;
-  }
+  .emoji-xlarge { font-size: clamp(36px, 10vw, 52px); }
+  .score-large { font-size: clamp(24px, 7vw, 34px); font-weight: 800; }
 
   .note-input {
     width: 100%;
@@ -653,10 +765,7 @@ const styles = `
     cursor: pointer;
   }
 
-  .btn-primary:disabled {
-    opacity: 0.7;
-    cursor: wait;
-  }
+  .btn-primary:disabled { opacity: 0.7; cursor: wait; }
 
   .btn-loading {
     display: flex;
@@ -688,15 +797,8 @@ const styles = `
     border-radius: clamp(10px, 2.5vw, 14px);
   }
 
-  .emoji-large {
-    font-size: clamp(28px, 8vw, 38px);
-  }
-
-  .mood-score {
-    font-size: clamp(18px, 5vw, 24px);
-    font-weight: 700;
-  }
-
+  .emoji-large { font-size: clamp(28px, 8vw, 38px); }
+  .mood-score { font-size: clamp(18px, 5vw, 24px); font-weight: 700; }
   .mood-time {
     color: var(--light-gray);
     margin-left: clamp(6px, 2vw, 10px);
@@ -743,16 +845,12 @@ const styles = `
     text-align: center;
   }
 
-  .stat-emoji {
-    font-size: clamp(18px, 5vw, 26px);
-  }
-
+  .stat-emoji { font-size: clamp(18px, 5vw, 26px); }
   .stat-value {
     font-size: clamp(16px, 4.5vw, 22px);
     font-weight: 700;
     margin: clamp(2px, 1vw, 6px) 0;
   }
-
   .stat-label {
     font-size: clamp(10px, 2.8vw, 12px);
     color: var(--light-gray);
@@ -760,9 +858,7 @@ const styles = `
   }
 
   /* ===== HISTORY ===== */
-  .history-card {
-    margin-bottom: clamp(12px, 4vw, 18px);
-  }
+  .history-card { margin-bottom: clamp(12px, 4vw, 18px); }
 
   .history-toggle {
     width: 100%;
@@ -781,10 +877,7 @@ const styles = `
     transition: transform 0.2s ease;
     font-size: clamp(10px, 2.5vw, 12px);
   }
-
-  .arrow.open {
-    transform: rotate(180deg);
-  }
+  .arrow.open { transform: rotate(180deg); }
 
   .history-list {
     padding: 0 clamp(14px, 4vw, 18px) clamp(14px, 4vw, 18px);
@@ -797,19 +890,10 @@ const styles = `
     padding: clamp(10px, 3vw, 14px) 0;
   }
 
-  .history-item.bordered {
-    border-top: 1px solid #f0f0f0;
-  }
+  .history-item.bordered { border-top: 1px solid #f0f0f0; }
+  .history-emoji { font-size: clamp(22px, 6vw, 30px); flex-shrink: 0; }
 
-  .history-emoji {
-    font-size: clamp(22px, 6vw, 30px);
-    flex-shrink: 0;
-  }
-
-  .history-content {
-    flex: 1;
-    min-width: 0;
-  }
+  .history-content { flex: 1; min-width: 0; }
 
   .history-header {
     display: flex;
@@ -817,15 +901,8 @@ const styles = `
     gap: clamp(6px, 2vw, 10px);
   }
 
-  .history-score {
-    font-weight: 600;
-    font-size: clamp(14px, 3.8vw, 16px);
-  }
-
-  .history-time {
-    color: var(--light-gray);
-    font-size: clamp(11px, 3vw, 14px);
-  }
+  .history-score { font-weight: 600; font-size: clamp(14px, 3.8vw, 16px); }
+  .history-time { color: var(--light-gray); font-size: clamp(11px, 3vw, 14px); }
 
   .history-note {
     font-size: clamp(13px, 3.5vw, 15px);
@@ -875,50 +952,21 @@ const styles = `
     color: var(--light-gray);
   }
 
-  .nav-btn.active {
-    color: var(--primary);
-  }
-
-  .nav-icon {
-    font-size: clamp(18px, 5vw, 24px);
-  }
-
-  .nav-label {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 400;
-  }
-
-  .nav-btn.active .nav-label {
-    font-weight: 600;
-  }
+  .nav-btn.active { color: var(--primary); }
+  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
+  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
+  .nav-btn.active .nav-label { font-weight: 600; }
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {
-    .main {
-      padding: 24px;
-      padding-bottom: 120px;
-    }
-    
-    .mood-grid {
-      gap: 8px;
-    }
-    
-    .mood-btn {
-      font-size: 16px;
-    }
-    
-    .stats-row {
-      gap: 16px;
-    }
+    .main { padding: 24px; padding-bottom: 120px; }
+    .mood-grid { gap: 8px; }
+    .mood-btn { font-size: 16px; }
+    .stats-row { gap: 16px; }
   }
 
   @media (min-width: 1024px) {
-    .header {
-      padding: 16px 32px;
-    }
-    
-    .main {
-      max-width: 680px;
-    }
+    .header { padding: 16px 32px; }
+    .main { max-width: 680px; }
   }
 `

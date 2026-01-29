@@ -782,6 +782,14 @@ export default function OnboardingPage() {
               </p>
             </div>
             
+            {/* Phase 4: Village Presence Indicator */}
+            <div className="village-presence">
+              <span className="presence-dot"></span>
+              <span className="presence-text">
+                You're not alone — other ADHDers are here too
+              </span>
+            </div>
+            
             <p className="text-dark lead">
               <strong>Nothing is more important than taking care of yourself. Ready?</strong>
             </p>
@@ -1538,6 +1546,47 @@ const styles = `
     font-size: clamp(13px, 3.5vw, 15px);
     color: var(--dark-gray);
     margin: 0;
+  }
+
+  /* ===== PHASE 4: VILLAGE PRESENCE ===== */
+  .village-presence {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 10px);
+    padding: clamp(10px, 2.5vw, 14px) clamp(14px, 3.5vw, 18px);
+    background: rgba(0, 186, 124, 0.06);
+    border: 1px solid rgba(0, 186, 124, 0.15);
+    border-radius: 100px;
+    margin-bottom: clamp(16px, 4vw, 24px);
+  }
+
+  .presence-dot {
+    width: clamp(8px, 2vw, 10px);
+    height: clamp(8px, 2vw, 10px);
+    background: var(--success);
+    border-radius: 50%;
+    animation: presence-pulse 2s ease-in-out infinite;
+    box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4);
+  }
+
+  @keyframes presence-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(0, 186, 124, 0);
+    }
+  }
+
+  .presence-text {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+  }
+
+  .presence-text strong {
+    color: var(--success);
+    font-weight: 700;
   }
 
   /* ===== STEP INDICATOR ===== */
