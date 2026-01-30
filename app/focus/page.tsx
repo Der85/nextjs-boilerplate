@@ -105,11 +105,12 @@ function FocusPageContent() {
         if (goalIdParam) {
           setSelectedGoalId(goalIdParam)
           
-          // Fetch the goal title for context display
+          // Fetch the goal title for context display (scoped to user for security)
           const { data: goalData } = await supabase
             .from('goals')
             .select('title')
             .eq('id', goalIdParam)
+            .eq('user_id', session.user.id)
             .single()
           
           if (goalData) {
