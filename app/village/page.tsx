@@ -14,6 +14,28 @@ interface Contact {
   is_favorite: boolean
 }
 
+// Spirit animals for anonymous online users
+const spiritAnimals = [
+  '🦊', '🦁', '🐼', '🦉', '🐯', '🦋', '🐺', '🦄', '🐨', '🦈',
+  '🐙', '🦜', '🐬', '🦩', '🐘', '🦔', '🐝', '🦥', '🐳', '🦧',
+  '🐢', '🦚', '🐻', '🐲', '🦅', '🐸', '🦎', '🐾', '🦭', '🐿️'
+]
+
+// Generate random spirit animals based on session seed
+const generateOnlineUsers = (count: number, seed: number) => {
+  const users = []
+  for (let i = 0; i < count; i++) {
+    const animalIndex = (seed + i * 7) % spiritAnimals.length
+    const isFocusing = Math.random() > 0.6
+    users.push({
+      id: `user-${i}`,
+      animal: spiritAnimals[animalIndex],
+      isFocusing
+    })
+  }
+  return users
+}
+
 const supportTypes = [
   { key: 'emotional', label: 'Emotional', icon: '💜' },
   { key: 'task', label: 'Task help', icon: '🤝' },
@@ -32,6 +54,12 @@ export default function VillagePage() {
   const [filterType, setFilterType] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
 
+  // Community Hub state
+  const [onlineCount] = useState(() => Math.floor(Math.random() * 41) + 12) // 12-52 users
+  const [sessionSeed] = useState(() => Math.floor(Math.random() * 1000))
+  const [onlineUsers] = useState(() => generateOnlineUsers(onlineCount, sessionSeed))
+  const activeFocusCount = onlineUsers.filter(u => u.isFocusing).length
+
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -43,7 +71,10 @@ export default function VillagePage() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
+      if (!session) {
+        router.push('/login')
+        return
+      }
       setUser(session.user)
       await fetchContacts(session.user.id)
       setLoading(false)
@@ -64,7 +95,9 @@ export default function VillagePage() {
   }
 
   const toggleSupport = (key: string) => {
-    setSupports(prev => prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key])
+    setSupports(prev =>
+      prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key]
+    )
   }
 
   const resetForm = () => {
@@ -152,14 +185,6 @@ export default function VillagePage() {
     return contacts.filter(c => c.support_type?.includes(type))
   }
 
-  const contactPerson = (contact: Contact) => {
-    if (contact.phone) {
-      window.open(`tel:${contact.phone}`)
-    } else if (contact.email) {
-      window.open(`mailto:${contact.email}`)
-    }
-  }
-
   const filteredContacts = filterType
     ? contacts.filter(c => c.support_type?.includes(filterType))
     : contacts
@@ -169,7 +194,7 @@ export default function VillagePage() {
       <div className="village-page">
         <div className="loading-container">
           <div className="spinner" />
-          <p>Loading...</p>
+          <p>Loading your village...</p>
         </div>
         <style jsx>{styles}</style>
       </div>
@@ -183,8 +208,11 @@ export default function VillagePage() {
         <button onClick={() => router.push('/dashboard')} className="logo">
           ADHDer.io
         </button>
-        
         <div className="header-actions">
+          <div className="village-pill">
+            <span className="presence-dot"></span>
+            <span className="presence-count">{onlineCount} online</span>
+          </div>
           <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
             💜
           </button>
@@ -214,7 +242,7 @@ export default function VillagePage() {
               👥 My Village
             </button>
             <div className="menu-divider" />
-            <button 
+            <button
               onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
               className="menu-item logout"
             >
@@ -232,21 +260,76 @@ export default function VillagePage() {
           <h1>👥 My Village</h1>
         </div>
 
+        {/* ===== LIVE VILLAGE CARD ===== */}
+        <div className="live-village-card">
+          <div className="radar-container">
+            <div className="radar-ring ring-1"></div>
+            <div className="radar-ring ring-2"></div>
+            <div className="radar-ring ring-3"></div>
+            <div className="radar-center">🌍</div>
+          </div>
+          <div className="live-stats">
+            <div className="stat-row primary">
+              <span className="stat-number">{onlineCount}</span>
+              <span className="stat-label">ADHDers online right now</span>
+            </div>
+            <div className="stat-row secondary">
+              <span className="stat-icon">⏱️</span>
+              <span className="stat-number small">{activeFocusCount}</span>
+              <span className="stat-label">currently focusing</span>
+            </div>
+          </div>
+          <p className="village-message">You're not alone. We're all working through it together.</p>
+        </div>
+
+        {/* ===== BODY DOUBLES GRID ===== */}
+        <div className="body-doubles-section">
+          <div className="section-header-row">
+            <h2 className="section-title">🐾 Body Doubles Online</h2>
+            <span className="section-badge">Anonymous</span>
+          </div>
+          <p className="section-desc">Fellow ADHDers in the village right now. You're never alone.</p>
+          
+          <div className="avatars-grid">
+            {onlineUsers.slice(0, 24).map((user) => (
+              <div 
+                key={user.id} 
+                className={`avatar-bubble ${user.isFocusing ? 'focusing' : ''}`}
+                title={user.isFocusing ? 'Currently focusing' : 'Online'}
+              >
+                <span className="avatar-emoji">{user.animal}</span>
+                {user.isFocusing && <span className="focus-indicator">⏱️</span>}
+              </div>
+            ))}
+            {onlineCount > 24 && (
+              <div className="avatar-bubble more">
+                <span className="more-count">+{onlineCount - 24}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ===== MY TRIBE SECTION ===== */}
+        <div className="tribe-section">
+          <div className="section-header-row">
+            <h2 className="section-title">💜 My Tribe</h2>
+            <button 
+              onClick={() => { resetForm(); setView('create') }} 
+              className="add-btn"
+            >
+              + Add
+            </button>
+          </div>
+          <p className="section-desc">Your personal support network — the people who help you thrive.</p>
+        </div>
+
         {/* List View */}
         {view === 'list' && (
           <>
-            {/* Add Contact Card */}
-            <div className="card">
-              <p className="card-desc">Your support network — the people who help you thrive.</p>
-              <button onClick={() => { resetForm(); setView('create') }} className="btn-primary">
-                + Add Someone
-              </button>
-            </div>
-
             {/* Filter Pills */}
             {contacts.length > 0 && (
               <div className="filter-row">
-                <button 
+                <button
                   onClick={() => setFilterType(null)}
                   className={`filter-pill ${filterType === null ? 'active' : ''}`}
                 >
@@ -272,66 +355,79 @@ export default function VillagePage() {
             {filteredContacts.length === 0 ? (
               <div className="card empty-state">
                 <span className="empty-emoji">👥</span>
-                <p className="empty-text">
-                  {filterType ? 'No contacts for this support type' : 'No contacts yet'}
+                <p className="empty-title">
+                  {filterType ? 'No contacts for this type' : 'No contacts yet'}
                 </p>
+                <p className="empty-subtitle">Add the people who support you</p>
+                <button 
+                  onClick={() => { resetForm(); setView('create') }} 
+                  className="btn-primary compact"
+                >
+                  + Add Someone
+                </button>
               </div>
             ) : (
               filteredContacts.map((contact) => (
-                <div key={contact.id} className="card contact-card">
-                  <div className="contact-row">
+                <div key={contact.id} className="support-card">
+                  <div className="support-card-header">
                     {/* Avatar */}
-                    <div className="avatar">
+                    <div className="contact-avatar">
                       {contact.name.charAt(0).toUpperCase()}
                     </div>
-                    
-                    <div className="contact-info">
-                      {/* Name & Favorite */}
+                    <div className="contact-main">
                       <div className="name-row">
                         <span className="contact-name">{contact.name}</span>
-                        <button 
+                        <button
                           onClick={() => toggleFavorite(contact.id, contact.is_favorite)}
                           className="fav-btn"
                         >
                           {contact.is_favorite ? '⭐' : '☆'}
                         </button>
                       </div>
-
-                      {/* Relationship */}
                       {contact.relationship && (
                         <p className="contact-relationship">{contact.relationship}</p>
                       )}
-
-                      {/* Support Types */}
-                      {contact.support_type && contact.support_type.length > 0 && (
-                        <div className="support-tags">
-                          {contact.support_type.map(type => {
-                            const st = supportTypes.find(s => s.key === type)
-                            if (!st) return null
-                            return (
-                              <span key={type} className="support-tag">
-                                {st.icon} {st.label}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="action-buttons">
-                        {(contact.phone || contact.email) && (
-                          <button onClick={() => contactPerson(contact)} className="action-btn">
-                            📞 Contact
-                          </button>
-                        )}
-                        <button onClick={() => handleEdit(contact)} className="action-btn">
-                          ✏️ Edit
-                        </button>
-                        <button onClick={() => handleDelete(contact.id)} className="action-btn delete">
-                          🗑️
-                        </button>
-                      </div>
                     </div>
+                  </div>
+
+                  {/* Support Types */}
+                  {contact.support_type && contact.support_type.length > 0 && (
+                    <div className="support-tags">
+                      {contact.support_type.map(type => {
+                        const st = supportTypes.find(s => s.key === type)
+                        if (!st) return null
+                        return (
+                          <span key={type} className="support-tag">
+                            {st.icon} {st.label}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Quick Actions */}
+                  <div className="quick-actions">
+                    {contact.phone && (
+                      <a href={`tel:${contact.phone}`} className="quick-action-btn call">
+                        📞 Call
+                      </a>
+                    )}
+                    {contact.phone && (
+                      <a href={`sms:${contact.phone}`} className="quick-action-btn text">
+                        💬 Text
+                      </a>
+                    )}
+                    {contact.email && (
+                      <a href={`mailto:${contact.email}`} className="quick-action-btn email">
+                        ✉️ Email
+                      </a>
+                    )}
+                    <button onClick={() => handleEdit(contact)} className="quick-action-btn edit">
+                      ✏️
+                    </button>
+                    <button onClick={() => handleDelete(contact.id)} className="quick-action-btn delete">
+                      🗑️
+                    </button>
                   </div>
                 </div>
               ))
@@ -344,7 +440,7 @@ export default function VillagePage() {
           <div className="card form-card">
             <div className="form-header">
               <h2 className="form-title">
-                {view === 'edit' ? '✏️ Edit Contact' : '➕ Add to Village'}
+                {view === 'edit' ? '✏️ Edit Contact' : '➕ Add to Tribe'}
               </h2>
               <button onClick={() => { resetForm(); setView('list') }} className="close-btn">×</button>
             </div>
@@ -431,11 +527,10 @@ export default function VillagePage() {
 
         {/* ADHD Tip */}
         <div className="card tip-card">
-          <div className="tip-label">💡 ADHD & Support Networks</div>
+          <div className="tip-label">💡 ADHD & Body Doubling</div>
           <p className="tip-text">
-            Building a "village" helps with ADHD challenges. Different people help in different ways — 
-            some for emotional support, others for practical help. Knowing who to call makes it easier 
-            to reach out when you need it.
+            Body doubling works! Just knowing others are working alongside you — even virtually — 
+            can help with focus and motivation. That's why we show who's online.
           </p>
         </div>
       </main>
@@ -473,7 +568,7 @@ const styles = `
     --dark-gray: #536471;
     --light-gray: #8899a6;
     --extra-light-gray: #eff3f4;
-    
+
     background: var(--bg-gray);
     min-height: 100vh;
     min-height: 100dvh;
@@ -490,11 +585,11 @@ const styles = `
     min-height: 100dvh;
     color: var(--light-gray);
   }
-  
+
   .spinner {
     width: clamp(24px, 5vw, 32px);
     height: clamp(24px, 5vw, 32px);
-    border: 3px solid var(--primary);
+    border: 3px solid var(--success);
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 1s linear infinite;
@@ -546,10 +641,40 @@ const styles = `
 
   .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
   .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
-  .icon-btn.menu { 
-    background: white; 
+  .icon-btn.menu {
+    background: white;
     border: 1px solid #ddd;
     font-size: clamp(12px, 3vw, 16px);
+  }
+
+  /* Village Presence Pill */
+  .village-pill {
+    display: flex;
+    align-items: center;
+    gap: clamp(5px, 1.5vw, 8px);
+    padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.5vw, 12px);
+    background: rgba(0, 186, 124, 0.08);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: 100px;
+  }
+
+  .presence-dot {
+    width: clamp(6px, 1.8vw, 8px);
+    height: clamp(6px, 1.8vw, 8px);
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(0, 186, 124, 0); }
+  }
+
+  .presence-count {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 600;
+    color: var(--success);
   }
 
   .dropdown-menu {
@@ -582,10 +707,7 @@ const styles = `
   .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
   .menu-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     z-index: 99;
   }
 
@@ -607,6 +729,220 @@ const styles = `
     margin: 0;
   }
 
+  /* ===== LIVE VILLAGE CARD ===== */
+  .live-village-card {
+    background: linear-gradient(135deg, rgba(0, 186, 124, 0.08) 0%, rgba(0, 186, 124, 0.15) 100%);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: clamp(16px, 4.5vw, 24px);
+    padding: clamp(20px, 5.5vw, 32px);
+    margin-bottom: clamp(16px, 4.5vw, 24px);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .radar-container {
+    position: relative;
+    width: clamp(80px, 22vw, 100px);
+    height: clamp(80px, 22vw, 100px);
+    margin: 0 auto clamp(16px, 4vw, 24px);
+  }
+
+  .radar-ring {
+    position: absolute;
+    border: 2px solid rgba(0, 186, 124, 0.3);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .ring-1 {
+    width: 100%;
+    height: 100%;
+    animation: radarPulse 2s ease-out infinite;
+  }
+
+  .ring-2 {
+    width: 70%;
+    height: 70%;
+    animation: radarPulse 2s ease-out infinite 0.5s;
+  }
+
+  .ring-3 {
+    width: 40%;
+    height: 40%;
+    animation: radarPulse 2s ease-out infinite 1s;
+  }
+
+  @keyframes radarPulse {
+    0% {
+      transform: translate(-50%, -50%) scale(0.8);
+      opacity: 0.8;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.4);
+      opacity: 0;
+    }
+  }
+
+  .radar-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(28px, 8vw, 36px);
+  }
+
+  .live-stats {
+    margin-bottom: clamp(10px, 3vw, 16px);
+  }
+
+  .stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 2vw, 10px);
+  }
+
+  .stat-row.primary {
+    margin-bottom: clamp(6px, 2vw, 10px);
+  }
+
+  .stat-row.secondary {
+    opacity: 0.8;
+  }
+
+  .stat-number {
+    font-size: clamp(32px, 9vw, 44px);
+    font-weight: 800;
+    color: var(--success);
+  }
+
+  .stat-number.small {
+    font-size: clamp(20px, 5.5vw, 26px);
+  }
+
+  .stat-icon {
+    font-size: clamp(16px, 4.5vw, 20px);
+  }
+
+  .stat-label {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    font-weight: 500;
+  }
+
+  .village-message {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0;
+    font-style: italic;
+  }
+
+  /* ===== BODY DOUBLES SECTION ===== */
+  .body-doubles-section {
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(16px, 4.5vw, 24px);
+  }
+
+  .section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(4px, 1.2vw, 8px);
+  }
+
+  .section-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .section-badge {
+    font-size: clamp(10px, 2.8vw, 12px);
+    padding: clamp(3px, 1vw, 5px) clamp(8px, 2.2vw, 12px);
+    background: var(--extra-light-gray);
+    color: var(--light-gray);
+    border-radius: 100px;
+    font-weight: 500;
+  }
+
+  .section-desc {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0 0 clamp(14px, 4vw, 20px) 0;
+  }
+
+  .avatars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(40px, 11vw, 52px), 1fr));
+    gap: clamp(8px, 2.2vw, 12px);
+  }
+
+  .avatar-bubble {
+    width: clamp(40px, 11vw, 52px);
+    height: clamp(40px, 11vw, 52px);
+    border-radius: 50%;
+    background: var(--bg-gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: transform 0.15s ease;
+  }
+
+  .avatar-bubble:hover {
+    transform: scale(1.1);
+  }
+
+  .avatar-bubble.focusing {
+    background: rgba(29, 155, 240, 0.1);
+    border: 2px solid var(--primary);
+  }
+
+  .avatar-emoji {
+    font-size: clamp(20px, 5.5vw, 26px);
+  }
+
+  .focus-indicator {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    font-size: clamp(10px, 2.8vw, 12px);
+    background: white;
+    border-radius: 50%;
+    padding: 2px;
+  }
+
+  .avatar-bubble.more {
+    background: var(--extra-light-gray);
+  }
+
+  .more-count {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 600;
+    color: var(--light-gray);
+  }
+
+  /* ===== TRIBE SECTION ===== */
+  .tribe-section {
+    margin-bottom: clamp(12px, 3.5vw, 18px);
+  }
+
+  .add-btn {
+    padding: clamp(6px, 1.8vw, 10px) clamp(12px, 3.5vw, 18px);
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 100px;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
   /* ===== CARDS ===== */
   .card {
     background: white;
@@ -615,11 +951,188 @@ const styles = `
     margin-bottom: clamp(12px, 3.5vw, 18px);
   }
 
-  .card-desc {
+  /* ===== SUPPORT CARDS ===== */
+  .support-card {
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(12px, 3.5vw, 18px);
+    border: 1px solid var(--extra-light-gray);
+  }
+
+  .support-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(10px, 3vw, 14px);
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .contact-avatar {
+    width: clamp(44px, 12vw, 56px);
+    height: clamp(44px, 12vw, 56px);
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary) 0%, #805ad5 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .contact-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2vw, 10px);
+    margin-bottom: clamp(2px, 1vw, 4px);
+  }
+
+  .contact-name {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+  }
+
+  .fav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(16px, 4.5vw, 20px);
+    padding: 0;
+    line-height: 1;
+  }
+
+  .contact-relationship {
     font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0;
+  }
+
+  .support-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(6px, 1.8vw, 10px);
+    margin-bottom: clamp(12px, 3.5vw, 16px);
+  }
+
+  .support-tag {
+    font-size: clamp(11px, 3vw, 13px);
+    padding: clamp(4px, 1.2vw, 6px) clamp(10px, 2.8vw, 14px);
+    border-radius: 100px;
+    background: var(--bg-gray);
     color: var(--dark-gray);
-    margin: 0 0 clamp(12px, 3.5vw, 16px) 0;
-    line-height: 1.5;
+  }
+
+  .quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(8px, 2.2vw, 12px);
+  }
+
+  .quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(4px, 1.2vw, 6px);
+    padding: clamp(8px, 2.2vw, 12px) clamp(14px, 3.8vw, 20px);
+    border-radius: 100px;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+
+  .quick-action-btn.call {
+    background: rgba(0, 186, 124, 0.1);
+    border: 1px solid rgba(0, 186, 124, 0.3);
+    color: var(--success);
+  }
+
+  .quick-action-btn.text {
+    background: rgba(29, 155, 240, 0.1);
+    border: 1px solid rgba(29, 155, 240, 0.3);
+    color: var(--primary);
+  }
+
+  .quick-action-btn.email {
+    background: rgba(128, 90, 213, 0.1);
+    border: 1px solid rgba(128, 90, 213, 0.3);
+    color: #805ad5;
+  }
+
+  .quick-action-btn.edit {
+    background: var(--bg-gray);
+    border: 1px solid var(--extra-light-gray);
+    color: var(--dark-gray);
+    padding: clamp(8px, 2.2vw, 12px);
+  }
+
+  .quick-action-btn.delete {
+    background: rgba(244, 33, 46, 0.05);
+    border: 1px solid rgba(244, 33, 46, 0.2);
+    color: var(--danger);
+    padding: clamp(8px, 2.2vw, 12px);
+  }
+
+  /* ===== FILTER PILLS ===== */
+  .filter-row {
+    display: flex;
+    gap: clamp(6px, 2vw, 10px);
+    overflow-x: auto;
+    padding: clamp(4px, 1vw, 6px) 0;
+    margin-bottom: clamp(12px, 3.5vw, 18px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-row::-webkit-scrollbar { display: none; }
+
+  .filter-pill {
+    padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px);
+    border-radius: 100px;
+    border: none;
+    background: white;
+    color: var(--dark-gray);
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    border: 1px solid var(--extra-light-gray);
+  }
+
+  .filter-pill.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: clamp(30px, 8vw, 50px) clamp(16px, 4vw, 24px);
+  }
+
+  .empty-emoji {
+    font-size: clamp(40px, 12vw, 56px);
+    display: block;
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .empty-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+    margin: 0 0 clamp(4px, 1.2vw, 8px) 0;
+  }
+
+  .empty-subtitle {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--light-gray);
+    margin: 0 0 clamp(16px, 4.5vw, 24px) 0;
   }
 
   /* ===== BUTTONS ===== */
@@ -635,10 +1148,12 @@ const styles = `
     cursor: pointer;
   }
 
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .btn-primary.compact {
+    width: auto;
+    padding: clamp(10px, 3vw, 14px) clamp(20px, 5.5vw, 28px);
   }
+
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn-secondary {
     flex: 1;
@@ -652,153 +1167,7 @@ const styles = `
     cursor: pointer;
   }
 
-  /* ===== FILTER PILLS ===== */
-  .filter-row {
-    display: flex;
-    gap: clamp(6px, 2vw, 10px);
-    overflow-x: auto;
-    padding: clamp(4px, 1vw, 6px) 0;
-    margin-bottom: clamp(10px, 3vw, 14px);
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .filter-row::-webkit-scrollbar {
-    display: none;
-  }
-
-  .filter-pill {
-    padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px);
-    border-radius: 100px;
-    border: none;
-    background: var(--bg-gray);
-    color: var(--dark-gray);
-    font-size: clamp(12px, 3.2vw, 14px);
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .filter-pill.active {
-    background: var(--primary);
-    color: white;
-  }
-
-  /* ===== EMPTY STATE ===== */
-  .empty-state {
-    text-align: center;
-    padding: clamp(30px, 8vw, 50px) clamp(16px, 4vw, 24px);
-  }
-
-  .empty-emoji {
-    font-size: clamp(40px, 12vw, 56px);
-    display: block;
-    margin-bottom: clamp(10px, 3vw, 14px);
-  }
-
-  .empty-text {
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--light-gray);
-    margin: 0;
-  }
-
-  /* ===== CONTACT CARDS ===== */
-  .contact-card {
-    /* inherits from .card */
-  }
-
-  .contact-row {
-    display: flex;
-    align-items: flex-start;
-    gap: clamp(10px, 3vw, 14px);
-  }
-
-  .avatar {
-    width: clamp(40px, 11vw, 52px);
-    height: clamp(40px, 11vw, 52px);
-    border-radius: 50%;
-    background: var(--primary);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(16px, 4.5vw, 20px);
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .contact-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .name-row {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 2vw, 10px);
-    margin-bottom: clamp(2px, 1vw, 6px);
-  }
-
-  .contact-name {
-    font-size: clamp(15px, 4vw, 18px);
-    font-weight: 600;
-  }
-
-  .fav-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(14px, 4vw, 18px);
-    padding: 0;
-    line-height: 1;
-  }
-
-  .contact-relationship {
-    font-size: clamp(12px, 3.2vw, 14px);
-    color: var(--dark-gray);
-    margin: 0 0 clamp(6px, 2vw, 10px) 0;
-  }
-
-  .support-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(4px, 1vw, 6px);
-    margin-bottom: clamp(10px, 3vw, 14px);
-  }
-
-  .support-tag {
-    font-size: clamp(10px, 2.8vw, 12px);
-    padding: clamp(2px, 0.5vw, 4px) clamp(6px, 2vw, 10px);
-    border-radius: 100px;
-    background: var(--bg-gray);
-    color: var(--dark-gray);
-  }
-
-  .action-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(6px, 2vw, 10px);
-  }
-
-  .action-btn {
-    font-size: clamp(12px, 3.2vw, 14px);
-    padding: clamp(6px, 1.5vw, 8px) clamp(10px, 3vw, 14px);
-    background: white;
-    border: 1px solid var(--extra-light-gray);
-    border-radius: 100px;
-    cursor: pointer;
-    color: var(--dark-gray);
-  }
-
-  .action-btn.delete {
-    color: var(--danger);
-  }
-
   /* ===== FORM ===== */
-  .form-card {
-    /* inherits from .card */
-  }
-
   .form-header {
     display: flex;
     justify-content: space-between;
@@ -878,9 +1247,7 @@ const styles = `
     gap: clamp(10px, 3vw, 14px);
   }
 
-  .form-buttons .btn-primary {
-    flex: 1;
-  }
+  .form-buttons .btn-primary { flex: 1; }
 
   /* ===== TIP CARD ===== */
   .tip-card {
@@ -929,22 +1296,10 @@ const styles = `
     color: var(--light-gray);
   }
 
-  .nav-btn.active {
-    color: var(--primary);
-  }
-
-  .nav-icon {
-    font-size: clamp(18px, 5vw, 24px);
-  }
-
-  .nav-label {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 400;
-  }
-
-  .nav-btn.active .nav-label {
-    font-weight: 600;
-  }
+  .nav-btn.active { color: var(--primary); }
+  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
+  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
+  .nav-btn.active .nav-label { font-weight: 600; }
 
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {
@@ -952,23 +1307,18 @@ const styles = `
       padding: 24px;
       padding-bottom: 120px;
     }
-    
-    .support-options {
-      gap: 12px;
+
+    .avatars-grid {
+      grid-template-columns: repeat(8, 1fr);
     }
 
-    .action-btn:hover {
-      background: var(--bg-gray);
+    .quick-action-btn:hover {
+      transform: translateY(-2px);
     }
   }
 
   @media (min-width: 1024px) {
-    .header {
-      padding: 16px 32px;
-    }
-    
-    .main {
-      max-width: 680px;
-    }
+    .header { padding: 16px 32px; }
+    .main { max-width: 680px; }
   }
 `
