@@ -173,29 +173,59 @@ export default function HistoryPage() {
           <h1>📊 Mood Insights</h1>
         </div>
 
-        {/* Summary Stats */}
-        <div className="stats-grid">
-          <div className="stat-card highlight">
-            <p className="stat-label">This Week</p>
-            <p className="stat-value">{stats.weeklyAvg.toFixed(1)}</p>
-            <p className="stat-subtext">avg mood</p>
+        {/* Phase 2: Weekly Narrative Card (replaces stats-grid) */}
+        {stats.total > 0 && (
+          <div className={`narrative-card ${
+            stats.weeklyAvg < 4.5 ? 'recovery' : 
+            stats.weeklyAvg > 7.5 ? 'growth' : 
+            'maintenance'
+          }`}>
+            <div className="narrative-header">
+              <span className="narrative-icon">
+                {stats.weeklyAvg < 4.5 ? '🫂' : stats.weeklyAvg > 7.5 ? '🚀' : '⚖️'}
+              </span>
+              <div className="narrative-titles">
+                <h2 className="narrative-title">
+                  {stats.weeklyAvg < 4.5 
+                    ? 'Recovery Pattern Detected' 
+                    : stats.weeklyAvg > 7.5 
+                    ? 'High Momentum Week' 
+                    : 'Steady Baseline'}
+                </h2>
+                <p className="narrative-subtitle">Weekly Report</p>
+              </div>
+              <div className="narrative-score">
+                <span className="score-value">{stats.weeklyAvg.toFixed(1)}</span>
+                <span className="score-label">avg</span>
+              </div>
+            </div>
+            <p className="narrative-text">
+              {stats.weeklyAvg < 4.5 
+                ? `This week has been heavy. You've faced some tough days, but showing up matters. Consider using BREAK more often.`
+                : stats.weeklyAvg > 7.5 
+                ? `You're trending upward! Great job maintaining energy. This is a good time to tackle meaningful goals.`
+                : `You held your ground this week. Consistency is the goal — you're building sustainable habits.`}
+            </p>
+            <div className="narrative-stats">
+              <div className="mini-stat">
+                <span className="mini-label">Month Avg</span>
+                <span className="mini-value">{stats.monthlyAvg.toFixed(1)}</span>
+              </div>
+              <div className="mini-stat">
+                <span className="mini-label">Best</span>
+                <span className="mini-value">{stats.highest}</span>
+              </div>
+              <div className="mini-stat">
+                <span className="mini-label">Low</span>
+                <span className="mini-value">{stats.lowest}</span>
+              </div>
+              <div className="mini-stat">
+                <span className="mini-label">Check-ins</span>
+                <span className="mini-value">{stats.total}</span>
+              </div>
+            </div>
           </div>
-          <div className="stat-card">
-            <p className="stat-label">This Month</p>
-            <p className="stat-value">{stats.monthlyAvg.toFixed(1)}</p>
-            <p className="stat-subtext">avg mood</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-label">Best Day</p>
-            <p className="stat-value">{stats.highest}</p>
-            <p className="stat-subtext">highest</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-label">Tough Day</p>
-            <p className="stat-value">{stats.lowest}</p>
-            <p className="stat-subtext">lowest</p>
-          </div>
-        </div>
+        )}
 
         {/* Charts */}
         <div className="card charts-card">
@@ -445,50 +475,140 @@ const styles = `
     overflow: hidden;
   }
 
-  /* ===== STATS GRID ===== */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: clamp(8px, 2.5vw, 14px);
-    margin-bottom: clamp(14px, 4vw, 22px);
-  }
-
-  .stat-card {
+  /* ===== PHASE 2: NARRATIVE CARD ===== */
+  .narrative-card {
     background: white;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    padding: clamp(12px, 3.5vw, 20px);
+    border-radius: clamp(14px, 4vw, 20px);
+    padding: clamp(18px, 5vw, 26px);
+    margin-bottom: clamp(14px, 4vw, 22px);
+    border: 1px solid;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   }
 
-  .stat-card.highlight {
-    background: linear-gradient(135deg, var(--primary) 0%, #1a91da 100%);
-    color: white;
+  .narrative-card.recovery {
+    background: rgba(244, 33, 46, 0.04);
+    border-color: rgba(244, 33, 46, 0.15);
   }
 
-  .stat-label {
-    font-size: clamp(11px, 3vw, 13px);
-    opacity: 0.7;
-    margin: 0 0 clamp(2px, 1vw, 6px) 0;
+  .narrative-card.growth {
+    background: rgba(0, 186, 124, 0.04);
+    border-color: rgba(0, 186, 124, 0.15);
   }
 
-  .stat-card.highlight .stat-label {
-    opacity: 0.9;
+  .narrative-card.maintenance {
+    background: rgba(29, 155, 240, 0.04);
+    border-color: rgba(29, 155, 240, 0.15);
   }
 
-  .stat-value {
-    font-size: clamp(24px, 7vw, 34px);
+  .narrative-header {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(12px, 3.5vw, 16px);
+    margin-bottom: clamp(14px, 4vw, 18px);
+  }
+
+  .narrative-icon {
+    font-size: clamp(32px, 9vw, 44px);
+    flex-shrink: 0;
+  }
+
+  .narrative-titles {
+    flex: 1;
+  }
+
+  .narrative-title {
+    font-size: clamp(16px, 4.5vw, 20px);
     font-weight: 700;
     margin: 0 0 clamp(2px, 0.5vw, 4px) 0;
-    line-height: 1.1;
+    color: var(--text-dark, #0f1419);
   }
 
-  .stat-subtext {
-    font-size: clamp(10px, 2.8vw, 12px);
-    opacity: 0.5;
+  .narrative-card.recovery .narrative-title {
+    color: #dc2626;
+  }
+
+  .narrative-card.growth .narrative-title {
+    color: #059669;
+  }
+
+  .narrative-card.maintenance .narrative-title {
+    color: var(--primary);
+  }
+
+  .narrative-subtitle {
+    font-size: clamp(11px, 3vw, 13px);
+    color: var(--light-gray);
     margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .stat-card.highlight .stat-subtext {
-    opacity: 0.8;
+  .narrative-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: white;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(8px, 2.5vw, 12px) clamp(12px, 3.5vw, 18px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  .score-value {
+    font-size: clamp(22px, 6.5vw, 30px);
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .narrative-card.recovery .score-value {
+    color: #dc2626;
+  }
+
+  .narrative-card.growth .score-value {
+    color: #059669;
+  }
+
+  .narrative-card.maintenance .score-value {
+    color: var(--primary);
+  }
+
+  .score-label {
+    font-size: clamp(10px, 2.8vw, 12px);
+    color: var(--light-gray);
+    text-transform: uppercase;
+  }
+
+  .narrative-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    line-height: 1.6;
+    margin: 0 0 clamp(16px, 4.5vw, 22px) 0;
+  }
+
+  .narrative-stats {
+    display: flex;
+    justify-content: space-between;
+    padding-top: clamp(14px, 4vw, 18px);
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .mini-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(2px, 0.5vw, 4px);
+  }
+
+  .mini-label {
+    font-size: clamp(9px, 2.5vw, 11px);
+    color: var(--light-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .mini-value {
+    font-size: clamp(14px, 4vw, 18px);
+    font-weight: 700;
+    color: var(--dark-gray);
   }
 
   /* ===== CHARTS ===== */
