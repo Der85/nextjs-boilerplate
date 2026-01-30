@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { usePresenceWithFallback } from '@/hooks/usePresence'
 
 interface Contact {
   id: string
@@ -12,28 +13,6 @@ interface Contact {
   email: string | null
   support_type: string[]
   is_favorite: boolean
-}
-
-// Spirit animals for anonymous online users
-const spiritAnimals = [
-  '🦊', '🦁', '🐼', '🦉', '🐯', '🦋', '🐺', '🦄', '🐨', '🦈',
-  '🐙', '🦜', '🐬', '🦩', '🐘', '🦔', '🐝', '🦥', '🐳', '🦧',
-  '🐢', '🦚', '🐻', '🐲', '🦅', '🐸', '🦎', '🐾', '🦭', '🐿️'
-]
-
-// Generate random spirit animals based on session seed
-const generateOnlineUsers = (count: number, seed: number) => {
-  const users = []
-  for (let i = 0; i < count; i++) {
-    const animalIndex = (seed + i * 7) % spiritAnimals.length
-    const isFocusing = Math.random() > 0.6
-    users.push({
-      id: `user-${i}`,
-      animal: spiritAnimals[animalIndex],
-      isFocusing
-    })
-  }
-  return users
 }
 
 const supportTypes = [
@@ -54,11 +33,14 @@ export default function VillagePage() {
   const [filterType, setFilterType] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
 
-  // Community Hub state
-  const [onlineCount] = useState(() => Math.floor(Math.random() * 41) + 12) // 12-52 users
-  const [sessionSeed] = useState(() => Math.floor(Math.random() * 1000))
-  const [onlineUsers] = useState(() => generateOnlineUsers(onlineCount, sessionSeed))
-  const activeFocusCount = onlineUsers.filter(u => u.isFocusing).length
+  // Real-time presence from usePresence hook
+  const { 
+    onlineCount, 
+    focusingCount, 
+    otherUsers, 
+    isConnected,
+    isSimulated 
+  } = usePresenceWithFallback({ isFocusing: false })
 
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -266,44 +248,51 @@ export default function VillagePage() {
             <div className="radar-ring ring-1"></div>
             <div className="radar-ring ring-2"></div>
             <div className="radar-ring ring-3"></div>
-            <div className="radar-center">🌍</div>
+            <div className="radar-center">{isConnected ? '🌍' : '📡'}</div>
           </div>
           <div className="live-stats">
             <div className="stat-row primary">
               <span className="stat-number">{onlineCount}</span>
-              <span className="stat-label">ADHDers online right now</span>
+              <span className="stat-label">Villagers online right now</span>
             </div>
             <div className="stat-row secondary">
               <span className="stat-icon">⏱️</span>
-              <span className="stat-number small">{activeFocusCount}</span>
-              <span className="stat-label">currently focusing</span>
+              <span className="stat-number small">{focusingCount}</span>
+              <span className="stat-label">currently in Focus Mode</span>
             </div>
           </div>
-          <p className="village-message">You're not alone. We're all working through it together.</p>
+          <p className="village-message">
+            {isSimulated 
+              ? "You're not alone. We're all working through it together."
+              : isConnected 
+                ? "🟢 Live connection — real ADHDers, right now!"
+                : "Connecting to the village..."
+            }
+          </p>
         </div>
 
         {/* ===== BODY DOUBLES GRID ===== */}
         <div className="body-doubles-section">
           <div className="section-header-row">
             <h2 className="section-title">🐾 Body Doubles Online</h2>
-            <span className="section-badge">Anonymous</span>
+            <span className="section-badge">{isSimulated ? 'Simulated' : 'Live'}</span>
           </div>
           <p className="section-desc">Fellow ADHDers in the village right now. You're never alone.</p>
           
           <div className="avatars-grid">
-            {onlineUsers.slice(0, 24).map((user) => (
+            {otherUsers.slice(0, 24).map((user) => (
               <div 
                 key={user.id} 
-                className={`avatar-bubble ${user.isFocusing ? 'focusing' : ''}`}
-                title={user.isFocusing ? 'Currently focusing' : 'Online'}
+                className={`avatar-bubble ${user.is_focusing ? 'focusing' : ''}`}
+                title={user.is_focusing ? 'Currently focusing' : 'Online'}
               >
-                <span className="avatar-emoji">{user.animal}</span>
-                {user.isFocusing && <span className="focus-indicator">⏱️</span>}
+                <span className="avatar-emoji">{user.spirit_animal || '🐾'}</span>
+                {user.is_focusing && <span className="focus-indicator">⏱️</span>}
               </div>
             ))}
-            {onlineCount > 24 && (
+            {otherUsers.length > 24 && (
               <div className="avatar-bubble more">
-                <span className="more-count">+{onlineCount - 24}</span>
+                <span className="more-count">+{otherUsers.length - 24}</span>
               </div>
             )}
           </div>
