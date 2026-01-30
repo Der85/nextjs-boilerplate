@@ -69,6 +69,12 @@ function FocusPageContent() {
   const [linkedGoalTitle, setLinkedGoalTitle] = useState<string | null>(null)
   const [isFromGoalHandoff, setIsFromGoalHandoff] = useState(false)
   
+  // Phase 4: Completion sync modal state
+  const [showCompletionModal, setShowCompletionModal] = useState(false)
+  const [completedPlan, setCompletedPlan] = useState<Plan | null>(null)
+  const [syncingGoal, setSyncingGoal] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
+  
   // Phase 1: Random online count for Village presence
   const [onlineCount] = useState(() => Math.floor(Math.random() * 51))
 
@@ -241,16 +247,102 @@ function FocusPageContent() {
     )
 
     const completedCount = updatedSteps.filter(s => s.completed).length
+    const isNowComplete = completedCount === updatedSteps.length
 
     if (!user) return
 
     await supabase.from('focus_plans').update({
       steps: updatedSteps,
       steps_completed: completedCount,
-      is_completed: completedCount === updatedSteps.length
+      is_completed: isNowComplete
     }).eq('id', planId).eq('user_id', user.id)
 
     await fetchPlans(user.id)
+
+    // Phase 4: If plan just completed AND is linked to a goal step, show sync modal
+    if (isNowComplete && plan.related_goal_id && plan.related_step_id) {
+      setCompletedPlan({
+        ...plan,
+        steps: updatedSteps
+      })
+      setShowCompletionModal(true)
+    }
+  }
+
+  // Phase 4: Sync completed focus plan with goal step
+  const handleGoalSync = async (shouldSync: boolean) => {
+    if (!shouldSync || !completedPlan || !user) {
+      setShowCompletionModal(false)
+      setCompletedPlan(null)
+      return
+    }
+
+    setSyncingGoal(true)
+
+    try {
+      const { related_goal_id, related_step_id } = completedPlan
+
+      // Fetch the current goal
+      const { data: goalData, error: fetchError } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('id', related_goal_id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (fetchError || !goalData) {
+        console.error('Failed to fetch goal:', fetchError)
+        setShowCompletionModal(false)
+        setCompletedPlan(null)
+        setSyncingGoal(false)
+        return
+      }
+
+      // Update the specific micro_step to completed
+      const updatedMicroSteps = (goalData.micro_steps || []).map((step: any) =>
+        step.id === related_step_id ? { ...step, completed: true } : step
+      )
+
+      // Calculate new progress
+      const completedStepCount = updatedMicroSteps.filter((s: any) => s.completed).length
+      const totalSteps = updatedMicroSteps.length
+      const newProgress = totalSteps > 0 ? Math.round((completedStepCount / totalSteps) * 100) : 0
+      const isGoalComplete = newProgress >= 100
+
+      // Build update object
+      const goalUpdate: any = {
+        micro_steps: updatedMicroSteps,
+        progress_percent: newProgress
+      }
+
+      if (isGoalComplete) {
+        goalUpdate.status = 'completed'
+        goalUpdate.celebration_message = `You completed "${goalData.title}" by finishing all your focus sessions! That's real follow-through. 🎉`
+      }
+
+      // Update the goal
+      await supabase
+        .from('goals')
+        .update(goalUpdate)
+        .eq('id', related_goal_id)
+        .eq('user_id', user.id)
+
+      // Refresh goals list
+      await fetchGoals(user.id)
+
+      // Show celebration if goal is complete
+      if (isGoalComplete) {
+        setShowCelebration(true)
+        setTimeout(() => setShowCelebration(false), 4000)
+      }
+
+    } catch (e) {
+      console.error('Failed to sync goal:', e)
+    }
+
+    setShowCompletionModal(false)
+    setCompletedPlan(null)
+    setSyncingGoal(false)
   }
 
   // Phase 1: Get goal title for display
@@ -524,6 +616,64 @@ function FocusPageContent() {
           <span className="nav-label">Insights</span>
         </button>
       </nav>
+
+      {/* Phase 4: Goal Sync Completion Modal */}
+      {showCompletionModal && completedPlan && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-icon">🎉</div>
+            <h2 className="modal-title">Great work!</h2>
+            <p className="modal-text">
+              You completed your focus session.
+              <br />
+              <strong>Did this complete the step in your Goal?</strong>
+            </p>
+            {completedPlan.related_goal_id && (
+              <div className="modal-goal-badge">
+                🎯 {getGoalTitle(completedPlan.related_goal_id)}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button 
+                className="modal-btn secondary"
+                onClick={() => handleGoalSync(false)}
+                disabled={syncingGoal}
+              >
+                Not yet
+              </button>
+              <button 
+                className="modal-btn primary"
+                onClick={() => handleGoalSync(true)}
+                disabled={syncingGoal}
+              >
+                {syncingGoal ? 'Syncing...' : 'Yes, mark complete!'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 4: Goal Completion Celebration */}
+      {showCelebration && (
+        <div className="celebration-overlay">
+          <div className="celebration-content">
+            <div className="celebration-emoji">🌸</div>
+            <h2 className="celebration-title">Goal Complete!</h2>
+            <p className="celebration-text">
+              Your goal has bloomed! All steps are done.
+            </p>
+            <div className="confetti">
+              {[...Array(20)].map((_, i) => (
+                <span key={i} className="confetti-piece" style={{
+                  left: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  backgroundColor: ['#f4212e', '#1D9BF0', '#00ba7c', '#ffad1f', '#805ad5'][i % 5]
+                }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{styles}</style>
     </div>
@@ -1114,6 +1264,188 @@ const styles = `
   .nav-icon { font-size: clamp(18px, 5vw, 24px); }
   .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
   .nav-btn.active .nav-label { font-weight: 600; }
+
+  /* ===== PHASE 4: COMPLETION MODAL ===== */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: clamp(16px, 4vw, 24px);
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal-card {
+    background: white;
+    border-radius: clamp(16px, 4vw, 24px);
+    padding: clamp(24px, 6vw, 36px);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-icon {
+    font-size: clamp(48px, 14vw, 64px);
+    margin-bottom: clamp(12px, 3vw, 18px);
+  }
+
+  .modal-title {
+    font-size: clamp(20px, 5.5vw, 26px);
+    font-weight: 700;
+    margin: 0 0 clamp(8px, 2vw, 12px) 0;
+  }
+
+  .modal-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    line-height: 1.5;
+    margin: 0 0 clamp(16px, 4vw, 22px) 0;
+  }
+
+  .modal-goal-badge {
+    display: inline-block;
+    padding: clamp(8px, 2vw, 12px) clamp(14px, 3.5vw, 20px);
+    background: rgba(29, 155, 240, 0.08);
+    border-radius: 100px;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    color: var(--primary);
+    margin-bottom: clamp(18px, 5vw, 26px);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: clamp(10px, 3vw, 14px);
+  }
+
+  .modal-btn {
+    flex: 1;
+    padding: clamp(12px, 3.5vw, 16px);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .modal-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .modal-btn.secondary {
+    background: var(--bg-gray);
+    border: none;
+    color: var(--dark-gray);
+  }
+
+  .modal-btn.primary {
+    background: var(--success);
+    border: none;
+    color: white;
+  }
+
+  .modal-btn.primary:hover:not(:disabled) {
+    background: #00a06a;
+  }
+
+  /* ===== PHASE 4: CELEBRATION OVERLAY ===== */
+  .celebration-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    animation: fadeIn 0.3s ease;
+    overflow: hidden;
+  }
+
+  .celebration-content {
+    text-align: center;
+    position: relative;
+    z-index: 10;
+  }
+
+  .celebration-emoji {
+    font-size: clamp(72px, 20vw, 100px);
+    animation: bounce 0.6s ease infinite alternate;
+  }
+
+  @keyframes bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-15px); }
+  }
+
+  .celebration-title {
+    font-size: clamp(28px, 8vw, 40px);
+    font-weight: 800;
+    color: white;
+    margin: clamp(12px, 3vw, 20px) 0 clamp(8px, 2vw, 12px) 0;
+  }
+
+  .celebration-text {
+    font-size: clamp(16px, 4.5vw, 20px);
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+  }
+
+  .confetti {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    width: clamp(8px, 2vw, 12px);
+    height: clamp(8px, 2vw, 12px);
+    border-radius: 2px;
+    top: -20px;
+    animation: confettiFall 3s ease-in-out infinite;
+  }
+
+  @keyframes confettiFall {
+    0% {
+      transform: translateY(-20px) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
 
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {
