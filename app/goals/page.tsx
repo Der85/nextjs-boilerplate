@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { usePresenceWithFallback } from '@/hooks/usePresence'
 
 // ============================================
 // Types
@@ -112,8 +113,8 @@ export default function GoalsPage() {
   const [generatedSteps, setGeneratedSteps] = useState<MicroStep[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
 
-  // Village presence indicator
-  const [onlineCount] = useState(() => Math.floor(Math.random() * 51))
+  // Real-time presence - isFocusing: false because Goals page is planning, not focusing
+  const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
   // ============================================
   // Initialize

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getADHDCoachAdvice, CoachResponse } from '@/lib/gemini'
+import { usePresenceWithFallback } from '@/hooks/usePresence'
 
 interface MoodEntry {
   id: string
@@ -60,8 +61,8 @@ export default function Dashboard() {
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
 
-  // Phase 2: Random online count for Village presence
-  const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
+  // Real-time presence - isFocusing: false because Dashboard is for overview
+  const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
   // UI state
   const [showMenu, setShowMenu] = useState(false)

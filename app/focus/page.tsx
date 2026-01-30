@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { usePresenceWithFallback } from '@/hooks/usePresence'
 
 interface Step {
   id: string
@@ -75,8 +76,8 @@ function FocusPageContent() {
   const [syncingGoal, setSyncingGoal] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   
-  // Phase 1: Random online count for Village presence
-  const [onlineCount] = useState(() => Math.floor(Math.random() * 51))
+  // Real-time presence - isFocusing: true because user is on Focus page
+  const { onlineCount } = usePresenceWithFallback({ isFocusing: true })
 
   useEffect(() => {
     const init = async () => {
