@@ -294,42 +294,49 @@ export default function HistoryPage() {
           <MoodHistoryViz entries={entries} />
         </div>
 
-        {/* Full Entry List */}
-        <div className="card entries-card">
-          <div className="entries-header">
-            <h2>All Check-ins ({stats.total})</h2>
-          </div>
-          <div className="entries-list">
-            {entries.length === 0 ? (
-              <div className="empty-state">
-                <p>No check-ins yet</p>
-                <button onClick={() => router.push('/dashboard')} className="cta-btn">
-                  Log your first mood
-                </button>
-              </div>
-            ) : (
-              entries.map((entry, i) => (
-                <div key={entry.id} className={`entry-item ${i > 0 ? 'bordered' : ''}`}>
-                  <span className="entry-emoji">{getMoodEmoji(entry.mood_score)}</span>
-                  <div className="entry-content">
-                    <div className="entry-header">
-                      <span className="entry-score">{entry.mood_score}/10</span>
-                      <span className="entry-time">{formatDate(entry.created_at)}</span>
+        {/* Phase 4: Timeline Feed (replaces entries-card) */}
+        <div className="timeline-section">
+          <h2 className="timeline-header">All Check-ins ({stats.total})</h2>
+          
+          {entries.length === 0 ? (
+            <div className="empty-state-card">
+              <p>No check-ins yet</p>
+              <button onClick={() => router.push('/dashboard')} className="cta-btn">
+                Log your first mood
+              </button>
+            </div>
+          ) : (
+            <div className="timeline-feed">
+              {entries.map((entry) => (
+                <div key={entry.id} className="timeline-item">
+                  {/* Tweet-style layout: Avatar left, content right */}
+                  <div className="timeline-avatar">
+                    <span className="timeline-emoji">{getMoodEmoji(entry.mood_score)}</span>
+                  </div>
+                  
+                  <div className="timeline-body">
+                    <div className="timeline-meta">
+                      <span className="timeline-score">{entry.mood_score}/10</span>
+                      <span className="timeline-dot">·</span>
+                      <span className="timeline-time">{formatDate(entry.created_at)}</span>
                     </div>
+                    
                     {entry.note && (
-                      <p className="entry-note">{entry.note}</p>
+                      <p className="timeline-note">{entry.note}</p>
                     )}
+                    
+                    {/* Coach advice bubble (reply style) */}
                     {entry.coach_advice && (
-                      <div className="coach-advice">
-                        <span className="coach-label">🧠 Coach:</span>
-                        <span className="coach-text">{entry.coach_advice}</span>
+                      <div className="timeline-coach-bubble">
+                        <span className="coach-bubble-label">Der's advice</span>
+                        <p className="coach-bubble-text">{entry.coach_advice}</p>
                       </div>
                     )}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
@@ -709,33 +716,28 @@ const styles = `
     margin-bottom: clamp(14px, 4vw, 22px);
   }
 
-  /* ===== ENTRIES LIST ===== */
-  .entries-card {
+  /* ===== PHASE 4: TIMELINE FEED ===== */
+  .timeline-section {
     margin-bottom: clamp(14px, 4vw, 22px);
   }
 
-  .entries-header {
-    padding: clamp(14px, 4vw, 18px);
-    border-bottom: 1px solid #f0f0f0;
-  }
-
-  .entries-header h2 {
-    font-size: clamp(14px, 4vw, 18px);
+  .timeline-header {
+    font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 600;
-    margin: 0;
+    color: var(--dark-gray);
+    margin: 0 0 clamp(12px, 3.5vw, 16px) 0;
+    padding-left: clamp(4px, 1vw, 8px);
   }
 
-  .entries-list {
-    max-height: clamp(300px, 50vh, 500px);
-    overflow-y: auto;
-  }
-
-  .empty-state {
+  .empty-state-card {
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
     padding: clamp(30px, 8vw, 50px) clamp(16px, 4vw, 24px);
     text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
 
-  .empty-state p {
+  .empty-state-card p {
     color: var(--light-gray);
     font-size: clamp(14px, 3.8vw, 16px);
     margin: 0 0 clamp(14px, 4vw, 20px) 0;
@@ -752,71 +754,97 @@ const styles = `
     cursor: pointer;
   }
 
-  .entry-item {
+  .timeline-feed {
     display: flex;
-    align-items: flex-start;
-    gap: clamp(10px, 3vw, 16px);
-    padding: clamp(12px, 3.5vw, 18px) clamp(14px, 4vw, 20px);
+    flex-direction: column;
+    gap: clamp(12px, 3.5vw, 16px);
   }
 
-  .entry-item.bordered {
-    border-top: 1px solid #f5f5f5;
+  .timeline-item {
+    display: flex;
+    gap: clamp(12px, 3.5vw, 16px);
+    padding: clamp(16px, 4.5vw, 22px);
+    background: white;
+    border-radius: clamp(14px, 4vw, 20px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.04);
   }
 
-  .entry-emoji {
-    font-size: clamp(24px, 7vw, 34px);
+  .timeline-avatar {
     flex-shrink: 0;
+    width: clamp(40px, 11vw, 52px);
+    height: clamp(40px, 11vw, 52px);
+    background: var(--bg-gray);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .entry-content {
+  .timeline-emoji {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+
+  .timeline-body {
     flex: 1;
     min-width: 0;
   }
 
-  .entry-header {
+  .timeline-meta {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: clamp(6px, 2vw, 10px);
-    margin-bottom: clamp(2px, 0.5vw, 4px);
+    gap: clamp(6px, 1.5vw, 8px);
+    margin-bottom: clamp(6px, 1.5vw, 10px);
   }
 
-  .entry-score {
+  .timeline-score {
+    font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 700;
-    font-size: clamp(14px, 4vw, 18px);
+    color: var(--text-dark, #0f1419);
   }
 
-  .entry-time {
+  .timeline-dot {
     color: var(--light-gray);
-    font-size: clamp(11px, 3vw, 13px);
+    font-size: clamp(10px, 2.5vw, 12px);
   }
 
-  .entry-note {
-    font-size: clamp(13px, 3.5vw, 15px);
+  .timeline-time {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+  }
+
+  .timeline-note {
+    font-size: clamp(14px, 3.8vw, 16px);
     color: var(--dark-gray);
-    margin: clamp(4px, 1vw, 6px) 0;
-    line-height: 1.4;
+    line-height: 1.5;
+    margin: 0 0 clamp(10px, 3vw, 14px) 0;
     word-wrap: break-word;
   }
 
-  .coach-advice {
-    background: rgba(29, 155, 240, 0.05);
-    border-radius: clamp(6px, 1.5vw, 10px);
-    padding: clamp(8px, 2.5vw, 12px);
-    margin-top: clamp(6px, 1.5vw, 10px);
+  /* Coach advice bubble (reply style) */
+  .timeline-coach-bubble {
+    background: linear-gradient(135deg, rgba(29, 155, 240, 0.08) 0%, rgba(29, 155, 240, 0.03) 100%);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 clamp(10px, 2.5vw, 14px) clamp(10px, 2.5vw, 14px) 0;
+    padding: clamp(10px, 3vw, 14px);
+    margin-top: clamp(8px, 2vw, 12px);
   }
 
-  .coach-label {
-    color: var(--primary);
+  .coach-bubble-label {
+    font-size: clamp(10px, 2.8vw, 12px);
     font-weight: 600;
-    font-size: clamp(11px, 3vw, 13px);
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: clamp(4px, 1vw, 6px);
   }
 
-  .coach-text {
-    font-size: clamp(12px, 3.2vw, 14px);
+  .coach-bubble-text {
+    font-size: clamp(13px, 3.5vw, 15px);
     color: var(--dark-gray);
-    margin-left: clamp(4px, 1vw, 6px);
-    line-height: 1.4;
+    line-height: 1.5;
+    margin: 0;
   }
 
   /* ===== BOTTOM NAV ===== */
