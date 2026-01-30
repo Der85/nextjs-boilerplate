@@ -101,6 +101,63 @@ export default function HistoryPage() {
     })
   }
 
+  // Phase 3: Clinical Bridge - Export data for therapist/doctor
+  const handleExport = () => {
+    if (entries.length === 0) return
+
+    // CSV Header
+    const headers = ['Date', 'Mood Score', 'Note', 'Coach Advice']
+    
+    // Convert entries to CSV rows
+    const rows = entries.map(entry => {
+      const date = new Date(entry.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      })
+      
+      // Escape quotes and wrap in quotes if contains comma or newline
+      const escapeCSV = (str: string | null) => {
+        if (!str) return ''
+        const escaped = str.replace(/"/g, '""')
+        if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
+          return `"${escaped}"`
+        }
+        return escaped
+      }
+      
+      return [
+        date,
+        entry.mood_score,
+        escapeCSV(entry.note),
+        escapeCSV(entry.coach_advice)
+      ].join(',')
+    })
+    
+    // Combine header and rows
+    const csvContent = [headers.join(','), ...rows].join('\n')
+    
+    // Create blob and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    
+    // Generate filename with current date
+    const today = new Date().toISOString().split('T')[0]
+    link.setAttribute('href', url)
+    link.setAttribute('download', `ADHDer_Report_${today}.csv`)
+    link.style.visibility = 'hidden'
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // Clean up
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) {
     return (
       <div className="history-page">
@@ -168,9 +225,14 @@ export default function HistoryPage() {
       {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
 
       <main className="main">
-        {/* Page Title */}
+        {/* Page Title with Export Button */}
         <div className="page-header-title">
           <h1>📊 Mood Insights</h1>
+          {entries.length > 0 && (
+            <button onClick={handleExport} className="btn-export">
+              📥 Export for Doctor
+            </button>
+          )}
         </div>
 
         {/* Phase 2: Weekly Narrative Card (replaces stats-grid) */}
@@ -460,6 +522,9 @@ const styles = `
   }
 
   .page-header-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: clamp(14px, 4vw, 20px);
   }
 
@@ -467,6 +532,33 @@ const styles = `
     font-size: clamp(22px, 6vw, 28px);
     font-weight: 700;
     margin: 0;
+  }
+
+  /* Phase 3: Export Button */
+  .btn-export {
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 1vw, 6px);
+    padding: clamp(6px, 2vw, 10px) clamp(10px, 3vw, 14px);
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: clamp(8px, 2vw, 12px);
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .btn-export:hover {
+    background: var(--bg-gray);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .btn-export:active {
+    transform: scale(0.98);
   }
 
   .card {
