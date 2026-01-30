@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 interface Step {
@@ -28,7 +28,29 @@ interface Goal {
 }
 
 export default function FocusPage() {
+  return (
+    <Suspense fallback={<FocusPageLoading />}>
+      <FocusPageContent />
+    </Suspense>
+  )
+}
+
+// Loading fallback component
+function FocusPageLoading() {
+  return (
+    <div className="focus-page">
+      <div className="loading-container">
+        <div className="spinner" />
+        <p>Loading...</p>
+      </div>
+      <style jsx>{styles}</style>
+    </div>
+  )
+}
+
+function FocusPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -43,6 +65,10 @@ export default function FocusPage() {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
   
+  // Phase 3: Linked goal context (from URL params)
+  const [linkedGoalTitle, setLinkedGoalTitle] = useState<string | null>(null)
+  const [isFromGoalHandoff, setIsFromGoalHandoff] = useState(false)
+  
   // Phase 1: Random online count for Village presence
   const [onlineCount] = useState(() => Math.floor(Math.random() * 51))
 
@@ -55,11 +81,44 @@ export default function FocusPage() {
       }
       setUser(session.user)
       await fetchPlans(session.user.id)
-      await fetchGoals(session.user.id) // Phase 1: Fetch goals for linking
+      await fetchGoals(session.user.id)
+      
+      // Phase 3: Handle URL params from Goals handoff
+      const createParam = searchParams.get('create')
+      const taskNameParam = searchParams.get('taskName')
+      const goalIdParam = searchParams.get('goalId')
+      const stepIdParam = searchParams.get('stepId')
+      
+      if (createParam === 'true' && taskNameParam) {
+        // Auto-fill from URL params
+        setView('create')
+        setTaskName(decodeURIComponent(taskNameParam))
+        setIsFromGoalHandoff(true)
+        
+        if (goalIdParam) {
+          setSelectedGoalId(goalIdParam)
+          
+          // Fetch the goal title for context display
+          const { data: goalData } = await supabase
+            .from('goals')
+            .select('title')
+            .eq('id', goalIdParam)
+            .single()
+          
+          if (goalData) {
+            setLinkedGoalTitle(goalData.title)
+          }
+        }
+        
+        if (stepIdParam) {
+          setSelectedStepId(stepIdParam)
+        }
+      }
+      
       setLoading(false)
     }
     init()
-  }, [router])
+  }, [router, searchParams])
 
   const fetchPlans = async (userId: string) => {
     const { data } = await supabase
@@ -165,6 +224,8 @@ export default function FocusPage() {
     setSteps(['', '', ''])
     setSelectedGoalId(null)
     setSelectedStepId(null)
+    setIsFromGoalHandoff(false)  // Phase 3: Reset handoff state
+    setLinkedGoalTitle(null)     // Phase 3: Clear linked goal title
     setView('list')
     
     if (user) await fetchPlans(user.id)
@@ -290,8 +351,26 @@ export default function FocusPage() {
         {/* Create View */}
         {view === 'create' && (
           <div className="card create-card">
-            {/* Phase 1: Link to Goal (optional) */}
-            {goals.length > 0 && (
+            {/* Phase 3: Goal Context Badge (when coming from Goals handoff) */}
+            {isFromGoalHandoff && linkedGoalTitle && (
+              <div className="goal-context-badge">
+                <span className="context-icon">🌱</span>
+                <div className="context-info">
+                  <span className="context-label">Working on Goal</span>
+                  <span className="context-title">{linkedGoalTitle}</span>
+                </div>
+                <button 
+                  className="context-change-btn"
+                  onClick={() => router.push('/goals')}
+                  title="Back to goals"
+                >
+                  ← Goals
+                </button>
+              </div>
+            )}
+
+            {/* Phase 1: Link to Goal (optional) - hide if coming from handoff */}
+            {goals.length > 0 && !isFromGoalHandoff && (
               <>
                 <p className="label">Link to a goal <span className="optional">(optional)</span></p>
                 <select
@@ -665,6 +744,67 @@ const styles = `
     border-radius: clamp(14px, 4vw, 20px);
     padding: clamp(16px, 4.5vw, 24px);
     margin-bottom: clamp(12px, 3.5vw, 18px);
+  }
+
+  /* ===== PHASE 3: GOAL CONTEXT BADGE ===== */
+  .goal-context-badge {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 3vw, 14px);
+    padding: clamp(12px, 3.5vw, 16px);
+    background: linear-gradient(135deg, rgba(0, 186, 124, 0.08) 0%, rgba(0, 186, 124, 0.03) 100%);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    margin-bottom: clamp(16px, 4.5vw, 22px);
+  }
+
+  .context-icon {
+    font-size: clamp(24px, 7vw, 32px);
+    flex-shrink: 0;
+  }
+
+  .context-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .context-label {
+    display: block;
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--success);
+    margin-bottom: clamp(2px, 0.5vw, 4px);
+  }
+
+  .context-title {
+    display: block;
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .context-change-btn {
+    padding: clamp(6px, 1.5vw, 8px) clamp(10px, 2.5vw, 14px);
+    background: white;
+    border: 1px solid rgba(0, 186, 124, 0.3);
+    border-radius: clamp(6px, 1.5vw, 8px);
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 500;
+    color: var(--success);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .context-change-btn:hover {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
   }
 
   /* ===== CREATE FORM ===== */
