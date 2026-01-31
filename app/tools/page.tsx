@@ -267,7 +267,7 @@ const globalStyles = `
 
   .main {
     padding: clamp(16px, 4vw, 24px);
-    padding-bottom: clamp(80px, 20vw, 110px);
+    padding-bottom: clamp(120px, 25vw, 160px);
     max-width: 680px;
     margin: 0 auto;
   }
