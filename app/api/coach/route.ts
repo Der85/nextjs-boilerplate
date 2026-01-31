@@ -65,19 +65,36 @@ function sanitizeNote(note: unknown): string | null {
 }
 
 // ===========================================
-// Generic Advice (fallback)
+// Generic Advice (fallback) - ADHD-friendly copy
 // ===========================================
-function getGenericAdvice(moodScore: number): string {
-  if (moodScore <= 3) {
+function getGenericAdvice(moodScore: number | null | undefined): string {
+  // Handle invalid/missing mood scores with neutral response
+  if (moodScore === null || moodScore === undefined || !Number.isFinite(moodScore)) {
+    return "Thanks for checking in today. Every check-in is a win. How are you feeling right now?"
+  }
+  
+  // Clamp to valid range
+  const score = Math.max(0, Math.min(10, moodScore))
+  
+  if (score <= 3) {
     return "It's okay to have hard days—your feelings are valid. Try sharing what's on your mind next time so I can give you more personalized support."
   }
-  if (moodScore <= 5) {
+  if (score <= 5) {
     return "Thanks for checking in—showing up matters. If you share what's going on, I can offer advice tailored to your situation."
   }
-  if (moodScore <= 7) {
+  if (score <= 7) {
     return "You're in a steady place right now—that's worth acknowledging. Tell me more about what's happening and I can help you make the most of it."
   }
   return "Love to see you feeling good! Share what's contributing to this so we can help you recreate it."
+}
+
+// Error-specific responses (not generic placeholders)
+function getErrorAdvice(): string {
+  return "I'm having a moment—couldn't connect to my thinking cap. Your check-in still counts though! Try again in a sec?"
+}
+
+function getConfigErrorAdvice(): string {
+  return "Thanks for checking in! I'm not fully set up yet, but showing up is what matters. You're doing great."
 }
 
 // ===========================================
@@ -89,7 +106,7 @@ export async function POST(request: NextRequest) {
   // 1. Check API key is configured
   if (!apiKey) {
     console.error('GEMINI_API_KEY not configured')
-    return NextResponse.json({ advice: getGenericAdvice(5) })
+    return NextResponse.json({ advice: getConfigErrorAdvice() })
   }
 
   // 2. Get Supabase client
@@ -192,7 +209,7 @@ Respond directly as the coach (no intro like "Here's my response"):`
 
     if (!geminiResponse.ok) {
       console.error('Gemini API error:', geminiResponse.status)
-      return NextResponse.json({ advice: getGenericAdvice(moodScore) })
+      return NextResponse.json({ advice: getErrorAdvice() })
     }
 
     const geminiData = await geminiResponse.json()
@@ -200,14 +217,14 @@ Respond directly as the coach (no intro like "Here's my response"):`
 
     if (!advice) {
       console.error('Unexpected Gemini response format')
-      return NextResponse.json({ advice: getGenericAdvice(moodScore) })
+      return NextResponse.json({ advice: getErrorAdvice() })
     }
 
     return NextResponse.json({ advice: advice.trim() })
 
   } catch (error) {
     console.error('Coach API error:', error)
-    return NextResponse.json({ advice: getGenericAdvice(5) })
+    return NextResponse.json({ advice: getErrorAdvice() })
   }
 }
 
