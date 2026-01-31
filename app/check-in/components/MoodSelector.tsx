@@ -162,7 +162,7 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
         .mood-btn {
           aspect-ratio: 1;
           border-radius: clamp(12px, 3vw, 16px);
-          border: 2px solid transparent;
+          border: 3px solid transparent;
           cursor: pointer;
           display: flex;
           flex-direction: column;
@@ -175,7 +175,6 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
         }
 
         .mood-btn:hover {
-          border-width: 3px;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
           border-color: #0f1419;
         }

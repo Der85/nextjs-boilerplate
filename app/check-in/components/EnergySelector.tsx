@@ -182,8 +182,7 @@ export default function EnergySelector({ onSelect }: EnergySelectorProps) {
         }
 
         .level-btn:hover {
-          border-width: 4px;
-          box-shadow: 0 0 0 2px currentColor;
+          box-shadow: 0 0 0 4px currentColor;
         }
 
         .level-btn:active {
