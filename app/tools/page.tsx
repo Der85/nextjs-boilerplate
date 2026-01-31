@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
-import PageHeader from '@/components/PageHeader'
+import AppHeader from '@/components/AppHeader'
 
 type UserMode = 'recovery' | 'maintenance' | 'growth'
 
@@ -141,7 +141,7 @@ export default function ToolsPage() {
   if (loading) {
     return (
       <div className="tools-page">
-        <PageHeader title="Your Toolkit" />
+        <AppHeader showBackButton backPath="/dashboard" title="Your Toolkit" />
         <div className="loading-container">
           <div className="spinner" />
           <p>Loading...</p>
@@ -156,7 +156,7 @@ export default function ToolsPage() {
 
   return (
     <div className="tools-page">
-      <PageHeader title="Your ADHD Toolkit" backPath="/dashboard" />
+      <AppHeader showBackButton backPath="/dashboard" title="Your ADHD Toolkit" />
 
       <main className="main">
         {/* Mode-aware message */}

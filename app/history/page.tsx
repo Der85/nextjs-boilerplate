@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
 import BottomNav from '@/components/BottomNav'
+import AppHeader from '@/components/AppHeader'
 
 interface MoodEntry {
   id: string
@@ -34,9 +35,8 @@ export default function HistoryPage() {
     weeklyAvg: 0,
     monthlyAvg: 0
   })
-  const [showMenu, setShowMenu] = useState(false)
-  
-  // Phase 1: Random online count for Village presence (matches Dashboard)
+
+  // Online count for AppHeader
   const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
 
   useEffect(() => {
@@ -173,57 +173,7 @@ export default function HistoryPage() {
 
   return (
     <div className="history-page">
-      {/* Header - Consistent with Dashboard */}
-      <header className="header">
-        <button onClick={() => router.push('/dashboard')} className="logo">
-          ADHDer.io
-        </button>
-        <div className="header-actions">
-          {/* Phase 1: Village Presence Indicator (matches Dashboard) */}
-          <div className="village-pill">
-            <span className="presence-dot"></span>
-            <span className="presence-count">{onlineCount} online</span>
-          </div>
-          <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
-            💜
-          </button>
-          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">
-            🛑
-          </button>
-          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
-            ☰
-          </button>
-        </div>
-
-        {showMenu && (
-          <div className="dropdown-menu">
-            <button onClick={() => { router.push('/dashboard'); setShowMenu(false) }} className="menu-item">
-              🏠 Dashboard
-            </button>
-            <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
-              ⏱️ Focus Mode
-            </button>
-            <button onClick={() => { router.push('/goals'); setShowMenu(false) }} className="menu-item">
-              🎯 Goals
-            </button>
-            <button onClick={() => { router.push('/burnout'); setShowMenu(false) }} className="menu-item">
-              ⚡ Energy Tracker
-            </button>
-            <button onClick={() => { router.push('/village'); setShowMenu(false) }} className="menu-item">
-              👥 My Village
-            </button>
-            <div className="menu-divider" />
-            <button
-              onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
-              className="menu-item logout"
-            >
-              Log out
-            </button>
-          </div>
-        )}
-      </header>
-
-      {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
+      <AppHeader showBackButton backPath="/dashboard" backLabel="Home" title="History & Insights" onlineCount={onlineCount} />
 
       <main className="main">
         {/* Page Title with Export Button */}
