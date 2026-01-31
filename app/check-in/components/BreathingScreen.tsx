@@ -11,7 +11,16 @@ type BreathPhase = 'in' | 'hold' | 'out'
 
 export default function BreathingScreen({ onComplete, onSkip }: BreathingScreenProps) {
   const [phase, setPhase] = useState<BreathPhase>('in')
-  const [breathCount, setBreathCount] = useState(0)
+  const [mounted, setMounted] = useState(false)
+  const [countdown, setCountdown] = useState(4)
+
+  // Trigger initial grow animation after first paint
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      setMounted(true)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   useEffect(() => {
     // Single 12-second breath cycle: 4s in, 4s hold, 4s out
@@ -27,6 +36,7 @@ export default function BreathingScreen({ onComplete, onSkip }: BreathingScreenP
       if (currentIndex < timeline.length) {
         const current = timeline[currentIndex]
         setPhase(current.phase as BreathPhase)
+        setCountdown(4)
 
         setTimeout(() => {
           currentIndex++
@@ -43,6 +53,15 @@ export default function BreathingScreen({ onComplete, onSkip }: BreathingScreenP
     runCycle()
   }, [onComplete])
 
+  // Countdown timer: ticks 4, 3, 2, 1 within each phase
+  useEffect(() => {
+    if (countdown <= 1) return
+    const timer = setTimeout(() => {
+      setCountdown(prev => prev - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [countdown, phase])
+
   const getPhaseText = () => {
     switch (phase) {
       case 'in':
@@ -55,12 +74,14 @@ export default function BreathingScreen({ onComplete, onSkip }: BreathingScreenP
   }
 
   const getCircleScale = () => {
+    if (!mounted) return 0.6
     switch (phase) {
       case 'in':
+        return 1.2
       case 'hold':
         return 1.2
-      default:
-        return 1
+      case 'out':
+        return 0.6
     }
   }
 
@@ -90,7 +111,10 @@ export default function BreathingScreen({ onComplete, onSkip }: BreathingScreenP
             }}
           />
 
-          <div className="breath-text">{getPhaseText()}</div>
+          <div className="breath-text">
+            <div className="breath-label">{getPhaseText()}</div>
+            <div className="breath-countdown">{countdown}</div>
+          </div>
         </div>
 
         <button onClick={onSkip} className="skip-btn">
@@ -150,9 +174,22 @@ export default function BreathingScreen({ onComplete, onSkip }: BreathingScreenP
         .breath-text {
           position: relative;
           z-index: 2;
+          text-align: center;
+        }
+
+        .breath-label {
           font-size: clamp(18px, 5vw, 24px);
           font-weight: 600;
           color: #0f1419;
+        }
+
+        .breath-countdown {
+          font-size: clamp(32px, 10vw, 48px);
+          font-weight: 700;
+          color: #0f1419;
+          opacity: 0.7;
+          line-height: 1;
+          margin-top: 4px;
         }
 
         .skip-btn {
