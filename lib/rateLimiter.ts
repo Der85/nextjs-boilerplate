@@ -128,6 +128,9 @@ export const goalsRateLimiter = new RateLimiter(60_000, 30)
 // Stuck/Ally API: 20 requests per minute
 export const stuckRateLimiter = new RateLimiter(60_000, 20)
 
+// Focus API: 30 requests per minute (parse + breakdown actions)
+export const focusRateLimiter = new RateLimiter(60_000, 30)
+
 // Generic helper for backwards compatibility
 export function createRateLimiter(windowMs?: number, maxRequests?: number): RateLimiter {
   return new RateLimiter(windowMs, maxRequests)
