@@ -175,7 +175,7 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
         }
 
         .mood-btn:hover {
-          transform: scale(1.1);
+          border-width: 3px;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
           border-color: #0f1419;
         }

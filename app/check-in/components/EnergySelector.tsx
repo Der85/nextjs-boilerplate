@@ -177,10 +177,13 @@ export default function EnergySelector({ onSelect }: EnergySelectorProps) {
           justify-content: center;
           transition: all 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          will-change: transform;
+          position: relative;
         }
 
         .level-btn:hover {
-          transform: scale(1.1);
+          border-width: 4px;
+          box-shadow: 0 0 0 2px currentColor;
         }
 
         .level-btn:active {
@@ -188,7 +191,8 @@ export default function EnergySelector({ onSelect }: EnergySelectorProps) {
         }
 
         .level-btn.selected {
-          transform: scale(1.15);
+          border-width: 5px;
+          box-shadow: 0 4px 16px currentColor;
         }
 
         .level-emoji {
