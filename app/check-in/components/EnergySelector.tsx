@@ -48,12 +48,12 @@ export default function EnergySelector({ onSelect }: EnergySelectorProps) {
           </div>
 
           {/* Energy level display */}
-          {displayLevel !== null && (
-            <div className="energy-display">
-              <div className="energy-emoji">{getEnergyEmoji(displayLevel)}</div>
-              <div className="energy-label-text">{getEnergyLabel(displayLevel)}</div>
-            </div>
-          )}
+          <div className="energy-display" style={{
+            visibility: displayLevel !== null ? 'visible' : 'hidden'
+          }}>
+            <div className="energy-emoji">{displayLevel !== null ? getEnergyEmoji(displayLevel) : '🔋'}</div>
+            <div className="energy-label-text">{displayLevel !== null ? getEnergyLabel(displayLevel) : 'Moderate'}</div>
+          </div>
         </div>
 
         {/* Level selector buttons */}

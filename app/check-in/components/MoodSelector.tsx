@@ -55,12 +55,12 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
           </div>
         )}
 
-        {displayMood !== null && (
-          <div className="selected-mood-display">
-            <div className="mood-emoji-large">{getMoodEmoji(displayMood)}</div>
-            <div className="mood-score-large">{displayMood}/10</div>
-          </div>
-        )}
+        <div className="selected-mood-display" style={{
+          visibility: displayMood !== null ? 'visible' : 'hidden'
+        }}>
+          <div className="mood-emoji-large">{displayMood !== null ? getMoodEmoji(displayMood) : '😐'}</div>
+          <div className="mood-score-large">{displayMood !== null ? `${displayMood}/10` : '5/10'}</div>
+        </div>
 
         <div className="mood-grid">
           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
