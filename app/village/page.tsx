@@ -6,6 +6,13 @@ import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import BottomNav from '@/components/BottomNav'
 
+interface ContactLog {
+  id: string
+  date: string
+  type: string
+  note?: string
+}
+
 interface Contact {
   id: string
   name: string
@@ -14,6 +21,7 @@ interface Contact {
   email: string | null
   support_type: string[]
   is_favorite: boolean
+  contact_log: ContactLog[]
 }
 
 const supportTypes = [
@@ -23,6 +31,52 @@ const supportTypes = [
   { key: 'fun', label: 'Fun', icon: '🎉' },
   { key: 'emergency', label: 'Emergency', icon: '🚨' },
 ]
+
+const contactTypes = [
+  { key: 'short_call', label: 'Short Call', icon: '📞' },
+  { key: 'long_call', label: 'Long Call', icon: '📱' },
+  { key: 'in_person', label: 'In Person', icon: '🤝' },
+  { key: 'text_message', label: 'Text/Message', icon: '💬' },
+  { key: 'video_call', label: 'Video Call', icon: '🎥' },
+]
+
+function getRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  if (diffDays < 14) return '1 week ago'
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+  if (diffDays < 60) return '1 month ago'
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
+  return 'Over a year ago'
+}
+
+function getStalenessInfo(log: ContactLog[]): { color: string; label: string; className: string; daysSince: number } {
+  if (!log || log.length === 0) {
+    return { color: '#8899a6', label: 'No contact logged', className: 'stale-never', daysSince: Infinity }
+  }
+
+  const sorted = [...log].sort((a, b) => b.date.localeCompare(a.date))
+  const latest = sorted[0]
+  const date = new Date(latest.date + 'T00:00:00')
+  const diffDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+
+  const typeInfo = contactTypes.find(t => t.key === latest.type)
+  const typeLabel = typeInfo ? `${typeInfo.icon} ${typeInfo.label}` : latest.type
+
+  if (diffDays <= 14) {
+    return { color: '#00ba7c', label: `${getRelativeTime(latest.date)} · ${typeLabel}`, className: 'stale-fresh', daysSince: diffDays }
+  }
+  if (diffDays <= 30) {
+    return { color: '#eab308', label: `${getRelativeTime(latest.date)} · ${typeLabel}`, className: 'stale-warm', daysSince: diffDays }
+  }
+  return { color: '#f4212e', label: `${getRelativeTime(latest.date)} · ${typeLabel}`, className: 'stale-cold', daysSince: diffDays }
+}
 
 export default function VillagePage() {
   const router = useRouter()
@@ -51,6 +105,14 @@ export default function VillagePage() {
   const [email, setEmail] = useState('')
   const [supports, setSupports] = useState<string[]>([])
 
+  // Contact log state
+  const [loggingContactId, setLoggingContactId] = useState<string | null>(null)
+  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0])
+  const [logType, setLogType] = useState<string | null>(null)
+  const [logNote, setLogNote] = useState('')
+  const [showHistoryId, setShowHistoryId] = useState<string | null>(null)
+  const [logSaving, setLogSaving] = useState(false)
+
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -74,7 +136,7 @@ export default function VillagePage() {
       .order('is_favorite', { ascending: false })
       .order('name')
 
-    if (data) setContacts(data.map(c => ({ ...c, support_type: c.support_type || [] })))
+    if (data) setContacts(data.map(c => ({ ...c, support_type: c.support_type || [], contact_log: c.contact_log || [] })))
   }
 
   const toggleSupport = (key: string) => {
@@ -164,13 +226,81 @@ export default function VillagePage() {
     await fetchContacts(user.id)
   }
 
+  const resetLogForm = () => {
+    setLoggingContactId(null)
+    setLogDate(new Date().toISOString().split('T')[0])
+    setLogType(null)
+    setLogNote('')
+  }
+
+  const startLogging = (contactId: string) => {
+    setLoggingContactId(contactId)
+    setLogDate(new Date().toISOString().split('T')[0])
+    setLogType(null)
+    setLogNote('')
+  }
+
+  const handleLogContact = async (contactId: string) => {
+    if (!user || !logType) return
+    setLogSaving(true)
+
+    const contact = contacts.find(c => c.id === contactId)
+    if (!contact) return
+
+    const newEntry: ContactLog = {
+      id: `log_${Date.now()}`,
+      date: logDate,
+      type: logType,
+      ...(logNote.trim() ? { note: logNote.trim() } : {}),
+    }
+
+    const updatedLog = [...(contact.contact_log || []), newEntry]
+
+    await supabase
+      .from('village_contacts')
+      .update({ contact_log: updatedLog })
+      .eq('id', contactId)
+      .eq('user_id', user.id)
+
+    resetLogForm()
+    setLogSaving(false)
+    await fetchContacts(user.id)
+  }
+
+  const deleteLogEntry = async (contactId: string, logId: string) => {
+    if (!user) return
+    const contact = contacts.find(c => c.id === contactId)
+    if (!contact) return
+
+    const updatedLog = contact.contact_log.filter(l => l.id !== logId)
+
+    await supabase
+      .from('village_contacts')
+      .update({ contact_log: updatedLog })
+      .eq('id', contactId)
+      .eq('user_id', user.id)
+
+    await fetchContacts(user.id)
+  }
+
   const getContactsForType = (type: string) => {
     return contacts.filter(c => c.support_type?.includes(type))
   }
 
+  const sortedContacts = [...contacts].sort((a, b) => {
+    // Favorites first
+    if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1
+    // Then by staleness (most overdue first)
+    const aStale = getStalenessInfo(a.contact_log).daysSince
+    const bStale = getStalenessInfo(b.contact_log).daysSince
+    if (aStale !== bStale) return bStale - aStale
+    // Then alphabetical
+    return a.name.localeCompare(b.name)
+  })
+
   const filteredContacts = filterType
-    ? contacts.filter(c => c.support_type?.includes(filterType))
-    : contacts
+    ? sortedContacts.filter(c => c.support_type?.includes(filterType))
+    : sortedContacts
 
   if (loading) {
     return (
@@ -357,70 +487,179 @@ export default function VillagePage() {
                 </button>
               </div>
             ) : (
-              filteredContacts.map((contact) => (
-                <div key={contact.id} className="support-card">
-                  <div className="support-card-header">
-                    {/* Avatar */}
-                    <div className="contact-avatar">
-                      {contact.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="contact-main">
-                      <div className="name-row">
-                        <span className="contact-name">{contact.name}</span>
-                        <button
-                          onClick={() => toggleFavorite(contact.id, contact.is_favorite)}
-                          className="fav-btn"
-                        >
-                          {contact.is_favorite ? '⭐' : '☆'}
-                        </button>
+              filteredContacts.map((contact) => {
+                const staleness = getStalenessInfo(contact.contact_log)
+                const isLogging = loggingContactId === contact.id
+                const isShowingHistory = showHistoryId === contact.id
+                const sortedLog = [...(contact.contact_log || [])].sort((a, b) => b.date.localeCompare(a.date))
+
+                return (
+                  <div key={contact.id} className="support-card">
+                    <div className="support-card-header">
+                      {/* Avatar */}
+                      <div className="contact-avatar">
+                        {contact.name.charAt(0).toUpperCase()}
                       </div>
-                      {contact.relationship && (
-                        <p className="contact-relationship">{contact.relationship}</p>
+                      <div className="contact-main">
+                        <div className="name-row">
+                          <span className="contact-name">{contact.name}</span>
+                          <button
+                            onClick={() => toggleFavorite(contact.id, contact.is_favorite)}
+                            className="fav-btn"
+                          >
+                            {contact.is_favorite ? '⭐' : '☆'}
+                          </button>
+                        </div>
+                        {contact.relationship && (
+                          <p className="contact-relationship">{contact.relationship}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Staleness Indicator */}
+                    <div className={`staleness-row ${staleness.className}`}>
+                      <span className="staleness-dot" style={{ background: staleness.color }} />
+                      <span className="staleness-label">{staleness.label}</span>
+                      {sortedLog.length > 0 && (
+                        <button
+                          className="history-toggle"
+                          onClick={() => setShowHistoryId(isShowingHistory ? null : contact.id)}
+                        >
+                          {isShowingHistory ? 'Hide' : `${sortedLog.length} log${sortedLog.length !== 1 ? 's' : ''}`}
+                        </button>
                       )}
                     </div>
-                  </div>
 
-                  {/* Support Types */}
-                  {contact.support_type && contact.support_type.length > 0 && (
-                    <div className="support-tags">
-                      {contact.support_type.map(type => {
-                        const st = supportTypes.find(s => s.key === type)
-                        if (!st) return null
-                        return (
-                          <span key={type} className="support-tag">
-                            {st.icon} {st.label}
-                          </span>
-                        )
-                      })}
+                    {/* Contact History */}
+                    {isShowingHistory && sortedLog.length > 0 && (
+                      <div className="contact-history">
+                        {sortedLog.map((entry) => {
+                          const typeInfo = contactTypes.find(t => t.key === entry.type)
+                          return (
+                            <div key={entry.id} className="history-entry">
+                              <span className="history-icon">{typeInfo?.icon || '📋'}</span>
+                              <div className="history-info">
+                                <span className="history-type">{typeInfo?.label || entry.type}</span>
+                                <span className="history-date">{getRelativeTime(entry.date)}</span>
+                                {entry.note && <span className="history-note">{entry.note}</span>}
+                              </div>
+                              <button
+                                className="history-delete"
+                                onClick={() => deleteLogEntry(contact.id, entry.id)}
+                                title="Remove entry"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Support Types */}
+                    {contact.support_type && contact.support_type.length > 0 && (
+                      <div className="support-tags">
+                        {contact.support_type.map(type => {
+                          const st = supportTypes.find(s => s.key === type)
+                          if (!st) return null
+                          return (
+                            <span key={type} className="support-tag">
+                              {st.icon} {st.label}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Inline Log Form */}
+                    {isLogging && (
+                      <div className="log-form">
+                        <div className="log-form-header">
+                          <span className="log-form-title">Log contact</span>
+                          <button className="log-form-close" onClick={resetLogForm}>×</button>
+                        </div>
+                        <div className="log-form-group">
+                          <label className="log-form-label">Date</label>
+                          <input
+                            type="date"
+                            value={logDate}
+                            onChange={(e) => setLogDate(e.target.value)}
+                            className="log-date-input"
+                            max={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <div className="log-form-group">
+                          <label className="log-form-label">Type</label>
+                          <div className="log-type-chips">
+                            {contactTypes.map((ct) => (
+                              <button
+                                key={ct.key}
+                                className={`log-type-chip ${logType === ct.key ? 'selected' : ''}`}
+                                onClick={() => setLogType(ct.key)}
+                                type="button"
+                              >
+                                {ct.icon} {ct.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="log-form-group">
+                          <label className="log-form-label">Note (optional)</label>
+                          <input
+                            type="text"
+                            value={logNote}
+                            onChange={(e) => setLogNote(e.target.value)}
+                            placeholder="How did it go?"
+                            className="log-note-input"
+                            maxLength={200}
+                          />
+                        </div>
+                        <div className="log-form-actions">
+                          <button className="btn-secondary compact" onClick={resetLogForm}>Cancel</button>
+                          <button
+                            className="btn-primary compact"
+                            disabled={!logType || logSaving}
+                            onClick={() => handleLogContact(contact.id)}
+                          >
+                            {logSaving ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Actions */}
+                    <div className="quick-actions">
+                      {contact.phone && (
+                        <a href={`tel:${contact.phone}`} className="quick-action-btn call">
+                          📞 Call
+                        </a>
+                      )}
+                      {contact.phone && (
+                        <a href={`sms:${contact.phone}`} className="quick-action-btn text">
+                          💬 Text
+                        </a>
+                      )}
+                      {contact.email && (
+                        <a href={`mailto:${contact.email}`} className="quick-action-btn email">
+                          ✉️ Email
+                        </a>
+                      )}
+                      <button
+                        onClick={() => isLogging ? resetLogForm() : startLogging(contact.id)}
+                        className={`quick-action-btn log ${isLogging ? 'active' : ''}`}
+                      >
+                        📋 Log
+                      </button>
+                      <button onClick={() => handleEdit(contact)} className="quick-action-btn edit">
+                        ✏️
+                      </button>
+                      <button onClick={() => handleDelete(contact.id)} className="quick-action-btn delete">
+                        🗑️
+                      </button>
                     </div>
-                  )}
-
-                  {/* Quick Actions */}
-                  <div className="quick-actions">
-                    {contact.phone && (
-                      <a href={`tel:${contact.phone}`} className="quick-action-btn call">
-                        📞 Call
-                      </a>
-                    )}
-                    {contact.phone && (
-                      <a href={`sms:${contact.phone}`} className="quick-action-btn text">
-                        💬 Text
-                      </a>
-                    )}
-                    {contact.email && (
-                      <a href={`mailto:${contact.email}`} className="quick-action-btn email">
-                        ✉️ Email
-                      </a>
-                    )}
-                    <button onClick={() => handleEdit(contact)} className="quick-action-btn edit">
-                      ✏️
-                    </button>
-                    <button onClick={() => handleDelete(contact.id)} className="quick-action-btn delete">
-                      🗑️
-                    </button>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </>
         )}
@@ -1054,6 +1293,268 @@ const styles = `
     border: 1px solid rgba(244, 33, 46, 0.2);
     color: var(--danger);
     padding: clamp(8px, 2.2vw, 12px);
+  }
+
+  .quick-action-btn.log {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #b45309;
+  }
+
+  .quick-action-btn.log.active {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: #eab308;
+  }
+
+  /* ===== STALENESS INDICATOR ===== */
+  .staleness-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.8vw, 10px);
+    margin-bottom: clamp(10px, 3vw, 14px);
+    padding: clamp(6px, 1.8vw, 10px) clamp(10px, 2.8vw, 14px);
+    border-radius: clamp(8px, 2vw, 12px);
+    background: var(--bg-gray);
+    font-size: clamp(12px, 3.2vw, 14px);
+  }
+
+  .staleness-dot {
+    width: clamp(8px, 2.2vw, 10px);
+    height: clamp(8px, 2.2vw, 10px);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .stale-fresh .staleness-dot { box-shadow: 0 0 0 3px rgba(0, 186, 124, 0.2); }
+  .stale-warm .staleness-dot { box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.2); }
+  .stale-cold .staleness-dot { box-shadow: 0 0 0 3px rgba(244, 33, 46, 0.2); animation: pulseDot 2s ease-in-out infinite; }
+  .stale-never .staleness-dot { box-shadow: 0 0 0 3px rgba(136, 153, 166, 0.2); }
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .staleness-label {
+    flex: 1;
+    color: var(--dark-gray);
+    font-weight: 500;
+  }
+
+  .stale-never .staleness-label {
+    color: var(--light-gray);
+    font-style: italic;
+  }
+
+  .history-toggle {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 600;
+    cursor: pointer;
+    padding: clamp(2px, 0.5vw, 4px) clamp(6px, 1.5vw, 10px);
+    border-radius: 100px;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .history-toggle:hover {
+    background: rgba(29, 155, 240, 0.08);
+  }
+
+  /* ===== CONTACT HISTORY ===== */
+  .contact-history {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 1.2vw, 8px);
+    margin-bottom: clamp(10px, 3vw, 14px);
+    padding: clamp(8px, 2.2vw, 12px);
+    background: var(--bg-gray);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .history-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(8px, 2vw, 12px);
+    padding: clamp(6px, 1.5vw, 8px);
+    border-radius: clamp(6px, 1.5vw, 10px);
+    background: white;
+  }
+
+  .history-icon {
+    font-size: clamp(14px, 3.8vw, 18px);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .history-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .history-type {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 600;
+    color: #0f1419;
+  }
+
+  .history-date {
+    font-size: clamp(11px, 2.8vw, 12px);
+    color: var(--light-gray);
+  }
+
+  .history-note {
+    font-size: clamp(11px, 2.8vw, 12px);
+    color: var(--dark-gray);
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  .history-delete {
+    background: none;
+    border: none;
+    color: var(--light-gray);
+    font-size: clamp(16px, 4vw, 20px);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+  }
+
+  .history-delete:hover {
+    color: var(--danger);
+  }
+
+  /* ===== LOG FORM ===== */
+  .log-form {
+    background: rgba(234, 179, 8, 0.05);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(12px, 3.5vw, 18px);
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .log-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .log-form-title {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: #0f1419;
+  }
+
+  .log-form-close {
+    background: none;
+    border: none;
+    font-size: clamp(18px, 5vw, 22px);
+    color: var(--light-gray);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .log-form-group {
+    margin-bottom: clamp(10px, 3vw, 14px);
+  }
+
+  .log-form-label {
+    display: block;
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    margin-bottom: clamp(4px, 1.2vw, 6px);
+  }
+
+  .log-date-input {
+    width: 100%;
+    padding: clamp(8px, 2.2vw, 12px);
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(8px, 2vw, 12px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-family: inherit;
+    box-sizing: border-box;
+    background: white;
+  }
+
+  .log-date-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .log-type-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(6px, 1.5vw, 8px);
+  }
+
+  .log-type-chip {
+    padding: clamp(6px, 1.5vw, 10px) clamp(10px, 2.5vw, 14px);
+    border-radius: 100px;
+    border: 1px solid var(--extra-light-gray);
+    background: white;
+    color: var(--dark-gray);
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+
+  .log-type-chip:hover {
+    border-color: var(--primary);
+  }
+
+  .log-type-chip.selected {
+    border-color: var(--primary);
+    background: rgba(29, 155, 240, 0.1);
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .log-note-input {
+    width: 100%;
+    padding: clamp(8px, 2.2vw, 12px);
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(8px, 2vw, 12px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-family: inherit;
+    box-sizing: border-box;
+    background: white;
+  }
+
+  .log-note-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .log-form-actions {
+    display: flex;
+    gap: clamp(8px, 2vw, 12px);
+    margin-top: clamp(4px, 1vw, 6px);
+  }
+
+  .log-form-actions .btn-primary,
+  .log-form-actions .btn-secondary {
+    flex: 1;
+    padding: clamp(8px, 2.2vw, 12px);
+    font-size: clamp(13px, 3.5vw, 15px);
+  }
+
+  .btn-secondary.compact {
+    width: auto;
+    padding: clamp(8px, 2.2vw, 12px) clamp(16px, 4vw, 22px);
   }
 
   /* ===== FILTER PILLS ===== */
