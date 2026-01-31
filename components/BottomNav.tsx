@@ -10,29 +10,23 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { 
-    path: '/dashboard', 
-    label: 'Home', 
+  {
+    path: '/dashboard',
+    label: 'Home',
     icon: '🏠',
     matchPaths: ['/dashboard', '/']
   },
-  { 
-    path: '/tools', 
-    label: 'Tools', 
+  {
+    path: '/tools',
+    label: 'Tools',
     icon: '🧰',
-    matchPaths: ['/tools', '/ally', '/brake', '/focus', '/burnout']
+    matchPaths: ['/tools', '/ally', '/brake', '/focus', '/goals']
   },
-  { 
-    path: '/goals', 
-    label: 'Goals', 
-    icon: '🌱',
-    matchPaths: ['/goals']
-  },
-  { 
-    path: '/village', 
-    label: 'Village', 
-    icon: '👥',
-    matchPaths: ['/village']
+  {
+    path: '/history',
+    label: 'You',
+    icon: '📊',
+    matchPaths: ['/history', '/burnout', '/settings', '/village']
   },
 ]
 

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getADHDCoachAdvice, CoachResponse } from '@/lib/gemini'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
+import BottomNav from '@/components/BottomNav'
+import ModeIndicator from '@/components/adhd/ModeIndicator'
+import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 
 interface MoodEntry {
   id: string
@@ -271,15 +274,7 @@ export default function Dashboard() {
           ADHDer.io
         </button>
         <div className="header-actions">
-          {/* Phase 2: Village Presence Indicator */}
-          <div className="village-pill">
-            <span className="presence-dot"></span>
-            <span className="presence-count">{onlineCount} online</span>
-          </div>
-          <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
-            💜
-          </button>
-          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">
+          <button onClick={() => router.push('/brake')} className="icon-btn red" title="BREAK">
             🛑
           </button>
           <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
@@ -289,6 +284,13 @@ export default function Dashboard() {
 
         {showMenu && (
           <div className="dropdown-menu">
+            <button onClick={() => { router.push('/tools'); setShowMenu(false) }} className="menu-item">
+              🧰 All Tools
+            </button>
+            <div className="menu-divider" />
+            <button onClick={() => { router.push('/ally'); setShowMenu(false) }} className="menu-item">
+              💜 Get Unstuck (Ally)
+            </button>
             <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
               ⏱️ Focus Mode
             </button>
@@ -298,8 +300,12 @@ export default function Dashboard() {
             <button onClick={() => { router.push('/burnout'); setShowMenu(false) }} className="menu-item">
               ⚡ Energy Tracker
             </button>
+            <div className="menu-divider" />
             <button onClick={() => { router.push('/village'); setShowMenu(false) }} className="menu-item">
-              👥 My Village
+              👥 Village ({onlineCount} online)
+            </button>
+            <button onClick={() => { router.push('/history'); setShowMenu(false) }} className="menu-item">
+              📊 History & Insights
             </button>
             <div className="menu-divider" />
             <button
@@ -315,29 +321,11 @@ export default function Dashboard() {
       {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
 
       <main className="main">
-        {/* Phase 1: Mode Indicator Banner */}
-        {insights && insights.totalCheckIns > 0 && (
-          <div 
-            className="mode-banner"
-            style={{ 
-              background: modeConfig.bgColor, 
-              borderColor: modeConfig.borderColor 
-            }}
-          >
-            <span className="mode-icon">{modeConfig.icon}</span>
-            <div className="mode-content">
-              <span className="mode-label" style={{ color: modeConfig.color }}>
-                {modeConfig.label}
-              </span>
-              <span className="mode-message">{modeConfig.message}</span>
-            </div>
-          </div>
-        )}
-
         {/* Phase 3: Pinned Context Card - Dynamic based on userMode */}
         {userMode === 'recovery' && !showCheckInAnyway && !checkInComplete ? (
           // RECOVERY MODE CARD
           <div className="card pinned-card recovery">
+            <ModeIndicator mode={userMode} position="absolute" />
             <div className="pinned-header">
               <span className="pinned-icon">🫂</span>
               <div className="pinned-titles">
@@ -358,6 +346,7 @@ export default function Dashboard() {
         ) : userMode === 'growth' && !showCheckInAnyway && !checkInComplete ? (
           // GROWTH MODE CARD
           <div className="card pinned-card growth">
+            <ModeIndicator mode={userMode} position="absolute" />
             <div className="pinned-header">
               <span className="pinned-icon">🚀</span>
               <div className="pinned-titles">
@@ -378,6 +367,7 @@ export default function Dashboard() {
         ) : (
           // MAINTENANCE MODE CARD (or check-in anyway)
           <div className="card main-card">
+            <ModeIndicator mode={userMode} position="absolute" />
             <div className="greeting">
               <h1>{getGreeting()} 👋</h1>
               {!showCheckInAnyway && getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
@@ -467,27 +457,35 @@ export default function Dashboard() {
 
         {/* Phase 4: Insight Card (replaces stats-row) */}
         {insights && (insights.trend === 'up' || insights.trend === 'down') && (
-          <div className="card insight-card">
-            <span className="insight-icon">💡</span>
-            <div className="insight-content">
-              <span className="insight-label">Insight</span>
+          <ProgressiveCard
+            id="mood-trend-insight"
+            title="Insights"
+            icon="💡"
+            preview={`Mood trending ${insights.trend === 'up' ? 'up 📈' : 'down 📉'}`}
+            defaultExpanded={insights.trend === 'down'} // Auto-expand if trending down
+          >
+            <div className="insight-content-inner">
               <p className="insight-text">
                 Your mood is trending <strong>{insights.trend === 'up' ? 'up 📈' : 'down 📉'}</strong> this week.
-                {insights.trend === 'up' 
+                {insights.trend === 'up'
                   ? " You're building momentum — keep it going!"
                   : " Be gentle with yourself. Consider using BREAK today."
                 }
               </p>
             </div>
-          </div>
+          </ProgressiveCard>
         )}
 
         {/* Phase 4: Activity Feed (Twitter-style stream) */}
         {recentMoods.length > 0 && (
-          <div className="activity-feed">
-            <h3 className="feed-header">Recent Activity</h3>
-            
-            {recentMoods.map((entry) => (
+          <ProgressiveCard
+            id="recent-activity"
+            title="Recent Activity"
+            preview={`${recentMoods.length} check-ins`}
+            defaultExpanded={false}
+          >
+            <div className="activity-feed">
+              {recentMoods.map((entry) => (
               <div key={entry.id} className="feed-item">
                 {/* Tweet-style layout: Avatar left, content right */}
                 <div className="feed-avatar">
@@ -516,28 +514,16 @@ export default function Dashboard() {
               </div>
             ))}
             
-            <button onClick={() => router.push('/history')} className="feed-view-all">
-              View full history & charts →
-            </button>
-          </div>
+              <button onClick={() => router.push('/history')} className="feed-view-all">
+                View full history & charts →
+              </button>
+            </div>
+          </ProgressiveCard>
         )}
       </main>
 
       {/* Bottom Nav */}
-      <nav className="bottom-nav">
-        <button className="nav-btn active">
-          <span className="nav-icon">🏠</span>
-          <span className="nav-label">Home</span>
-        </button>
-        <button onClick={() => router.push('/focus')} className="nav-btn">
-          <span className="nav-icon">⏱️</span>
-          <span className="nav-label">Focus</span>
-        </button>
-        <button onClick={() => router.push('/history')} className="nav-btn">
-          <span className="nav-icon">📊</span>
-          <span className="nav-label">Insights</span>
-        </button>
-      </nav>
+      <BottomNav />
 
       <style jsx>{styles}</style>
     </div>
@@ -644,41 +630,6 @@ const styles = `
     font-size: clamp(12px, 3vw, 16px);
   }
 
-  /* ===== PHASE 2: VILLAGE PRESENCE PILL ===== */
-  .village-pill {
-    display: flex;
-    align-items: center;
-    gap: clamp(5px, 1.5vw, 8px);
-    padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.5vw, 12px);
-    background: rgba(0, 186, 124, 0.08);
-    border: 1px solid rgba(0, 186, 124, 0.2);
-    border-radius: 100px;
-  }
-
-  .presence-dot {
-    width: clamp(6px, 1.8vw, 8px);
-    height: clamp(6px, 1.8vw, 8px);
-    background: #00ba7c;
-    border-radius: 50%;
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-      box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4);
-    }
-    50% {
-      opacity: 0.6;
-      box-shadow: 0 0 0 4px rgba(0, 186, 124, 0);
-    }
-  }
-
-  .presence-count {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 600;
-    color: #00ba7c;
-  }
 
   .dropdown-menu {
     position: absolute;
@@ -729,6 +680,7 @@ const styles = `
   }
 
   .main-card {
+    position: relative;
     padding: clamp(16px, 5vw, 28px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     margin-bottom: clamp(12px, 4vw, 18px);
@@ -736,6 +688,7 @@ const styles = `
 
   /* ===== PHASE 3: PINNED CONTEXT CARDS ===== */
   .pinned-card {
+    position: relative;
     padding: clamp(20px, 5.5vw, 32px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     margin-bottom: clamp(12px, 4vw, 18px);
@@ -855,40 +808,6 @@ const styles = `
     text-underline-offset: 2px;
   }
 
-  /* ===== PHASE 1: MODE BANNER ===== */
-  .mode-banner {
-    display: flex;
-    align-items: center;
-    gap: clamp(12px, 3vw, 16px);
-    padding: clamp(12px, 3.5vw, 18px);
-    border-radius: clamp(12px, 3vw, 16px);
-    border: 1px solid;
-    margin-bottom: clamp(12px, 4vw, 18px);
-  }
-
-  .mode-icon {
-    font-size: clamp(24px, 7vw, 32px);
-    flex-shrink: 0;
-  }
-
-  .mode-content {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(2px, 0.5vw, 4px);
-  }
-
-  .mode-label {
-    font-size: clamp(13px, 3.5vw, 15px);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .mode-message {
-    font-size: clamp(12px, 3.2vw, 14px);
-    color: var(--dark-gray);
-    line-height: 1.4;
-  }
 
   /* ===== GREETING ===== */
   .greeting {
@@ -1054,34 +973,9 @@ const styles = `
     color: var(--primary);
   }
 
-  /* ===== PHASE 4: INSIGHT CARD ===== */
-  .insight-card {
-    display: flex;
-    align-items: flex-start;
-    gap: clamp(12px, 3.5vw, 16px);
-    padding: clamp(16px, 4.5vw, 22px);
-    margin-bottom: clamp(12px, 4vw, 18px);
-    background: linear-gradient(135deg, rgba(29, 155, 240, 0.06) 0%, rgba(0, 186, 124, 0.06) 100%);
-    border: 1px solid rgba(29, 155, 240, 0.15);
-  }
-
-  .insight-icon {
-    font-size: clamp(24px, 7vw, 32px);
-    flex-shrink: 0;
-  }
-
-  .insight-content {
-    flex: 1;
-  }
-
-  .insight-label {
-    font-size: clamp(11px, 3vw, 13px);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--primary);
-    display: block;
-    margin-bottom: clamp(4px, 1vw, 6px);
+  /* ===== INSIGHT CONTENT (inside ProgressiveCard) ===== */
+  .insight-content-inner {
+    padding: clamp(4px, 1vw, 8px) 0;
   }
 
   .insight-text {
@@ -1214,37 +1108,6 @@ const styles = `
     background: var(--bg-gray);
   }
 
-  /* ===== BOTTOM NAV ===== */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: space-around;
-    padding: clamp(6px, 2vw, 10px) 0;
-    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
-    z-index: 100;
-  }
-
-  .nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(2px, 1vw, 4px);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
-    color: var(--light-gray);
-  }
-
-  .nav-btn.active { color: var(--primary); }
-  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
-  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
-  .nav-btn.active .nav-label { font-weight: 600; }
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {
