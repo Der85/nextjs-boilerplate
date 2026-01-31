@@ -3,38 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { coachRateLimiter } from '@/lib/rateLimiter'
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
-
-// ===========================================
-// Rate Limiting (in-memory, per-user)
-// ===========================================
-const RATE_WINDOW_MS = 60_000  // 1 minute
-const RATE_MAX_REQUESTS = 20   // 20 requests per minute per user
-const rateBucket = new Map<string, { count: number; resetAt: number }>()
-
-function isRateLimited(userId: string): boolean {
-  const now = Date.now()
-  const bucket = rateBucket.get(userId)
-  
-  if (!bucket || now > bucket.resetAt) {
-    rateBucket.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return false
-  }
-  
-  bucket.count += 1
-  return bucket.count > RATE_MAX_REQUESTS
-}
-
-// Clean up old buckets periodically (prevent memory leak)
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, bucket] of rateBucket.entries()) {
-    if (now > bucket.resetAt) {
-      rateBucket.delete(key)
-    }
-  }
-}, 60_000)
 
 // ===========================================
 // Supabase Client
@@ -144,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. RATE LIMITING - Per user
-    if (isRateLimited(user.id)) {
+    if (coachRateLimiter.isLimited(user.id)) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a moment.' },
         { status: 429 }
