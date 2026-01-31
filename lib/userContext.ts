@@ -10,6 +10,46 @@ import {
 } from './types/context'
 
 // ============================================
+// CONSTANTS
+// ============================================
+
+// Common ADHD-related themes to look for
+const THEME_PATTERNS: { pattern: RegExp, theme: string, sentiment: 'positive' | 'negative' | 'neutral' }[] = [
+  // Work/Productivity
+  { pattern: /work|job|boss|coworker|office|deadline|project|meeting/i, theme: 'work stress', sentiment: 'negative' },
+  { pattern: /productive|accomplished|finished|completed|done/i, theme: 'productivity wins', sentiment: 'positive' },
+  { pattern: /procrastinat|avoid|putting off|can't start/i, theme: 'procrastination', sentiment: 'negative' },
+  { pattern: /overwhelm|too much|swamp|buried/i, theme: 'feeling overwhelmed', sentiment: 'negative' },
+  { pattern: /focus|concentrate|distract/i, theme: 'focus challenges', sentiment: 'negative' },
+  
+  // Emotional
+  { pattern: /anxi|worry|nervous|stress/i, theme: 'anxiety', sentiment: 'negative' },
+  { pattern: /sad|depress|down|low|hopeless/i, theme: 'low mood', sentiment: 'negative' },
+  { pattern: /happy|joy|excit|great|amazing/i, theme: 'positive emotions', sentiment: 'positive' },
+  { pattern: /frustrat|angry|annoyed|irritat/i, theme: 'frustration', sentiment: 'negative' },
+  { pattern: /reject|rsd|sensitive|hurt/i, theme: 'rejection sensitivity', sentiment: 'negative' },
+  
+  // Physical/Self-care
+  { pattern: /tired|exhaust|fatigue|sleep|insomnia/i, theme: 'fatigue/sleep issues', sentiment: 'negative' },
+  { pattern: /exercise|workout|gym|run|walk/i, theme: 'physical activity', sentiment: 'positive' },
+  { pattern: /eat|food|meal|hungry/i, theme: 'eating patterns', sentiment: 'neutral' },
+  { pattern: /medic|pill|dose|forgot.*med/i, theme: 'medication', sentiment: 'neutral' },
+  
+  // Relationships
+  { pattern: /friend|social|family|partner|relationship/i, theme: 'relationships', sentiment: 'neutral' },
+  { pattern: /alone|lonely|isolat/i, theme: 'loneliness', sentiment: 'negative' },
+  { pattern: /support|help|understood/i, theme: 'feeling supported', sentiment: 'positive' },
+  
+  // ADHD-specific
+  { pattern: /hyperfocus|in the zone|flow/i, theme: 'hyperfocus', sentiment: 'positive' },
+  { pattern: /forget|forgot|memory|remember/i, theme: 'memory issues', sentiment: 'negative' },
+  { pattern: /late|time blind|running behind/i, theme: 'time management', sentiment: 'negative' },
+  { pattern: /impuls|bought|spent|decision/i, theme: 'impulsivity', sentiment: 'negative' },
+]
+
+const STOP_WORDS = new Set(['this', 'that', 'with', 'have', 'been', 'were', 'they', 'their', 'about', 'would', 'could', 'should', 'really', 'today', 'feeling', 'felt', 'just', 'like', 'some', 'more', 'very', 'much', 'what', 'when', 'where', 'which', 'while'])
+
+// ============================================
 // FETCH USER MOOD HISTORY
 // ============================================
 export async function fetchUserMoodHistory(
@@ -183,45 +223,11 @@ function extractRecurringThemes(entries: MoodEntry[]): RecurringTheme[] {
   const entriesWithNotes = entries.filter(e => e.note && e.note.trim().length > 0)
   if (entriesWithNotes.length < 3) return []
 
-  // Common ADHD-related themes to look for
-  const themePatterns: { pattern: RegExp, theme: string, sentiment: 'positive' | 'negative' | 'neutral' }[] = [
-    // Work/Productivity
-    { pattern: /work|job|boss|coworker|office|deadline|project|meeting/i, theme: 'work stress', sentiment: 'negative' },
-    { pattern: /productive|accomplished|finished|completed|done/i, theme: 'productivity wins', sentiment: 'positive' },
-    { pattern: /procrastinat|avoid|putting off|can't start/i, theme: 'procrastination', sentiment: 'negative' },
-    { pattern: /overwhelm|too much|swamp|buried/i, theme: 'feeling overwhelmed', sentiment: 'negative' },
-    { pattern: /focus|concentrate|distract/i, theme: 'focus challenges', sentiment: 'negative' },
-    
-    // Emotional
-    { pattern: /anxi|worry|nervous|stress/i, theme: 'anxiety', sentiment: 'negative' },
-    { pattern: /sad|depress|down|low|hopeless/i, theme: 'low mood', sentiment: 'negative' },
-    { pattern: /happy|joy|excit|great|amazing/i, theme: 'positive emotions', sentiment: 'positive' },
-    { pattern: /frustrat|angry|annoyed|irritat/i, theme: 'frustration', sentiment: 'negative' },
-    { pattern: /reject|rsd|sensitive|hurt/i, theme: 'rejection sensitivity', sentiment: 'negative' },
-    
-    // Physical/Self-care
-    { pattern: /tired|exhaust|fatigue|sleep|insomnia/i, theme: 'fatigue/sleep issues', sentiment: 'negative' },
-    { pattern: /exercise|workout|gym|run|walk/i, theme: 'physical activity', sentiment: 'positive' },
-    { pattern: /eat|food|meal|hungry/i, theme: 'eating patterns', sentiment: 'neutral' },
-    { pattern: /medic|pill|dose|forgot.*med/i, theme: 'medication', sentiment: 'neutral' },
-    
-    // Relationships
-    { pattern: /friend|social|family|partner|relationship/i, theme: 'relationships', sentiment: 'neutral' },
-    { pattern: /alone|lonely|isolat/i, theme: 'loneliness', sentiment: 'negative' },
-    { pattern: /support|help|understood/i, theme: 'feeling supported', sentiment: 'positive' },
-    
-    // ADHD-specific
-    { pattern: /hyperfocus|in the zone|flow/i, theme: 'hyperfocus', sentiment: 'positive' },
-    { pattern: /forget|forgot|memory|remember/i, theme: 'memory issues', sentiment: 'negative' },
-    { pattern: /late|time blind|running behind/i, theme: 'time management', sentiment: 'negative' },
-    { pattern: /impuls|bought|spent|decision/i, theme: 'impulsivity', sentiment: 'negative' },
-  ]
-
   const themeCount: Record<string, { count: number, sentiment: 'positive' | 'negative' | 'neutral', lastMentioned: string }> = {}
 
   entriesWithNotes.forEach(entry => {
     const note = entry.note!.toLowerCase()
-    themePatterns.forEach(({ pattern, theme, sentiment }) => {
+    THEME_PATTERNS.forEach(({ pattern, theme, sentiment }) => {
       if (pattern.test(note)) {
         if (!themeCount[theme]) {
           themeCount[theme] = { count: 0, sentiment, lastMentioned: entry.created_at }
@@ -256,15 +262,26 @@ function calculateStreak(entries: MoodEntry[]): UserContext['currentStreak'] {
 
   // Check-in streak (consecutive days with entries)
   let checkInStreak = 1
+  
+  // Helper to normalize date to midnight for accurate day comparison
+  const toMidnight = (dateStr: string) => {
+    const d = new Date(dateStr)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }
+
   for (let i = 1; i < entries.length; i++) {
-    const current = new Date(entries[i - 1].created_at)
-    const previous = new Date(entries[i].created_at)
-    const daysDiff = Math.floor((current.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24))
-    if (daysDiff === 1) {
+    const currentDay = toMidnight(entries[i - 1].created_at)
+    const previousDay = toMidnight(entries[i].created_at)
+    const diffTime = currentDay - previousDay
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 1) {
       checkInStreak++
-    } else {
+    } else if (diffDays > 1) {
       break
     }
+    // If diffDays === 0, it's the same day; continue to next entry without breaking
   }
 
   // Low mood streak
@@ -500,11 +517,8 @@ function extractKeywords(notes: string[]): string[] {
   const words = allText.match(/\b[a-z]{4,}\b/g) || []
   const wordCount: Record<string, number> = {}
   
-  // Common words to ignore
-  const stopWords = new Set(['this', 'that', 'with', 'have', 'been', 'were', 'they', 'their', 'about', 'would', 'could', 'should', 'really', 'today', 'feeling', 'felt', 'just', 'like', 'some', 'more', 'very', 'much', 'what', 'when', 'where', 'which', 'while'])
-  
   words.forEach(word => {
-    if (!stopWords.has(word)) {
+    if (!STOP_WORDS.has(word)) {
       wordCount[word] = (wordCount[word] || 0) + 1
     }
   })

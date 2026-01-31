@@ -29,6 +29,7 @@ class RateLimiter {
     const bucket = this.buckets.get(key)
 
     if (!bucket || now > bucket.resetAt) {
+      this.capMapSize()
       this.buckets.set(key, { count: 1, resetAt: now + this.windowMs })
       return false
     }
@@ -84,16 +85,18 @@ class RateLimiter {
     const MAX_BUCKETS = 10_000
     
     if (this.buckets.size > MAX_BUCKETS) {
-      // Remove oldest entries (those closest to expiring)
-      const entries = Array.from(this.buckets.entries())
-        .sort((a, b) => a[1].resetAt - b[1].resetAt)
+      // Remove oldest entries (those closest to expiring).
+      // Since Map preserves insertion order and we use fixed windows,
+      // the oldest entries are at the beginning. We avoid the expensive sort.
+      const toRemoveCount = this.buckets.size - MAX_BUCKETS + 1000
+      const keysIterator = this.buckets.keys()
       
-      const toRemove = entries.slice(0, this.buckets.size - MAX_BUCKETS + 1000)
-      for (const [key] of toRemove) {
-        this.buckets.delete(key)
+      for (let i = 0; i < toRemoveCount; i++) {
+        const key = keysIterator.next().value
+        if (key) this.buckets.delete(key)
       }
       
-      console.log(`Rate limiter: capped map size, removed ${toRemove.length} entries`)
+      console.log(`Rate limiter: capped map size, removed ${toRemoveCount} entries`)
     }
   }
 
