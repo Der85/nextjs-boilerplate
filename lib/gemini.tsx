@@ -1,32 +1,48 @@
-// Client-side Gemini helper with context support
-import { supabase } from '@/lib/supabase'
+// Client-side helper for calling the coach API
+// Includes authentication token for security
 
-export interface CoachResponse {
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+interface CoachResponse {
   advice: string
-  context?: {
-    totalCheckIns: number
-    currentStreak: {
-      type: 'checking_in' | 'low_mood' | 'high_mood' | 'improving'
-      days: number
-    } | null
-    pattern: 'streak_low' | 'streak_high' | 'declining' | 'improving' | 'volatile' | 'stable' | null
-    comparedToBaseline: 'better' | 'worse' | 'same'
-  }
 }
 
-export async function getADHDCoachAdvice(moodScore: number, note: string | null): Promise<CoachResponse> {
+export async function getADHDCoachAdvice(
+  moodScore: number, 
+  note: string | null
+): Promise<CoachResponse> {
   try {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const accessToken = sessionData?.session?.access_token ?? null
+    // Get the current session token
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.access_token) {
+      console.warn('No auth session - returning fallback advice')
+      return { advice: getFallbackAdvice(moodScore) }
+    }
 
     const response = await fetch('/api/coach', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        'Authorization': `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ moodScore, note }),
     })
+
+    // Handle rate limiting
+    if (response.status === 429) {
+      return { advice: "You're checking in frequently - that's great! Take a breath and try again in a minute." }
+    }
+
+    // Handle auth errors
+    if (response.status === 401) {
+      console.warn('Auth error from coach API')
+      return { advice: getFallbackAdvice(moodScore) }
+    }
 
     if (!response.ok) {
       console.error('Coach API error:', response.status)
@@ -34,10 +50,8 @@ export async function getADHDCoachAdvice(moodScore: number, note: string | null)
     }
 
     const data = await response.json()
-    return {
-      advice: data.advice || getFallbackAdvice(moodScore),
-      context: data.context
-    }
+    return { advice: data.advice || getFallbackAdvice(moodScore) }
+    
   } catch (error) {
     console.error('Coach API error:', error)
     return { advice: getFallbackAdvice(moodScore) }
@@ -46,7 +60,7 @@ export async function getADHDCoachAdvice(moodScore: number, note: string | null)
 
 function getFallbackAdvice(moodScore: number): string {
   if (moodScore <= 3) {
-    return "I'm here with you during this hard moment. Sometimes just showing up to check in is the win—you did that today."
+    return "It's okay to have hard days—your feelings are valid. Try sharing what's on your mind next time so I can give you more personalized support."
   }
   if (moodScore <= 5) {
     return "Thanks for checking in—showing up matters. If you share what's going on, I can offer advice tailored to your situation."
