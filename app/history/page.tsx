@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
 import BottomNav from '@/components/BottomNav'
 import AppHeader from '@/components/AppHeader'
+import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 
 interface MoodEntry {
   id: string
@@ -188,75 +189,94 @@ export default function HistoryPage() {
 
         {/* Phase 2: Weekly Narrative Card (replaces stats-grid) */}
         {stats.total > 0 && (
-          <div className={`narrative-card ${
-            stats.weeklyAvg < 4.5 ? 'recovery' : 
-            stats.weeklyAvg > 7.5 ? 'growth' : 
-            'maintenance'
-          }`}>
-            <div className="narrative-header">
-              <span className="narrative-icon">
-                {stats.weeklyAvg < 4.5 ? '🫂' : stats.weeklyAvg > 7.5 ? '🚀' : '⚖️'}
-              </span>
-              <div className="narrative-titles">
-                <h2 className="narrative-title">
-                  {stats.weeklyAvg < 4.5 
-                    ? 'Recovery Pattern Detected' 
-                    : stats.weeklyAvg > 7.5 
-                    ? 'High Momentum Week' 
-                    : 'Steady Baseline'}
-                </h2>
-                <p className="narrative-subtitle">Weekly Report</p>
+          <ProgressiveCard
+            id="weekly-summary"
+            title="Weekly Summary"
+            icon={stats.weeklyAvg < 4.5 ? '🫂' : stats.weeklyAvg > 7.5 ? '🚀' : '⚖️'}
+            preview={`Week avg: ${stats.weeklyAvg.toFixed(1)}/10`}
+            defaultExpanded={false}
+          >
+            <div className={`narrative-card ${
+              stats.weeklyAvg < 4.5 ? 'recovery' :
+              stats.weeklyAvg > 7.5 ? 'growth' :
+              'maintenance'
+            }`}>
+              <div className="narrative-header">
+                <span className="narrative-icon">
+                  {stats.weeklyAvg < 4.5 ? '🫂' : stats.weeklyAvg > 7.5 ? '🚀' : '⚖️'}
+                </span>
+                <div className="narrative-titles">
+                  <h2 className="narrative-title">
+                    {stats.weeklyAvg < 4.5
+                      ? 'Recovery Pattern Detected'
+                      : stats.weeklyAvg > 7.5
+                      ? 'High Momentum Week'
+                      : 'Steady Baseline'}
+                  </h2>
+                  <p className="narrative-subtitle">Weekly Report</p>
+                </div>
+                <div className="narrative-score">
+                  <span className="score-value">{stats.weeklyAvg.toFixed(1)}</span>
+                  <span className="score-label">avg</span>
+                </div>
               </div>
-              <div className="narrative-score">
-                <span className="score-value">{stats.weeklyAvg.toFixed(1)}</span>
-                <span className="score-label">avg</span>
+              <p className="narrative-text">
+                {stats.weeklyAvg < 4.5
+                  ? `This week has been heavy. You've faced some tough days, but showing up matters. Consider using BREAK more often.`
+                  : stats.weeklyAvg > 7.5
+                  ? `You're trending upward! Great job maintaining energy. This is a good time to tackle meaningful goals.`
+                  : `You held your ground this week. Consistency is the goal — you're building sustainable habits.`}
+              </p>
+              <div className="narrative-stats">
+                <div className="mini-stat">
+                  <span className="mini-label">Month Avg</span>
+                  <span className="mini-value">{stats.monthlyAvg.toFixed(1)}</span>
+                </div>
+                <div className="mini-stat">
+                  <span className="mini-label">Best</span>
+                  <span className="mini-value">{stats.highest}</span>
+                </div>
+                <div className="mini-stat">
+                  <span className="mini-label">Low</span>
+                  <span className="mini-value">{stats.lowest}</span>
+                </div>
+                <div className="mini-stat">
+                  <span className="mini-label">Check-ins</span>
+                  <span className="mini-value">{stats.total}</span>
+                </div>
               </div>
             </div>
-            <p className="narrative-text">
-              {stats.weeklyAvg < 4.5 
-                ? `This week has been heavy. You've faced some tough days, but showing up matters. Consider using BREAK more often.`
-                : stats.weeklyAvg > 7.5 
-                ? `You're trending upward! Great job maintaining energy. This is a good time to tackle meaningful goals.`
-                : `You held your ground this week. Consistency is the goal — you're building sustainable habits.`}
-            </p>
-            <div className="narrative-stats">
-              <div className="mini-stat">
-                <span className="mini-label">Month Avg</span>
-                <span className="mini-value">{stats.monthlyAvg.toFixed(1)}</span>
-              </div>
-              <div className="mini-stat">
-                <span className="mini-label">Best</span>
-                <span className="mini-value">{stats.highest}</span>
-              </div>
-              <div className="mini-stat">
-                <span className="mini-label">Low</span>
-                <span className="mini-value">{stats.lowest}</span>
-              </div>
-              <div className="mini-stat">
-                <span className="mini-label">Check-ins</span>
-                <span className="mini-value">{stats.total}</span>
-              </div>
-            </div>
-          </div>
+          </ProgressiveCard>
         )}
 
         {/* Charts */}
-        <div className="card charts-card">
-          <MoodHistoryViz entries={entries} />
-        </div>
+        <ProgressiveCard
+          id="mood-charts"
+          title="Charts & Visualizations"
+          icon="📈"
+          preview="View trends over time"
+          defaultExpanded={false}
+        >
+          <div className="charts-card-inner">
+            <MoodHistoryViz entries={entries} />
+          </div>
+        </ProgressiveCard>
 
         {/* Phase 4: Timeline Feed (replaces entries-card) */}
-        <div className="timeline-section">
-          <h2 className="timeline-header">All Check-ins ({stats.total})</h2>
-          
-          {entries.length === 0 ? (
-            <div className="empty-state-card">
-              <p>No check-ins yet</p>
-              <button onClick={() => router.push('/dashboard')} className="cta-btn">
-                Log your first mood
-              </button>
-            </div>
-          ) : (
+        {entries.length === 0 ? (
+          <div className="empty-state-card">
+            <p>No check-ins yet</p>
+            <button onClick={() => router.push('/dashboard')} className="cta-btn">
+              Log your first mood
+            </button>
+          </div>
+        ) : (
+          <ProgressiveCard
+            id="all-check-ins"
+            title="All Check-ins"
+            preview={`${stats.total} check-ins`}
+            defaultExpanded={false}
+          >
             <div className="timeline-feed">
               {entries.map((entry) => (
                 <div key={entry.id} className="timeline-item">
@@ -287,8 +307,8 @@ export default function HistoryPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </ProgressiveCard>
+        )}
       </main>
 
       {/* Bottom Nav */}
