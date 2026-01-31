@@ -48,6 +48,14 @@ interface ContextInfo {
 // ============================================
 // API Helper
 // ============================================
+const getClientTimeZone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
 async function fetchStuckCoach(step: string, data: Record<string, any> = {}) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Not authenticated')
@@ -58,7 +66,7 @@ async function fetchStuckCoach(step: string, data: Record<string, any> = {}) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`
     },
-    body: JSON.stringify({ step, ...data })
+    body: JSON.stringify({ step, timeZone: getClientTimeZone(), ...data })
   })
 
   if (!response.ok) throw new Error('API request failed')

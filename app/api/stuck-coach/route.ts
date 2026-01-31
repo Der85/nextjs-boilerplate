@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { buildUserContext } from '@/lib/userContext'
+import { stuckRateLimiter } from '@/lib/rateLimiter'
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
@@ -12,25 +13,12 @@ const GEMINI_API_URL =
 // ============================================
 // Rate Limiting
 // ============================================
-const RATE_WINDOW_MS = 60_000
-const RATE_MAX = 20
-const rateBucket = new Map<string, { count: number; resetAt: number }>()
-
-function getIp(request: NextRequest): string {
-  const forwardedFor = request.headers.get('x-forwarded-for')
+function getClientIp(request: NextRequest): string {
+  const forwardedFor =
+    request.headers.get('x-vercel-forwarded-for') ||
+    request.headers.get('x-forwarded-for')
   if (forwardedFor) return forwardedFor.split(',')[0].trim()
   return request.headers.get('x-real-ip') ?? 'unknown'
-}
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const current = rateBucket.get(ip)
-  if (!current || now > current.resetAt) {
-    rateBucket.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return false
-  }
-  current.count += 1
-  return current.count > RATE_MAX
 }
 
 // ============================================
@@ -62,6 +50,7 @@ interface StuckCoachRequest {
   customBlock?: string
   selectedThought?: string
   customThought?: string
+  timeZone?: string
 }
 
 interface BlockSuggestion {
@@ -377,8 +366,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const ip = getIp(request)
-    if (isRateLimited(ip)) {
+    const ip = getClientIp(request)
+    if (stuckRateLimiter.isLimited(ip)) {
       return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
     }
 
@@ -400,7 +389,7 @@ export async function POST(request: NextRequest) {
     // Get user context
     const serviceClient = getServiceClient()
     const contextClient = serviceClient || supabase
-    const userContext = await buildUserContext(contextClient, userId)
+    const userContext = await buildUserContext(contextClient, userId, body.timeZone)
     const allySessions = await fetchRecentAllySessions(contextClient, userId)
     const activeCommitments = await fetchActiveCommitments(contextClient, userId)
 

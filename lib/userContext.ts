@@ -156,7 +156,7 @@ function analyzeMoodPatterns(entries: MoodEntry[]): MoodPattern | null {
 // ============================================
 // ANALYZE TIME PATTERNS
 // ============================================
-function analyzeTimePatterns(entries: MoodEntry[]): TimePattern {
+function analyzeTimePatterns(entries: MoodEntry[], timeZone?: string): TimePattern {
   if (entries.length < 7) {
     return { bestTimeOfDay: null, worstTimeOfDay: null, bestDayOfWeek: null, worstDayOfWeek: null }
   }
@@ -173,12 +173,10 @@ function analyzeTimePatterns(entries: MoodEntry[]): TimePattern {
     Thursday: [], Friday: [], Saturday: []
   }
 
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
   entries.forEach(entry => {
     const date = new Date(entry.created_at)
-    const hour = date.getHours()
-    const dayName = days[date.getDay()]
+    const { hour, weekday } = getZonedDateParts(date, timeZone)
+    const dayName = weekday
 
     // Categorize by time of day
     if (hour >= 5 && hour < 12) timeOfDayScores.morning.push(entry.mood_score)
@@ -257,22 +255,15 @@ function extractRecurringThemes(entries: MoodEntry[]): RecurringTheme[] {
 // ============================================
 // CALCULATE STREAK
 // ============================================
-function calculateStreak(entries: MoodEntry[]): UserContext['currentStreak'] {
+function calculateStreak(entries: MoodEntry[], timeZone?: string): UserContext['currentStreak'] {
   if (entries.length < 2) return null
 
   // Check-in streak (consecutive days with entries)
   let checkInStreak = 1
-  
-  // Helper to normalize date to midnight for accurate day comparison
-  const toMidnight = (dateStr: string) => {
-    const d = new Date(dateStr)
-    d.setHours(0, 0, 0, 0)
-    return d.getTime()
-  }
 
   for (let i = 1; i < entries.length; i++) {
-    const currentDay = toMidnight(entries[i - 1].created_at)
-    const previousDay = toMidnight(entries[i].created_at)
+    const currentDay = getDayKey(entries[i - 1].created_at, timeZone)
+    const previousDay = getDayKey(entries[i].created_at, timeZone)
     const diffTime = currentDay - previousDay
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
 
@@ -309,7 +300,8 @@ function calculateStreak(entries: MoodEntry[]): UserContext['currentStreak'] {
 // ============================================
 export async function buildUserContext(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  timeZone?: string
 ): Promise<UserContext> {
   const entries = await fetchUserMoodHistory(supabase, userId, 30)
   
@@ -367,11 +359,11 @@ export async function buildUserContext(
     recentEntries,
     recentAverageMood: Math.round(recentAverageMood * 10) / 10,
     currentPattern: analyzeMoodPatterns(entries),
-    timePatterns: analyzeTimePatterns(entries),
+    timePatterns: analyzeTimePatterns(entries, timeZone),
     recurringThemes: extractRecurringThemes(entries),
     comparedToBaseline,
     baselineDifference: Math.round(baselineDifference * 10) / 10,
-    currentStreak: calculateStreak(entries),
+    currentStreak: calculateStreak(entries, timeZone),
     preferredCopingStrategies,
     triggersIdentified
   }
@@ -542,4 +534,63 @@ function formatTimeAgo(dateString: string): string {
   if (diffDays === 1) return 'yesterday'
   if (diffDays < 7) return `${diffDays} days ago`
   return `${Math.floor(diffDays / 7)} week${diffDays >= 14 ? 's' : ''} ago`
+}
+
+// ============================================
+// TIME ZONE HELPERS
+// ============================================
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function getZonedDateParts(date: Date, timeZone?: string): { year: number; month: number; day: number; hour: number; weekday: string } {
+  if (!timeZone) {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hour: date.getHours(),
+      weekday: WEEKDAYS[date.getDay()]
+    }
+  }
+
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hour12: false,
+      weekday: 'long'
+    })
+
+    const parts = formatter.formatToParts(date)
+    const lookup: Record<string, string> = {}
+    for (const part of parts) {
+      if (part.type !== 'literal') {
+        lookup[part.type] = part.value
+      }
+    }
+
+    return {
+      year: Number(lookup.year),
+      month: Number(lookup.month),
+      day: Number(lookup.day),
+      hour: Number(lookup.hour),
+      weekday: lookup.weekday || WEEKDAYS[date.getDay()]
+    }
+  } catch {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hour: date.getHours(),
+      weekday: WEEKDAYS[date.getDay()]
+    }
+  }
+}
+
+function getDayKey(dateInput: string | Date, timeZone?: string): number {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  const { year, month, day } = getZonedDateParts(date, timeZone)
+  return Date.UTC(year, month - 1, day)
 }

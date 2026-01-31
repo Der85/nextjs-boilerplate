@@ -41,6 +41,14 @@ type CreateStep = 'title' | 'breakdown' | 'review'
 // ============================================
 // Helpers
 // ============================================
+const getClientTimeZone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
 const getPlantEmoji = (p: number): string => {
   if (p >= 100) return '🌸'
   if (p >= 75) return '🌷'
@@ -80,7 +88,7 @@ async function fetchGoalsCoach(action: string, data: Record<string, any> = {}) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`
     },
-    body: JSON.stringify({ action, ...data })
+    body: JSON.stringify({ action, timeZone: getClientTimeZone(), ...data })
   })
 
   if (!response.ok) throw new Error('API request failed')
