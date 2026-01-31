@@ -39,6 +39,19 @@ interface FocusDashboardProps {
   onPlansUpdate: () => void
 }
 
+const DUE_DATE_ORDER: Record<string, number> = {
+  today: 0,
+  tomorrow: 1,
+  this_week: 2,
+  no_rush: 3,
+}
+
+function sortByDueDate(a: Plan, b: Plan): number {
+  const aOrder = DUE_DATE_ORDER[a.due_date || ''] ?? 4
+  const bOrder = DUE_DATE_ORDER[b.due_date || ''] ?? 4
+  return aOrder - bOrder
+}
+
 export default function FocusDashboard({
   plans,
   goals,
@@ -53,6 +66,17 @@ export default function FocusDashboard({
   const [completedPlan, setCompletedPlan] = useState<Plan | null>(null)
   const [syncingGoal, setSyncingGoal] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
+
+  // Task action menu
+  const [taskMenuId, setTaskMenuId] = useState<string | null>(null)
+
+  // Editing state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [editingTaskName, setEditingTaskName] = useState('')
+  const [editingStepKey, setEditingStepKey] = useState<string | null>(null)
+  const [editingStepText, setEditingStepText] = useState('')
+
+  const sortedPlans = [...plans].sort(sortByDueDate)
 
   const getGoalTitle = (goalId: string | null) => {
     if (!goalId) return null
@@ -161,6 +185,95 @@ export default function FocusDashboard({
     onPlansUpdate()
   }
 
+  // ============================================
+  // Task Actions
+  // ============================================
+
+  const deletePlan = async (planId: string) => {
+    if (!user) return
+    await supabase.from('focus_plans').delete().eq('id', planId).eq('user_id', user.id)
+    setTaskMenuId(null)
+    onPlansUpdate()
+  }
+
+  const startEditTask = (plan: Plan) => {
+    setEditingTaskId(plan.id)
+    setEditingTaskName(plan.task_name)
+    setTaskMenuId(null)
+  }
+
+  const saveEditTask = async (planId: string) => {
+    if (!user || !editingTaskName.trim()) return
+    await supabase.from('focus_plans').update({
+      task_name: editingTaskName.trim(),
+    }).eq('id', planId).eq('user_id', user.id)
+    setEditingTaskId(null)
+    setEditingTaskName('')
+    onPlansUpdate()
+  }
+
+  const cancelEditTask = () => {
+    setEditingTaskId(null)
+    setEditingTaskName('')
+  }
+
+  const deprioritizePlan = async (planId: string) => {
+    if (!user) return
+    await supabase.from('focus_plans').update({
+      due_date: 'no_rush',
+    }).eq('id', planId).eq('user_id', user.id)
+    setTaskMenuId(null)
+    onPlansUpdate()
+  }
+
+  // ============================================
+  // Step Actions
+  // ============================================
+
+  const deleteStep = async (planId: string, stepId: string) => {
+    const plan = plans.find(p => p.id === planId)
+    if (!plan || !user) return
+
+    const updatedSteps = plan.steps.filter(s => s.id !== stepId)
+    const completedCount = updatedSteps.filter(s => s.completed).length
+
+    await supabase.from('focus_plans').update({
+      steps: updatedSteps,
+      steps_completed: completedCount,
+      total_steps: updatedSteps.length,
+      is_completed: updatedSteps.length > 0 && completedCount === updatedSteps.length,
+    }).eq('id', planId).eq('user_id', user.id)
+
+    onPlansUpdate()
+  }
+
+  const startEditStep = (planId: string, step: Step) => {
+    setEditingStepKey(`${planId}:${step.id}`)
+    setEditingStepText(step.text)
+  }
+
+  const saveEditStep = async (planId: string, stepId: string) => {
+    const plan = plans.find(p => p.id === planId)
+    if (!plan || !user || !editingStepText.trim()) return
+
+    const updatedSteps = plan.steps.map(s =>
+      s.id === stepId ? { ...s, text: editingStepText.trim() } : s
+    )
+
+    await supabase.from('focus_plans').update({
+      steps: updatedSteps,
+    }).eq('id', planId).eq('user_id', user.id)
+
+    setEditingStepKey(null)
+    setEditingStepText('')
+    onPlansUpdate()
+  }
+
+  const cancelEditStep = () => {
+    setEditingStepKey(null)
+    setEditingStepText('')
+  }
+
   return (
     <div className="focus-page">
       {/* Header */}
@@ -223,7 +336,7 @@ export default function FocusDashboard({
           🧠 New Brain Dump
         </button>
 
-        {plans.length === 0 ? (
+        {sortedPlans.length === 0 ? (
           <div className="card empty-state">
             <span className="empty-emoji">🔨</span>
             <p className="empty-title">No active tasks</p>
@@ -233,52 +346,147 @@ export default function FocusDashboard({
             </button>
           </div>
         ) : (
-          plans.map((plan) => {
+          sortedPlans.map((plan) => {
             const done = plan.steps.filter(s => s.completed).length
             const total = plan.steps.length
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
             const linkedGoalTitle = getGoalTitle(plan.related_goal_id || null)
             const dueDateLabel = getDueDateLabel(plan.due_date)
+            const canDeprioritize = plan.due_date === 'today' || plan.due_date === 'tomorrow'
+            const isMenuOpen = taskMenuId === plan.id
 
             return (
               <div key={plan.id} className="card task-card">
-                <div className="task-badges">
-                  {linkedGoalTitle && (
-                    <span className="linked-goal-badge">🎯 {linkedGoalTitle}</span>
-                  )}
-                  {dueDateLabel && (
-                    <span className="due-badge">{dueDateLabel}</span>
-                  )}
+                <div className="task-top-row">
+                  <div className="task-badges">
+                    {linkedGoalTitle && (
+                      <span className="linked-goal-badge">🎯 {linkedGoalTitle}</span>
+                    )}
+                    {dueDateLabel && (
+                      <span className="due-badge">{dueDateLabel}</span>
+                    )}
+                  </div>
+                  <div className="task-actions-wrapper">
+                    <button
+                      className="task-menu-btn"
+                      onClick={() => setTaskMenuId(isMenuOpen ? null : plan.id)}
+                      type="button"
+                    >
+                      ⋯
+                    </button>
+                    {isMenuOpen && (
+                      <div className="task-action-menu">
+                        <button className="action-item" onClick={() => startEditTask(plan)}>
+                          ✏️ Edit name
+                        </button>
+                        {canDeprioritize && (
+                          <button className="action-item" onClick={() => deprioritizePlan(plan.id)}>
+                            🌊 Deprioritize
+                          </button>
+                        )}
+                        <button className="action-item danger" onClick={() => deletePlan(plan.id)}>
+                          🗑️ Delete task
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
+                {isMenuOpen && (
+                  <div className="action-menu-overlay" onClick={() => setTaskMenuId(null)} />
+                )}
+
                 <div className="task-header">
-                  <p className="task-name">{plan.task_name}</p>
-                  <span className="task-progress-text">{done}/{total}</span>
+                  {editingTaskId === plan.id ? (
+                    <div className="inline-edit">
+                      <input
+                        type="text"
+                        value={editingTaskName}
+                        onChange={(e) => setEditingTaskName(e.target.value)}
+                        className="inline-edit-input"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveEditTask(plan.id)
+                          if (e.key === 'Escape') cancelEditTask()
+                        }}
+                      />
+                      <button className="inline-save" onClick={() => saveEditTask(plan.id)}>✓</button>
+                      <button className="inline-cancel" onClick={cancelEditTask}>✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="task-name">{plan.task_name}</p>
+                      <span className="task-progress-text">{done}/{total}</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
 
-                {plan.steps.map((step) => (
-                  <div
-                    key={step.id}
-                    onClick={() => toggleStep(plan.id, step.id)}
-                    className="step-item"
-                  >
-                    <div className={`checkbox ${step.completed ? 'checked' : ''}`}>
-                      {step.completed && '✓'}
-                    </div>
-                    <div className="step-content">
-                      <span className={`step-text ${step.completed ? 'completed' : ''}`}>
-                        {step.text}
-                      </span>
-                      {step.dueBy && (
-                        <span className="step-meta">{step.dueBy}{step.timeEstimate ? ` · ${step.timeEstimate}` : ''}</span>
+                {plan.steps.map((step) => {
+                  const stepKey = `${plan.id}:${step.id}`
+                  const isEditingThisStep = editingStepKey === stepKey
+
+                  return (
+                    <div key={step.id} className="step-item">
+                      <div
+                        className={`checkbox ${step.completed ? 'checked' : ''}`}
+                        onClick={() => toggleStep(plan.id, step.id)}
+                      >
+                        {step.completed && '✓'}
+                      </div>
+                      <div className="step-content" onClick={() => { if (!isEditingThisStep) toggleStep(plan.id, step.id) }}>
+                        {isEditingThisStep ? (
+                          <div className="inline-edit">
+                            <input
+                              type="text"
+                              value={editingStepText}
+                              onChange={(e) => setEditingStepText(e.target.value)}
+                              className="inline-edit-input"
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEditStep(plan.id, step.id)
+                                if (e.key === 'Escape') cancelEditStep()
+                              }}
+                            />
+                            <button className="inline-save" onClick={(e) => { e.stopPropagation(); saveEditStep(plan.id, step.id) }}>✓</button>
+                            <button className="inline-cancel" onClick={(e) => { e.stopPropagation(); cancelEditStep() }}>✕</button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className={`step-text ${step.completed ? 'completed' : ''}`}>
+                              {step.text}
+                            </span>
+                            {step.dueBy && (
+                              <span className="step-meta">{step.dueBy}{step.timeEstimate ? ` · ${step.timeEstimate}` : ''}</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {!isEditingThisStep && (
+                        <div className="step-actions">
+                          <button
+                            className="step-action-btn"
+                            onClick={(e) => { e.stopPropagation(); startEditStep(plan.id, step) }}
+                            title="Edit step"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="step-action-btn delete"
+                            onClick={(e) => { e.stopPropagation(); deleteStep(plan.id, step.id) }}
+                            title="Delete step"
+                          >
+                            ×
+                          </button>
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )
           })
@@ -546,11 +754,17 @@ export default function FocusDashboard({
           cursor: pointer;
         }
 
+        .task-top-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: clamp(10px, 3vw, 14px);
+        }
+
         .task-badges {
           display: flex;
           flex-wrap: wrap;
           gap: clamp(6px, 1.5vw, 8px);
-          margin-bottom: clamp(10px, 3vw, 14px);
         }
 
         .linked-goal-badge {
@@ -675,6 +889,164 @@ export default function FocusDashboard({
           font-size: clamp(11px, 3vw, 13px);
           color: var(--light-gray);
           margin-top: 2px;
+        }
+
+        /* Task Action Menu */
+        .task-actions-wrapper {
+          position: relative;
+          flex-shrink: 0;
+        }
+
+        .task-menu-btn {
+          background: none;
+          border: none;
+          font-size: clamp(18px, 5vw, 22px);
+          color: var(--light-gray);
+          cursor: pointer;
+          padding: clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 10px);
+          border-radius: 8px;
+          line-height: 1;
+          letter-spacing: 2px;
+          transition: background 0.15s ease;
+        }
+
+        .task-menu-btn:hover {
+          background: var(--extra-light-gray);
+          color: var(--dark-gray);
+        }
+
+        .task-action-menu {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          background: white;
+          border-radius: clamp(10px, 2.5vw, 14px);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          padding: clamp(4px, 1vw, 6px);
+          min-width: clamp(140px, 40vw, 180px);
+          z-index: 50;
+          animation: fadeIn 0.15s ease;
+        }
+
+        .action-item {
+          display: block;
+          width: 100%;
+          padding: clamp(8px, 2.5vw, 12px) clamp(10px, 3vw, 14px);
+          text-align: left;
+          background: none;
+          border: none;
+          border-radius: clamp(6px, 1.5vw, 8px);
+          cursor: pointer;
+          font-size: clamp(13px, 3.5vw, 15px);
+          color: var(--dark-gray);
+          transition: background 0.1s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .action-item:hover {
+          background: var(--bg-gray);
+        }
+
+        .action-item.danger {
+          color: var(--danger);
+        }
+
+        .action-menu-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          z-index: 49;
+        }
+
+        /* Inline Editing */
+        .inline-edit {
+          display: flex;
+          align-items: center;
+          gap: clamp(6px, 1.5vw, 8px);
+          width: 100%;
+        }
+
+        .inline-edit-input {
+          flex: 1;
+          padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 12px);
+          border: 2px solid var(--primary);
+          border-radius: clamp(6px, 1.5vw, 8px);
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          min-width: 0;
+        }
+
+        .inline-edit-input:focus {
+          outline: none;
+        }
+
+        .inline-save {
+          width: clamp(28px, 7vw, 34px);
+          height: clamp(28px, 7vw, 34px);
+          border: none;
+          background: var(--success);
+          color: white;
+          border-radius: 50%;
+          font-size: clamp(12px, 3vw, 14px);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .inline-cancel {
+          width: clamp(28px, 7vw, 34px);
+          height: clamp(28px, 7vw, 34px);
+          border: none;
+          background: var(--extra-light-gray);
+          color: var(--dark-gray);
+          border-radius: 50%;
+          font-size: clamp(12px, 3vw, 14px);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        /* Step Actions */
+        .step-actions {
+          display: flex;
+          gap: clamp(2px, 0.5vw, 4px);
+          flex-shrink: 0;
+          opacity: 0.4;
+          transition: opacity 0.15s ease;
+        }
+
+        .step-item:hover .step-actions {
+          opacity: 1;
+        }
+
+        .step-action-btn {
+          width: clamp(26px, 6.5vw, 30px);
+          height: clamp(26px, 6.5vw, 30px);
+          border: none;
+          background: none;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: clamp(12px, 3vw, 14px);
+          transition: background 0.15s ease;
+        }
+
+        .step-action-btn:hover {
+          background: var(--extra-light-gray);
+        }
+
+        .step-action-btn.delete {
+          font-size: clamp(16px, 4vw, 20px);
+          color: var(--danger);
+        }
+
+        .step-action-btn.delete:hover {
+          background: rgba(244, 33, 46, 0.1);
         }
 
         /* Modal */
