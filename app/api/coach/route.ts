@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     // 5. VALIDATE INPUT
     const body = await request.json()
-    const { moodScore, note } = body
+    const { moodScore, note, energyLevel } = body
 
     if (!isValidMoodScore(moodScore)) {
       return NextResponse.json(
@@ -135,16 +135,24 @@ export async function POST(request: NextRequest) {
 
     const sanitizedNote = sanitizeNote(note)
 
+    // Validate energy level if provided (0-4 scale)
+    const hasValidEnergy = typeof energyLevel === 'number' && energyLevel >= 0 && energyLevel <= 4
+
     // 6. If no note provided, return generic advice (save API calls)
     if (!sanitizedNote || sanitizedNote.length < 3) {
       return NextResponse.json({ advice: getGenericAdvice(moodScore) })
     }
 
     // 7. Build prompt for Gemini
+    const energyLabels = ['Depleted', 'Low', 'Moderate', 'High', 'Overflowing']
+    const energyContext = hasValidEnergy
+      ? `\n- Energy level: ${energyLabels[energyLevel]} (${energyLevel}/4)`
+      : ''
+
     const prompt = `You are a warm, experienced ADHD coach responding to a client's daily check-in.
 
 Current check-in:
-- Mood: ${moodScore}/10
+- Mood: ${moodScore}/10${energyContext}
 - What they shared: "${sanitizedNote}"
 
 Guidelines for your response:

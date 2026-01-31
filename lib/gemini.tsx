@@ -19,14 +19,15 @@ export interface CoachResponse {
 }
 
 export async function getADHDCoachAdvice(
-  moodScore: number, 
-  note: string | null
+  moodScore: number,
+  note: string | null,
+  energyLevel?: number | null
 ): Promise<CoachResponse> {
   try {
     // Get the current session token
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
     const { data: { session } } = await supabase.auth.getSession()
-    
+
     if (!session?.access_token) {
       console.warn('No auth session - returning fallback advice')
       return { advice: getFallbackAdvice(moodScore) }
@@ -38,7 +39,7 @@ export async function getADHDCoachAdvice(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ moodScore, note }),
+      body: JSON.stringify({ moodScore, note, energyLevel }),
     })
 
     // Handle rate limiting

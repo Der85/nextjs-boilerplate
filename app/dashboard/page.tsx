@@ -330,78 +330,22 @@ export default function Dashboard() {
               )}
             </div>
 
-            {checkInComplete && coachResponse ? (
-              <div className="checkin-complete">
-                <div className="logged-mood">
-                  <span className="emoji-large">{getMoodEmoji(moodScore!)}</span>
-                  <div>
-                    <span className="mood-score">{moodScore}/10</span>
-                    <span className="mood-time">Logged just now</span>
-                  </div>
-                </div>
-
-                <div className="ai-response">
-                  <p>{coachResponse.advice}</p>
-                  {coachResponse.context?.currentStreak && (
-                    <div className="context-badge">
-                      {coachResponse.context.currentStreak.type === 'low_mood' ? '💙' : '🔥'}
-                      {coachResponse.context.currentStreak.days} day{coachResponse.context.currentStreak.days > 1 ? 's' : ''}
-                      {coachResponse.context.currentStreak.type === 'low_mood' ? ' - I see you' : ' streak'}
-                    </div>
-                  )}
-                </div>
-
-                <button onClick={resetCheckIn} className="btn-secondary">
-                  ✓ Done — check in again later
-                </button>
-              </div>
-            ) : (
-              <div className="checkin-form">
-                <p className="checkin-prompt">
-                  {userMode === 'maintenance' ? 'Daily Pulse — How are you feeling right now?' : 'Quick check-in:'}
-                </p>
-
-                <div className="mood-grid">
-                  {[0,1,2,3,4,5,6,7,8,9,10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setMoodScore(n)}
-                      className={`mood-btn ${moodScore === n ? 'active' : ''}`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-
-                {moodScore !== null && (
-                  <div className="mood-selected">
-                    <div className="selected-display">
-                      <span className="emoji-xlarge">{getMoodEmoji(moodScore)}</span>
-                      <span className="score-large">{moodScore}/10</span>
-                    </div>
-
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="What's on your mind? (helps me give better advice)"
-                      className="note-input"
-                      rows={2}
-                    />
-
-                    <button onClick={handleSubmit} disabled={saving} className="btn-primary">
-                      {saving ? (
-                        <span className="btn-loading">
-                          <span className="spinner-small" />
-                          Thinking...
-                        </span>
-                      ) : (
-                        'Log & Get Advice'
-                      )}
-                    </button>
-                  </div>
+            <div className="checkin-button-container">
+              <p className="checkin-prompt">
+                {userMode === 'maintenance' ? 'Daily Pulse — How are you feeling right now?' : 'Quick check-in:'}
+              </p>
+              <button
+                onClick={() => router.push('/check-in')}
+                className="btn-checkin-start"
+              >
+                🎯 Start Daily Check-In
+                {insights?.currentStreak && insights.currentStreak.days >= 1 && (
+                  <span className="streak-badge-inline">
+                    🔥 {insights.currentStreak.days} {insights.currentStreak.days === 1 ? 'day' : 'days'}
+                  </span>
                 )}
-              </div>
-            )}
+              </button>
+            </div>
           </div>
         )}
 
@@ -778,6 +722,48 @@ const styles = `
   }
 
   .btn-primary:disabled { opacity: 0.7; cursor: wait; }
+
+  .btn-checkin-start {
+    width: 100%;
+    padding: clamp(16px, 4.5vw, 22px);
+    background: linear-gradient(135deg, var(--primary) 0%, #1a8cd8 100%);
+    color: white;
+    border: none;
+    border-radius: clamp(12px, 3vw, 16px);
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 12px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 16px rgba(29, 155, 240, 0.25);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .btn-checkin-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(29, 155, 240, 0.35);
+  }
+
+  .btn-checkin-start:active {
+    transform: translateY(0);
+  }
+
+  .streak-badge-inline {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    padding: clamp(4px, 1.5vw, 6px) clamp(8px, 2vw, 12px);
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 100px;
+  }
+
+  .checkin-button-container {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 3vw, 16px);
+  }
 
   .btn-loading {
     display: flex;
