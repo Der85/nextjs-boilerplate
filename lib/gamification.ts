@@ -7,6 +7,7 @@ export interface SessionData {
   energyLevel: number | null
   moodScore: number | null
   note: string
+  selectedEmotion: string | null
   stepTimings: Record<string, number>
 }
 
@@ -323,4 +324,15 @@ export function getNotePlaceholder(energyLevel: number | null, moodScore: number
 
   // Moderate
   return "How are things going for you?"
+}
+
+// Get quick-select emotion options based on mood score
+export function getEmotionOptions(moodScore: number | null): string[] {
+  if (moodScore === null) return ['Okay', 'Mixed', 'Restless', 'Meh']
+
+  if (moodScore <= 2) return ['Overwhelmed', 'Exhausted', 'Hopeless', 'Numb']
+  if (moodScore <= 4) return ['Anxious', 'Frustrated', 'Sad', 'Drained']
+  if (moodScore <= 6) return ['Okay', 'Mixed', 'Restless', 'Meh']
+  if (moodScore <= 8) return ['Grateful', 'Focused', 'Calm', 'Motivated']
+  return ['Excited', 'Joyful', 'Energized', 'Proud']
 }

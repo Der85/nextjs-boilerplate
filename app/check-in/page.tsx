@@ -36,6 +36,7 @@ export default function CheckInPage() {
     energyLevel: null,
     moodScore: null,
     note: '',
+    selectedEmotion: null,
     stepTimings: {}
   })
 
@@ -178,8 +179,8 @@ export default function CheckInPage() {
     advanceStep('reflect')
   }
 
-  const handleReflectionSubmit = async (note: string) => {
-    setSessionData(prev => ({ ...prev, note }))
+  const handleReflectionSubmit = async (note: string, selectedEmotion: string | null) => {
+    setSessionData(prev => ({ ...prev, note, selectedEmotion }))
     advanceStep('coach')
 
     // Call AI coach API
@@ -187,7 +188,7 @@ export default function CheckInPage() {
   }
 
   const handleReflectionSkip = async () => {
-    setSessionData(prev => ({ ...prev, note: '' }))
+    setSessionData(prev => ({ ...prev, note: '', selectedEmotion: null }))
     advanceStep('coach')
 
     // Call AI coach API
@@ -266,6 +267,7 @@ export default function CheckInPage() {
       mood_score: sessionData.moodScore!,
       energy_level: sessionData.energyLevel,
       note: sessionData.note || null,
+      selected_emotion: sessionData.selectedEmotion || null,
       breathing_completed: sessionData.breathingCompleted,
       breathing_skipped: !sessionData.breathingCompleted,
       note_length: sessionData.note.length,

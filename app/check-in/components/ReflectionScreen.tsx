@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getNotePlaceholder } from '@/lib/gamification'
+import { getNotePlaceholder, getEmotionOptions } from '@/lib/gamification'
 
 interface ReflectionScreenProps {
-  onSubmit: (note: string) => void
+  onSubmit: (note: string, selectedEmotion: string | null) => void
   onSkip: () => void
   energyLevel: number | null
   moodScore: number | null
@@ -17,6 +17,7 @@ export default function ReflectionScreen({
   moodScore
 }: ReflectionScreenProps) {
   const [note, setNote] = useState('')
+  const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null)
   const [timeSpent, setTimeSpent] = useState(0)
 
   useEffect(() => {
@@ -28,18 +29,38 @@ export default function ReflectionScreen({
   }, [])
 
   const placeholder = getNotePlaceholder(energyLevel, moodScore)
+  const emotionOptions = getEmotionOptions(moodScore)
   const charCount = note.length
   const maxChars = 500
 
-  const handleSubmit = () => {
-    onSubmit(note)
+  const handleEmotionToggle = (emotion: string) => {
+    setSelectedEmotion(prev => prev === emotion ? null : emotion)
   }
+
+  const handleSubmit = () => {
+    onSubmit(note, selectedEmotion)
+  }
+
+  const hasInput = note.length > 0 || selectedEmotion !== null
 
   return (
     <div className="reflection-screen">
       <div className="reflection-content">
         <h2 className="reflection-title">Quick reflection</h2>
         <p className="reflection-subtitle">Optional, but helps me give better advice</p>
+
+        <div className="emotion-chips">
+          {emotionOptions.map((emotion) => (
+            <button
+              key={emotion}
+              className={`emotion-chip ${selectedEmotion === emotion ? 'selected' : ''}`}
+              onClick={() => handleEmotionToggle(emotion)}
+              type="button"
+            >
+              {emotion}
+            </button>
+          ))}
+        </div>
 
         <textarea
           value={note}
@@ -65,7 +86,7 @@ export default function ReflectionScreen({
 
         <div className="action-buttons">
           <button onClick={handleSubmit} className="submit-btn">
-            {note.length > 0 ? 'Continue with Note' : 'Continue without Note'} →
+            {hasInput ? 'Continue' : 'Continue without Note'} →
           </button>
           <button onClick={onSkip} className="skip-btn">
             Skip →
@@ -100,8 +121,44 @@ export default function ReflectionScreen({
         .reflection-subtitle {
           font-size: clamp(14px, 3.8vw, 16px);
           color: #536471;
-          margin: 0 0 clamp(24px, 6vw, 32px) 0;
+          margin: 0 0 clamp(16px, 4vw, 20px) 0;
           text-align: center;
+        }
+
+        .emotion-chips {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: clamp(8px, 2vw, 12px);
+          margin-bottom: clamp(16px, 4vw, 20px);
+        }
+
+        .emotion-chip {
+          padding: clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 16px);
+          border: 2px solid #e5e7eb;
+          border-radius: clamp(10px, 2.5vw, 14px);
+          background: white;
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-weight: 500;
+          color: #536471;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .emotion-chip:hover {
+          border-color: #1D9BF0;
+          color: #1D9BF0;
+        }
+
+        .emotion-chip:active {
+          transform: scale(0.96);
+        }
+
+        .emotion-chip.selected {
+          border-color: #1D9BF0;
+          background: #e8f5fd;
+          color: #1D9BF0;
+          font-weight: 600;
         }
 
         .note-textarea {
