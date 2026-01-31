@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
+import BottomNav from '@/components/BottomNav'
 
 // ============================================
 // Types
@@ -772,20 +773,7 @@ export default function GoalsPage() {
       </main>
 
       {/* Bottom Nav */}
-      <nav className="bottom-nav">
-        <button onClick={() => router.push('/dashboard')} className="nav-btn">
-          <span className="nav-icon">🏠</span>
-          <span className="nav-label">Home</span>
-        </button>
-        <button onClick={() => router.push('/focus')} className="nav-btn">
-          <span className="nav-icon">⏱️</span>
-          <span className="nav-label">Focus</span>
-        </button>
-        <button onClick={() => router.push('/history')} className="nav-btn">
-          <span className="nav-icon">📊</span>
-          <span className="nav-label">Insights</span>
-        </button>
-      </nav>
+      <BottomNav />
 
       <style jsx>{styles}</style>
     </div>

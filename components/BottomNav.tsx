@@ -42,38 +42,77 @@ export default function BottomNav() {
   }
 
   return (
-    <nav 
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50"
-      role="navigation"
-      aria-label="Main navigation"
-    >
-      <div className="max-w-lg mx-auto flex">
-        {navItems.map((item) => {
-          const active = isActive(item)
-          return (
-            <button
-              key={item.path}
-              onClick={() => router.push(item.path)}
-              className={`flex-1 flex flex-col items-center justify-center py-3 transition-colors ${
-                active 
-                  ? 'text-teal-600' 
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-              aria-current={active ? 'page' : undefined}
-            >
-              <span className="text-xl mb-0.5" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className={`text-xs font-medium ${active ? 'text-teal-600' : ''}`}>
-                {item.label}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      
-      {/* Safe area for phones with home indicators */}
-      <div className="h-safe-area-bottom bg-white" />
+    <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
+      {navItems.map((item) => {
+        const active = isActive(item)
+        return (
+          <button
+            key={item.path}
+            onClick={() => router.push(item.path)}
+            className={`nav-btn ${active ? 'active' : ''}`}
+            aria-current={active ? 'page' : undefined}
+          >
+            <span className="nav-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span className="nav-label">
+              {item.label}
+            </span>
+          </button>
+        )
+      })}
+
+      <style jsx>{`
+        .bottom-nav {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: white;
+          border-top: 1px solid #eee;
+          display: flex;
+          justify-content: space-around;
+          padding: clamp(6px, 2vw, 10px) 0;
+          padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
+          z-index: 100;
+        }
+
+        .nav-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: clamp(2px, 1vw, 4px);
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
+          color: #8899a6;
+          transition: color 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .nav-btn:hover {
+          color: #536471;
+        }
+
+        .nav-btn.active {
+          color: #1D9BF0;
+        }
+
+        .nav-icon {
+          font-size: clamp(20px, 5.5vw, 24px);
+          line-height: 1;
+        }
+
+        .nav-label {
+          font-size: clamp(10px, 2.8vw, 12px);
+          font-weight: 500;
+        }
+
+        .nav-btn.active .nav-label {
+          font-weight: 600;
+        }
+      `}</style>
     </nav>
   )
 }

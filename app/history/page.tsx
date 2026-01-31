@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
+import BottomNav from '@/components/BottomNav'
 
 interface MoodEntry {
   id: string
@@ -341,20 +342,7 @@ export default function HistoryPage() {
       </main>
 
       {/* Bottom Nav */}
-      <nav className="bottom-nav">
-        <button onClick={() => router.push('/dashboard')} className="nav-btn">
-          <span className="nav-icon">🏠</span>
-          <span className="nav-label">Home</span>
-        </button>
-        <button onClick={() => router.push('/focus')} className="nav-btn">
-          <span className="nav-icon">⏱️</span>
-          <span className="nav-label">Focus</span>
-        </button>
-        <button className="nav-btn active">
-          <span className="nav-icon">📊</span>
-          <span className="nav-label">Insights</span>
-        </button>
-      </nav>
+      <BottomNav />
 
       <style jsx>{styles}</style>
     </div>
@@ -847,37 +835,6 @@ const styles = `
     margin: 0;
   }
 
-  /* ===== BOTTOM NAV ===== */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: space-around;
-    padding: clamp(6px, 2vw, 10px) 0;
-    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
-    z-index: 100;
-  }
-
-  .nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(2px, 1vw, 4px);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
-    color: var(--light-gray);
-  }
-
-  .nav-btn.active { color: var(--primary); }
-  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
-  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
-  .nav-btn.active .nav-label { font-weight: 600; }
 
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {

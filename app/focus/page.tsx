@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
+import BottomNav from '@/components/BottomNav'
 
 interface Step {
   id: string
@@ -604,20 +605,7 @@ function FocusPageContent() {
       </main>
 
       {/* Bottom Nav */}
-      <nav className="bottom-nav">
-        <button onClick={() => router.push('/dashboard')} className="nav-btn">
-          <span className="nav-icon">🏠</span>
-          <span className="nav-label">Home</span>
-        </button>
-        <button className="nav-btn active">
-          <span className="nav-icon">⏱️</span>
-          <span className="nav-label">Focus</span>
-        </button>
-        <button onClick={() => router.push('/history')} className="nav-btn">
-          <span className="nav-icon">📊</span>
-          <span className="nav-label">Insights</span>
-        </button>
-      </nav>
+      <BottomNav />
 
       {/* Phase 4: Goal Sync Completion Modal */}
       {showCompletionModal && completedPlan && (
