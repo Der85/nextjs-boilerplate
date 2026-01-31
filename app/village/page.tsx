@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import BottomNav from '@/components/BottomNav'
+import AppHeader from '@/components/AppHeader'
 
 interface ContactLog {
   id: string
@@ -86,7 +87,6 @@ export default function VillagePage() {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
   const [contacts, setContacts] = useState<Contact[]>([])
   const [filterType, setFilterType] = useState<string | null>(null)
-  const [showMenu, setShowMenu] = useState(false)
 
   // Real-time presence from usePresence hook
   const { 
