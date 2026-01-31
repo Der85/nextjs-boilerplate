@@ -219,6 +219,7 @@ export default function ToolsPage() {
             <span className="secondary-title">Energy Tracker</span>
             <span className="secondary-subtitle">Track your battery level</span>
           </div>
+          </br></br></br></br></br>
           <span className="secondary-arrow">→</span>
         </button>
       </main>
