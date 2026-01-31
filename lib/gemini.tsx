@@ -8,6 +8,14 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export interface CoachResponse {
   advice: string
+  context?: {
+    currentStreak?: {
+      type: 'low_mood' | 'high_mood' | 'checkin'
+      days: number
+    }
+    patterns?: string[]
+    recentMoods?: number[]
+  }
 }
 
 export async function getADHDCoachAdvice(
