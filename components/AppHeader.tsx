@@ -25,18 +25,22 @@ export default function AppHeader({
   return (
     <>
       <header className="app-header">
-        {showBackButton ? (
-          <button onClick={() => router.push(backPath)} className="back-btn">
-            <span className="back-arrow">←</span>
-            <span className="back-label">{backLabel}</span>
-          </button>
-        ) : (
+        <div className="header-left">
+          {showBackButton && (
+            <button onClick={() => router.push(backPath)} className="back-btn" aria-label={`Back to ${backLabel}`}>
+              <span className="back-arrow">←</span>
+            </button>
+          )}
           <button onClick={() => router.push('/dashboard')} className="logo">
             ADHDer.io
           </button>
-        )}
+        </div>
 
-        {title && <h1 className="page-title">{title}</h1>}
+        {title && (
+          <div className="header-center">
+            <h1 className="page-title">{title}</h1>
+          </div>
+        )}
 
         <div className="header-actions">
           <button onClick={() => router.push('/brake')} className="icon-btn red" title="BREAK">
@@ -95,7 +99,15 @@ export default function AppHeader({
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: clamp(8px, 2vw, 12px);
           z-index: 100;
+        }
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: clamp(8px, 2vw, 12px);
+          flex-shrink: 0;
         }
 
         .logo {
@@ -106,43 +118,55 @@ export default function AppHeader({
           font-weight: 800;
           color: #1D9BF0;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          white-space: nowrap;
+        }
+
+        .logo:hover {
+          opacity: 0.8;
         }
 
         .back-btn {
           display: flex;
           align-items: center;
-          gap: clamp(4px, 1.5vw, 6px);
           background: none;
           border: none;
           cursor: pointer;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           color: #536471;
           padding: 0;
+          width: clamp(28px, 7vw, 36px);
+          height: clamp(28px, 7vw, 36px);
+          border-radius: 50%;
+          justify-content: center;
+          transition: background 0.15s ease, color 0.15s ease;
         }
 
         .back-btn:hover {
-          color: #0f1419;
+          background: rgba(29, 155, 240, 0.1);
+          color: #1D9BF0;
         }
 
         .back-arrow {
-          font-size: clamp(18px, 5vw, 22px);
+          font-size: clamp(20px, 5.5vw, 24px);
           line-height: 1;
         }
 
-        .back-label {
-          font-size: clamp(14px, 3.8vw, 16px);
-          font-weight: 500;
+        .header-center {
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          min-width: 0;
         }
 
         .page-title {
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          font-size: clamp(15px, 4vw, 18px);
+          font-size: clamp(14px, 3.8vw, 16px);
           font-weight: 600;
-          color: #0f1419;
+          color: #536471;
           margin: 0;
-          pointer-events: none;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 100%;
         }
 
         .header-actions {
@@ -228,11 +252,13 @@ export default function AppHeader({
         }
 
         @media (max-width: 480px) {
-          .page-title {
-            max-width: 50%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+          .header-center {
+            flex: 0 1 auto;
+            max-width: 35%;
+          }
+
+          .logo {
+            font-size: clamp(14px, 3.5vw, 16px);
           }
         }
       `}</style>
