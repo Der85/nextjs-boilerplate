@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
@@ -41,6 +41,14 @@ const getMoodEmoji = (score: number): string => {
   if (score <= 6) return '😐'
   if (score <= 8) return '🙂'
   return '😄'
+}
+
+const getMoodLabel = (score: number): string => {
+  if (score <= 2) return 'Depleted'
+  if (score <= 4) return 'Low Energy'
+  if (score <= 6) return 'Balanced'
+  if (score <= 8) return 'Good'
+  return 'Energized'
 }
 
 const getGreeting = (): string => {
@@ -84,6 +92,8 @@ export default function Dashboard() {
   const [showEveningWindDown, setShowEveningWindDown] = useState(false)
   const [tensionValue, setTensionValue] = useState(5)
   const [savingIntercept, setSavingIntercept] = useState(false)
+  const [pulseSaved, setPulseSaved] = useState(false)
+  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -138,6 +148,9 @@ export default function Dashboard() {
       setLoading(false)
     }
     init()
+    return () => {
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current)
+    }
   }, [router])
 
   const fetchData = async (userId: string) => {
@@ -247,7 +260,12 @@ export default function Dashboard() {
   }
 
   const handlePulseSave = async () => {
-    if (moodScore === null || !user) return
+    if (moodScore === null || !user || saving) return
+    // Clear any pending auto-save timer
+    if (pulseTimerRef.current) {
+      clearTimeout(pulseTimerRef.current)
+      pulseTimerRef.current = null
+    }
     setSaving(true)
     await supabase.from('mood_entries').insert({
       user_id: user.id,
@@ -257,10 +275,13 @@ export default function Dashboard() {
     })
     await fetchData(user.id)
     setSaving(false)
+    setPulseSaved(true)
+    setTimeout(() => setPulseSaved(false), 2000)
   }
 
   const handlePulseChange = (value: number) => {
     setMoodScore(value)
+    setPulseSaved(false)
     if (value <= 3) {
       setUserMode('recovery')
     } else if (value >= 8 && insights?.currentStreak && insights.currentStreak.days > 2) {
@@ -268,7 +289,18 @@ export default function Dashboard() {
     } else {
       setUserMode('maintenance')
     }
+    // Debounced auto-save after 3 seconds of inactivity
+    if (pulseTimerRef.current) {
+      clearTimeout(pulseTimerRef.current)
+    }
+    pulseTimerRef.current = setTimeout(() => {
+      handlePulseSaveRef.current()
+    }, 3000)
   }
+
+  // Ref to always call latest handlePulseSave (avoids stale closure in timer)
+  const handlePulseSaveRef = useRef(handlePulseSave)
+  handlePulseSaveRef.current = handlePulseSave
 
   // Trojan Horse save handler (Evening Wind Down only — Morning Key is in MorningSleepCard)
   const saveEveningWindDown = async () => {
@@ -445,9 +477,14 @@ export default function Dashboard() {
 
         {/* DailyPulse Slider — always visible */}
         <div className="card pulse-card">
-          <p className="pulse-label">
-            Daily Pulse {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
-          </p>
+          <div className="pulse-header">
+            <p className="pulse-label">
+              Daily Pulse {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
+            </p>
+            {moodScore !== null && (
+              <span className="pulse-mood-label">{getMoodLabel(moodScore)}</span>
+            )}
+          </div>
           <div className="slider-container">
             <input
               type="range" min="1" max="10"
@@ -461,9 +498,13 @@ export default function Dashboard() {
               <span>High</span>
             </div>
           </div>
-          <button onClick={handlePulseSave} disabled={saving || moodScore === null} className="pulse-save-btn">
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+          {pulseSaved ? (
+            <div className="pulse-saved-toast">✓ Saved</div>
+          ) : (
+            <button onClick={handlePulseSave} disabled={saving || moodScore === null} className="pulse-save-btn">
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          )}
         </div>
 
         {/* Recovery Mode: 2-column action grid */}
@@ -490,6 +531,24 @@ export default function Dashboard() {
               className="btn-action growth"
             >
               {activeGoal ? `⚡️ Focus on: ${activeGoal.title}` : '⚡️ Start Hyperfocus Session'}
+            </button>
+          </div>
+        )}
+
+        {/* Maintenance Mode: 2x2 action grid */}
+        {!isRecoveryView && !isGrowthView && (
+          <div className="maintenance-actions-grid">
+            <button onClick={() => router.push('/focus')} className="maintenance-action-btn primary">
+              ⏱️ Focus
+            </button>
+            <button onClick={() => router.push('/goals')} className="maintenance-action-btn secondary">
+              🎯 Goals{activeGoal && <span className="maintenance-badge">1 active</span>}
+            </button>
+            <button onClick={() => router.push('/ally')} className="maintenance-action-btn secondary">
+              💜 Ally
+            </button>
+            <button onClick={() => router.push('/history')} className="maintenance-action-btn secondary">
+              📊 History
             </button>
           </div>
         )}
@@ -590,6 +649,11 @@ const styles = `
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
 
@@ -772,6 +836,64 @@ const styles = `
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   }
 
+  /* ===== MAINTENANCE MODE: 2x2 ACTION GRID ===== */
+  .maintenance-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(10px, 3vw, 16px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  .maintenance-action-btn {
+    padding: clamp(18px, 5vw, 24px) clamp(12px, 3vw, 16px);
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 700;
+    text-align: center;
+    border: none;
+    border-radius: clamp(14px, 4vw, 22px);
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+  }
+
+  .maintenance-action-btn:hover {
+    transform: scale(1.02);
+  }
+
+  .maintenance-action-btn:active {
+    transform: scale(0.98);
+  }
+
+  .maintenance-action-btn.primary {
+    background: #1D9BF0;
+    color: white;
+    box-shadow: 0 4px 14px rgba(29, 155, 240, 0.25);
+  }
+
+  .maintenance-action-btn.primary:hover {
+    background: #1a8cd8;
+  }
+
+  .maintenance-action-btn.secondary {
+    background: white;
+    color: #536471;
+    border: 2px solid #e5e7eb;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .maintenance-action-btn.secondary:hover {
+    background: #f7f9fa;
+    border-color: #d1d5db;
+  }
+
+  .maintenance-badge {
+    display: block;
+    font-size: clamp(10px, 2.5vw, 11px);
+    font-weight: 600;
+    color: #00ba7c;
+    margin-top: 4px;
+  }
+
   /* ===== GROWTH MODE: CTA WRAPPER ===== */
   .growth-cta {
     margin-bottom: clamp(12px, 4vw, 18px);
@@ -826,14 +948,31 @@ const styles = `
     margin-bottom: clamp(12px, 4vw, 18px);
   }
 
+  .pulse-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: clamp(12px, 3vw, 16px);
+  }
+
   .pulse-label {
     font-size: clamp(14px, 3.8vw, 17px);
     font-weight: 600;
     color: var(--dark-gray);
-    margin: 0 0 clamp(12px, 3vw, 16px) 0;
+    margin: 0;
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .pulse-mood-label {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 600;
+    color: #1D9BF0;
+    background: rgba(29, 155, 240, 0.08);
+    padding: 3px clamp(8px, 2vw, 12px);
+    border-radius: 100px;
+    white-space: nowrap;
   }
 
   .pulse-emoji {
@@ -856,6 +995,18 @@ const styles = `
 
   .pulse-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .pulse-save-btn:hover:not(:disabled) { background: #1a8cd8; }
+
+  .pulse-saved-toast {
+    width: 100%;
+    padding: clamp(10px, 2.5vw, 14px);
+    text-align: center;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    color: #00ba7c;
+    background: rgba(0, 186, 124, 0.08);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    animation: fadeIn 0.3s ease;
+  }
 
   /* ===== SHARED SLIDER STYLES (Evening Wind Down + DailyPulse) ===== */
   .slider-container {
