@@ -47,6 +47,13 @@ interface ContextInfo {
   streak?: { type: string; days: number } | null
 }
 
+interface FavoriteContact {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+}
+
 // ============================================
 // API Helper
 // ============================================
@@ -125,6 +132,7 @@ export default function AllyPage() {
   const [actions, setActions] = useState<ActionSuggestion[]>(STATIC_ACTIONS)
   const [activeCommitment, setActiveCommitment] = useState<ActiveCommitment | null>(null)
   const [contextInfo, setContextInfo] = useState<ContextInfo>({})
+  const [favoriteContact, setFavoriteContact] = useState<FavoriteContact | null>(null)
 
   // Selections
   const [selectedBlock, setSelectedBlock] = useState<BlockSuggestion | null>(null)
@@ -148,6 +156,19 @@ export default function AllyPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
+
+      // Fetch favorite village contact for Signal Flare
+      const { data: favData } = await supabase
+        .from('village_contacts')
+        .select('id, name, phone, email')
+        .eq('user_id', session.user.id)
+        .eq('is_favorite', true)
+        .eq('is_archived', false)
+        .limit(1)
+
+      if (favData && favData.length > 0) {
+        setFavoriteContact(favData[0] as FavoriteContact)
+      }
 
       try {
         const data = await fetchStuckCoach('initial')
@@ -282,6 +303,19 @@ export default function AllyPage() {
     setCurrentStep('done')
   }, [selectedAction, customAction, stuckBefore, stuckAfter, selectedBlock, selectedThought, customThought])
 
+  const buildSignalFlareLink = (): string | null => {
+    if (!favoriteContact) return null
+    const task = selectedBlock?.label || 'something I need to get done'
+    const body = `Hey ${favoriteContact.name}, I'm currently stuck in ADHD paralysis on "${task}". Could you send me a quick text to help me break out?`
+    if (favoriteContact.phone) {
+      return `sms:${favoriteContact.phone}?body=${encodeURIComponent(body)}`
+    }
+    if (favoriteContact.email) {
+      return `mailto:${favoriteContact.email}?subject=${encodeURIComponent('Quick help?')}&body=${encodeURIComponent(body)}`
+    }
+    return null
+  }
+
   const reset = () => {
     setCurrentStep('rating')
     setStuckBefore(null)
@@ -403,6 +437,25 @@ export default function AllyPage() {
                 </div>
               </div>
             )}
+
+            {/* Signal Flare — high stuck + favorite contact */}
+            {stuckBefore !== null && stuckBefore >= 4 && favoriteContact && buildSignalFlareLink() && (
+              <div className="card signal-flare-card">
+                <div className="signal-flare-header">
+                  <span className="signal-flare-icon">🆘</span>
+                  <div>
+                    <p className="signal-flare-title">Need backup?</p>
+                    <p className="signal-flare-subtitle">You rated yourself {stuckBefore}/5 stuck. You don't have to do this alone.</p>
+                  </div>
+                </div>
+                <a href={buildSignalFlareLink()!} className="signal-flare-btn">
+                  🆘 Signal {favoriteContact.name}
+                </a>
+                <p className="signal-flare-note">
+                  Opens your {favoriteContact.phone ? 'messages' : 'email'} with a pre-written note
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -471,6 +524,18 @@ export default function AllyPage() {
                 <div className="custom-input-actions"><button onClick={() => setShowCustomAction(false)} className="btn-cancel">Cancel</button></div>
               </div>
             )}
+            {/* Signal Flare — also on action step with block context */}
+            {stuckBefore !== null && stuckBefore >= 4 && favoriteContact && buildSignalFlareLink() && (
+              <div className="card signal-flare-card compact">
+                <a href={buildSignalFlareLink()!} className="signal-flare-btn">
+                  🆘 Signal {favoriteContact.name}
+                </a>
+                <p className="signal-flare-note">
+                  Opens your {favoriteContact.phone ? 'messages' : 'email'} · "{selectedBlock?.label || 'stuck'}" included
+                </p>
+              </div>
+            )}
+
             <div className="divider" />
             <div className="card">
               <p className="stuck-after-label">How stuck do you feel now?</p>
@@ -643,6 +708,17 @@ const styles = `
   .done-commitment-text { font-size: 15px; font-weight: 600; color: var(--purple); margin: 0; }
   .done-buttons { display: flex; gap: clamp(10px, 3vw, 14px); }
   .done-buttons .btn-primary { flex: 1; }
+  /* ===== SIGNAL FLARE ===== */
+  .signal-flare-card { border: 2px solid rgba(244, 33, 46, 0.2); background: rgba(244, 33, 46, 0.04); text-align: center; animation: signalPulse 0.4s ease-out; }
+  .signal-flare-card.compact { padding: clamp(14px, 4vw, 20px); }
+  @keyframes signalPulse { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  .signal-flare-header { display: flex; align-items: flex-start; gap: clamp(12px, 3.5vw, 16px); margin-bottom: clamp(14px, 4vw, 20px); text-align: left; }
+  .signal-flare-icon { font-size: clamp(32px, 9vw, 44px); flex-shrink: 0; }
+  .signal-flare-title { font-size: clamp(16px, 4.5vw, 20px); font-weight: 700; color: var(--danger); margin: 0 0 clamp(2px, 0.5vw, 4px) 0; }
+  .signal-flare-subtitle { font-size: clamp(13px, 3.5vw, 15px); color: var(--dark-gray); margin: 0; line-height: 1.5; }
+  .signal-flare-btn { display: block; width: 100%; padding: clamp(14px, 4vw, 18px); background: linear-gradient(135deg, #f4212e 0%, #dc2626 100%); color: white; border: none; border-radius: clamp(12px, 3vw, 16px); font-size: clamp(15px, 4.2vw, 18px); font-weight: 700; cursor: pointer; text-decoration: none; text-align: center; box-shadow: 0 4px 14px rgba(244, 33, 46, 0.3); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .signal-flare-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(244, 33, 46, 0.4); }
+  .signal-flare-note { font-size: clamp(11px, 3vw, 13px); color: var(--light-gray); margin: clamp(8px, 2vw, 12px) 0 0 0; }
   @media (min-width: 768px) { .main { padding: 24px; padding-bottom: 24px; } .rating-grid { gap: 16px; } .option-card:hover { background: var(--bg-gray); } }
   @media (min-width: 1024px) { .main { max-width: 680px; } }
 `
