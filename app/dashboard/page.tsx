@@ -9,6 +9,7 @@ import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
 import MorningSleepCard from '@/components/micro/MorningSleepCard'
+import InsightCard, { InsightData } from '@/components/micro/InsightCard'
 
 interface MoodEntry {
   id: string
@@ -71,6 +72,9 @@ export default function Dashboard() {
   // UI state
   const [showCheckInAnyway, setShowCheckInAnyway] = useState(false) // Phase 3: Allow check-in in Recovery/Growth modes
 
+  // AI Insight (Pattern Engine)
+  const [aiInsight, setAiInsight] = useState<InsightData | null>(null)
+
   // Trojan Horse intercepts
   const [showMorningKey, setShowMorningKey] = useState(false)
   const [showEveningWindDown, setShowEveningWindDown] = useState(false)
@@ -112,6 +116,19 @@ export default function Dashboard() {
           .gte('created_at', todayStart)
           .limit(1)
         if (!ew || ew.length === 0) setShowEveningWindDown(true)
+      }
+
+      // Fetch latest undismissed AI insight
+      const { data: insightRows } = await supabase
+        .from('user_insights')
+        .select('id, type, title, message, icon')
+        .eq('user_id', session.user.id)
+        .is('dismissed_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (insightRows && insightRows.length > 0) {
+        setAiInsight(insightRows[0] as InsightData)
       }
 
       setLoading(false)

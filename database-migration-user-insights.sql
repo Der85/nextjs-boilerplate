@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS user_insights (
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   icon VARCHAR(10) NOT NULL DEFAULT '🔍',
+  helpful BOOLEAN DEFAULT NULL,
+  dismissed_at TIMESTAMPTZ DEFAULT NULL,
   data_window_start DATE,
   data_window_end DATE,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -32,6 +34,12 @@ CREATE POLICY "Users can read own insights"
 -- Users can insert their own insights (via API)
 CREATE POLICY "Users can insert own insights"
   ON user_insights FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own insights (helpful / dismiss)
+CREATE POLICY "Users can update own insights"
+  ON user_insights FOR UPDATE
+  USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
 -- Service role can do everything (for API route using service client)
