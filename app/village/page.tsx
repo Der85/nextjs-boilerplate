@@ -316,56 +316,7 @@ export default function VillagePage() {
 
   return (
     <div className="village-page">
-      {/* Header - Consistent with Dashboard */}
-      <header className="header">
-        <button onClick={() => router.push('/dashboard')} className="logo">
-          ADHDer.io
-        </button>
-        <div className="header-actions">
-          <div className="village-pill">
-            <span className="presence-dot"></span>
-            <span className="presence-count">{onlineCount} online</span>
-          </div>
-          <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
-            💜
-          </button>
-          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">
-            🛑
-          </button>
-          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
-            ☰
-          </button>
-        </div>
-
-        {showMenu && (
-          <div className="dropdown-menu">
-            <button onClick={() => { router.push('/dashboard'); setShowMenu(false) }} className="menu-item">
-              🏠 Dashboard
-            </button>
-            <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
-              ⏱️ Focus Mode
-            </button>
-            <button onClick={() => { router.push('/goals'); setShowMenu(false) }} className="menu-item">
-              🎯 Goals
-            </button>
-            <button onClick={() => { router.push('/burnout'); setShowMenu(false) }} className="menu-item">
-              ⚡ Energy Tracker
-            </button>
-            <button onClick={() => { setShowMenu(false) }} className="menu-item active">
-              👥 My Village
-            </button>
-            <div className="menu-divider" />
-            <button
-              onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
-              className="menu-item logout"
-            >
-              Log out
-            </button>
-          </div>
-        )}
-      </header>
-
-      {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
+      <AppHeader onlineCount={onlineCount} />
 
       <main className="main">
         {/* Page Title */}
@@ -814,117 +765,6 @@ const styles = `
 
   @keyframes spin {
     to { transform: rotate(360deg); }
-  }
-
-  /* ===== HEADER ===== */
-  .header {
-    position: sticky;
-    top: 0;
-    background: white;
-    border-bottom: 1px solid #eee;
-    padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    z-index: 100;
-  }
-
-  .logo {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(16px, 4vw, 20px);
-    font-weight: 800;
-    color: var(--primary);
-  }
-
-  .header-actions {
-    display: flex;
-    gap: clamp(6px, 2vw, 10px);
-  }
-
-  .icon-btn {
-    width: clamp(32px, 8vw, 42px);
-    height: clamp(32px, 8vw, 42px);
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(14px, 3.5vw, 18px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
-  .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
-  .icon-btn.menu {
-    background: white;
-    border: 1px solid #ddd;
-    font-size: clamp(12px, 3vw, 16px);
-  }
-
-  /* Village Presence Pill */
-  .village-pill {
-    display: flex;
-    align-items: center;
-    gap: clamp(5px, 1.5vw, 8px);
-    padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.5vw, 12px);
-    background: rgba(0, 186, 124, 0.08);
-    border: 1px solid rgba(0, 186, 124, 0.2);
-    border-radius: 100px;
-  }
-
-  .presence-dot {
-    width: clamp(6px, 1.8vw, 8px);
-    height: clamp(6px, 1.8vw, 8px);
-    background: var(--success);
-    border-radius: 50%;
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 186, 124, 0.4); }
-    50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(0, 186, 124, 0); }
-  }
-
-  .presence-count {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 600;
-    color: var(--success);
-  }
-
-  .dropdown-menu {
-    position: absolute;
-    top: clamp(50px, 12vw, 60px);
-    right: clamp(12px, 4vw, 20px);
-    background: white;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    padding: clamp(6px, 1.5vw, 10px);
-    min-width: clamp(140px, 40vw, 180px);
-    z-index: 200;
-  }
-
-  .menu-item {
-    display: block;
-    width: 100%;
-    padding: clamp(8px, 2.5vw, 12px) clamp(10px, 3vw, 14px);
-    text-align: left;
-    background: none;
-    border: none;
-    border-radius: clamp(6px, 1.5vw, 10px);
-    cursor: pointer;
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--dark-gray);
-  }
-
-  .menu-item:hover, .menu-item.active { background: var(--bg-gray); }
-  .menu-item.logout { color: #ef4444; }
-  .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
-  .menu-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 99;
   }
 
   /* ===== MAIN CONTENT ===== */
@@ -1796,7 +1636,6 @@ const styles = `
   }
 
   @media (min-width: 1024px) {
-    .header { padding: 16px 32px; }
     .main { max-width: 680px; }
   }
 `
