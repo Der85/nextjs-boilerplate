@@ -10,12 +10,22 @@ interface ParsedTask {
 interface TriageScreenProps {
   tasks: ParsedTask[]
   loading: boolean
+  energyLevel: 'high' | 'low' | null
   onConfirm: (tasks: ParsedTask[]) => void
   onBack: () => void
 }
 
-export default function TriageScreen({ tasks, loading, onConfirm, onBack }: TriageScreenProps) {
+const BIG_TASK_KEYWORDS = ['project', 'finish', 'complete', 'refactor', 'redesign', 'migrate', 'overhaul', 'organize', 'plan', 'build']
+
+function isTaskTooBig(text: string): boolean {
+  const lower = text.toLowerCase()
+  if (text.length > 50) return true
+  return BIG_TASK_KEYWORDS.some(kw => lower.includes(kw))
+}
+
+export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, onBack }: TriageScreenProps) {
   const [confirmedTasks, setConfirmedTasks] = useState<ParsedTask[]>(tasks)
+  const [energyWarning, setEnergyWarning] = useState<{ task: ParsedTask; visible: boolean }>({ task: { id: '', text: '' }, visible: false })
 
   // Sync with incoming tasks when they arrive
   if (!loading && tasks.length > 0 && confirmedTasks.length === 0) {
@@ -24,6 +34,28 @@ export default function TriageScreen({ tasks, loading, onConfirm, onBack }: Tria
 
   const removeTask = (id: string) => {
     setConfirmedTasks(prev => prev.filter(t => t.id !== id))
+  }
+
+  const handleConfirm = () => {
+    if (energyLevel === 'low') {
+      const flagged = confirmedTasks.find(t => isTaskTooBig(t.text))
+      if (flagged) {
+        setEnergyWarning({ task: flagged, visible: true })
+        return
+      }
+    }
+    onConfirm(confirmedTasks)
+  }
+
+  const handleBreakDown = () => {
+    // Send only the flagged task to context screen for further breakdown
+    onConfirm([energyWarning.task])
+    setEnergyWarning({ task: { id: '', text: '' }, visible: false })
+  }
+
+  const handleProceedAnyway = () => {
+    setEnergyWarning({ task: { id: '', text: '' }, visible: false })
+    onConfirm(confirmedTasks)
   }
 
   if (loading) {
@@ -74,7 +106,7 @@ export default function TriageScreen({ tasks, loading, onConfirm, onBack }: Tria
 
         <div className="action-buttons">
           <button
-            onClick={() => onConfirm(confirmedTasks)}
+            onClick={handleConfirm}
             disabled={confirmedTasks.length === 0}
             className="submit-btn"
           >
@@ -85,6 +117,27 @@ export default function TriageScreen({ tasks, loading, onConfirm, onBack }: Tria
           </button>
         </div>
       </div>
+
+      {/* Energy Warning Toast */}
+      {energyWarning.visible && (
+        <div className="energy-toast-overlay">
+          <div className="energy-toast">
+            <div className="energy-toast-icon">⚠️</div>
+            <p className="energy-toast-text">
+              Energy is low. Are you sure? We can break <strong>&quot;{energyWarning.task.text}&quot;</strong> down further first.
+            </p>
+            <div className="energy-toast-actions">
+              <button onClick={handleBreakDown} className="energy-toast-btn primary">
+                Break it down
+              </button>
+              <button onClick={handleProceedAnyway} className="energy-toast-btn secondary">
+                I&apos;m sure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{styles}</style>
     </div>
   )
@@ -277,5 +330,93 @@ const styles = `
 
   .skip-btn:hover {
     color: #536471;
+  }
+
+  /* ===== ENERGY WARNING TOAST ===== */
+  .energy-toast-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 1000;
+    padding: clamp(16px, 4vw, 24px);
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .energy-toast {
+    background: white;
+    border-radius: clamp(16px, 4vw, 22px) clamp(16px, 4vw, 22px) 0 0;
+    padding: clamp(24px, 6vw, 32px);
+    max-width: 480px;
+    width: 100%;
+    text-align: center;
+    border-top: 4px solid #ffad1f;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .energy-toast-icon {
+    font-size: clamp(36px, 10vw, 48px);
+    margin-bottom: clamp(10px, 2.5vw, 14px);
+  }
+
+  .energy-toast-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: #536471;
+    line-height: 1.5;
+    margin: 0 0 clamp(18px, 5vw, 24px) 0;
+  }
+
+  .energy-toast-text strong {
+    color: #0f1419;
+  }
+
+  .energy-toast-actions {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 2vw, 12px);
+  }
+
+  .energy-toast-btn {
+    width: 100%;
+    padding: clamp(12px, 3.5vw, 16px);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .energy-toast-btn.primary {
+    background: linear-gradient(135deg, #ffad1f 0%, #f59e0b 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 14px rgba(255, 173, 31, 0.3);
+  }
+
+  .energy-toast-btn.primary:hover {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+
+  .energy-toast-btn.secondary {
+    background: #f7f9fa;
+    color: #536471;
+    border: none;
+  }
+
+  .energy-toast-btn.secondary:hover {
+    background: #eff3f4;
   }
 `

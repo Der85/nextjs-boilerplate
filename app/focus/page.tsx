@@ -114,6 +114,7 @@ function FocusPageContent() {
   // Sprint/Gentle mode state (from check-in handoff)
   const [sprintMode, setSprintMode] = useState(false)
   const [userMode, setUserMode] = useState<'recovery' | 'growth' | 'maintenance'>('maintenance')
+  const [energyLevel, setEnergyLevel] = useState<'high' | 'low' | null>(null)
 
   // Presence
   const { onlineCount } = usePresenceWithFallback({ isFocusing: true })
@@ -140,9 +141,10 @@ function FocusPageContent() {
       const modeParam = searchParams.get('mode') as 'sprint' | 'gentle' | null
       const energyParam = searchParams.get('energy') as 'high' | 'low' | null
 
-      // Derive userMode from URL params for post-task completion flow
+      // Derive userMode and energyLevel from URL params
       if (modeParam === 'gentle') setUserMode('recovery')
       else if (modeParam === 'sprint') setUserMode('growth')
+      if (energyParam) setEnergyLevel(energyParam)
 
       if (createParam === 'true' && taskNameParam) {
         // Goal handoff: skip to context with pre-filled task
@@ -431,6 +433,7 @@ function FocusPageContent() {
         <TriageScreen
           tasks={parsedTasks}
           loading={triageLoading}
+          energyLevel={energyLevel}
           onConfirm={handleTriageConfirm}
           onBack={handleTriageBack}
         />
