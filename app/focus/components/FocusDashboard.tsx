@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
 import PostFocusToast from '@/components/micro/PostFocusToast'
 import QuickAllyModal from './QuickAllyModal'
+import { useUserStats } from '@/context/UserStatsContext'
+import { XP_VALUES } from '@/lib/gamification'
 
 const OVERWHELM_DELAY_MS = 5 * 60 * 1000 // 5 minutes of inactivity
 
@@ -67,6 +69,8 @@ export default function FocusDashboard({
   onPlansUpdate,
 }: FocusDashboardProps) {
   const router = useRouter()
+  const { awardXP } = useUserStats()
+  const [xpToast, setXpToast] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false })
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [completedPlan, setCompletedPlan] = useState<Plan | null>(null)
   const [syncingGoal, setSyncingGoal] = useState(false)
@@ -90,6 +94,15 @@ export default function FocusDashboard({
   const [editingTaskName, setEditingTaskName] = useState('')
   const [editingStepKey, setEditingStepKey] = useState<string | null>(null)
   const [editingStepText, setEditingStepText] = useState('')
+
+  // Undo deletion state
+  const [pendingDelete, setPendingDelete] = useState<{
+    type: 'plan' | 'step'
+    planId: string
+    stepId?: string
+    label: string
+    timer: ReturnType<typeof setTimeout>
+  } | null>(null)
 
   // Implicit Overwhelm Detection
   const [showOverwhelmToast, setShowOverwhelmToast] = useState(false)
@@ -134,7 +147,9 @@ export default function FocusDashboard({
     setShowOverwhelmToast(false)
   }
 
-  const sortedPlans = [...plans].sort(sortByDueDate)
+  const sortedPlans = [...plans]
+    .filter(p => !(pendingDelete?.type === 'plan' && pendingDelete.planId === p.id))
+    .sort(sortByDueDate)
 
   const getGoalTitle = (goalId: string | null) => {
     if (!goalId) return null
@@ -153,9 +168,16 @@ export default function FocusDashboard({
     }
   }
 
+  const showXpToast = (amount: number) => {
+    setXpToast({ amount, visible: true })
+    setTimeout(() => setXpToast({ amount: 0, visible: false }), 2000)
+  }
+
   const toggleStep = async (planId: string, stepId: string) => {
     const plan = plans.find(p => p.id === planId)
     if (!plan || !user) return
+
+    const wasCompleted = plan.steps.find(s => s.id === stepId)?.completed
 
     const updatedSteps = plan.steps.map(s =>
       s.id === stepId ? { ...s, completed: !s.completed } : s
@@ -171,6 +193,17 @@ export default function FocusDashboard({
     }).eq('id', planId).eq('user_id', user.id)
 
     onPlansUpdate()
+
+    // Award XP when a step is checked (not unchecked)
+    if (!wasCompleted) {
+      let xpGained = XP_VALUES.focus_step
+      await awardXP('focus_step')
+      if (isNowComplete) {
+        xpGained += XP_VALUES.focus_plan_complete
+        await awardXP('focus_plan_complete')
+      }
+      showXpToast(xpGained)
+    }
 
     if (isNowComplete) {
       // Show focus quality survey (Trojan Horse)
@@ -260,11 +293,20 @@ export default function FocusDashboard({
   // Task Actions
   // ============================================
 
-  const deletePlan = async (planId: string) => {
-    if (!user) return
-    await supabase.from('focus_plans').delete().eq('id', planId).eq('user_id', user.id)
+  const deletePlan = (planId: string) => {
+    const plan = plans.find(p => p.id === planId)
+    if (!plan || !user) return
     setTaskMenuId(null)
-    onPlansUpdate()
+
+    if (pendingDelete?.timer) clearTimeout(pendingDelete.timer)
+
+    const timer = setTimeout(async () => {
+      await supabase.from('focus_plans').delete().eq('id', planId).eq('user_id', user.id)
+      setPendingDelete(null)
+      onPlansUpdate()
+    }, 5000)
+
+    setPendingDelete({ type: 'plan', planId, label: plan.task_name, timer })
   }
 
   const startEditTask = (plan: Plan) => {
@@ -301,21 +343,35 @@ export default function FocusDashboard({
   // Step Actions
   // ============================================
 
-  const deleteStep = async (planId: string, stepId: string) => {
+  const deleteStep = (planId: string, stepId: string) => {
     const plan = plans.find(p => p.id === planId)
     if (!plan || !user) return
 
-    const updatedSteps = plan.steps.filter(s => s.id !== stepId)
-    const completedCount = updatedSteps.filter(s => s.completed).length
+    const step = plan.steps.find(s => s.id === stepId)
+    if (pendingDelete?.timer) clearTimeout(pendingDelete.timer)
 
-    await supabase.from('focus_plans').update({
-      steps: updatedSteps,
-      steps_completed: completedCount,
-      total_steps: updatedSteps.length,
-      is_completed: updatedSteps.length > 0 && completedCount === updatedSteps.length,
-    }).eq('id', planId).eq('user_id', user.id)
+    const timer = setTimeout(async () => {
+      const updatedSteps = plan.steps.filter(s => s.id !== stepId)
+      const completedCount = updatedSteps.filter(s => s.completed).length
 
-    onPlansUpdate()
+      await supabase.from('focus_plans').update({
+        steps: updatedSteps,
+        steps_completed: completedCount,
+        total_steps: updatedSteps.length,
+        is_completed: updatedSteps.length > 0 && completedCount === updatedSteps.length,
+      }).eq('id', planId).eq('user_id', user.id)
+
+      setPendingDelete(null)
+      onPlansUpdate()
+    }, 5000)
+
+    setPendingDelete({ type: 'step', planId, stepId, label: step?.text || 'step', timer })
+  }
+
+  const undoDelete = () => {
+    if (!pendingDelete) return
+    clearTimeout(pendingDelete.timer)
+    setPendingDelete(null)
   }
 
   const startEditStep = (planId: string, step: Step) => {
@@ -464,7 +520,9 @@ export default function FocusDashboard({
                   💜 Hitting a Wall
                 </button>
 
-                {plan.steps.map((step) => {
+                {plan.steps
+                  .filter(s => !(pendingDelete?.type === 'step' && pendingDelete.planId === plan.id && pendingDelete.stepId === s.id))
+                  .map((step) => {
                   const stepKey = `${plan.id}:${step.id}`
                   const isEditingThisStep = editingStepKey === stepKey
 
@@ -632,6 +690,19 @@ export default function FocusDashboard({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* XP Toast */}
+      {xpToast.visible && (
+        <div className="xp-toast">+{xpToast.amount} XP</div>
+      )}
+
+      {/* Undo Delete Toast */}
+      {pendingDelete && (
+        <div className="undo-toast">
+          <span className="undo-text">Deleted &ldquo;{pendingDelete.label}&rdquo;</span>
+          <button onClick={undoDelete} className="undo-btn">Undo</button>
         </div>
       )}
 
@@ -1224,6 +1295,75 @@ export default function FocusDashboard({
         @keyframes confettiFall {
           0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* XP Toast */
+        .xp-toast {
+          position: fixed;
+          bottom: clamp(60px, 16vw, 80px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+          color: white;
+          padding: clamp(8px, 2vw, 12px) clamp(16px, 4vw, 24px);
+          border-radius: 100px;
+          font-size: clamp(14px, 3.8vw, 17px);
+          font-weight: 700;
+          z-index: 950;
+          box-shadow: 0 4px 14px rgba(0, 186, 124, 0.4);
+          animation: xpPop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes xpPop {
+          0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.8); }
+          60% { transform: translateX(-50%) translateY(-4px) scale(1.05); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+
+        /* Undo Delete Toast */
+        .undo-toast {
+          position: fixed;
+          bottom: clamp(16px, 4vw, 24px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: #1f2937;
+          color: white;
+          padding: clamp(10px, 2.5vw, 14px) clamp(14px, 3.5vw, 20px);
+          border-radius: clamp(10px, 2.5vw, 14px);
+          display: flex;
+          align-items: center;
+          gap: clamp(10px, 2.5vw, 14px);
+          z-index: 960;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+          max-width: clamp(280px, 80vw, 400px);
+          animation: toastSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .undo-text {
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 500;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .undo-btn {
+          padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px);
+          background: rgba(29, 155, 240, 0.2);
+          color: #60a5fa;
+          border: none;
+          border-radius: clamp(6px, 1.5vw, 8px);
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 700;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .undo-btn:hover {
+          background: rgba(29, 155, 240, 0.35);
         }
 
         /* Implicit Overwhelm Toast */

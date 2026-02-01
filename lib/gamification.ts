@@ -326,6 +326,20 @@ export function getNotePlaceholder(energyLevel: number | null, moodScore: number
   return "How are things going for you?"
 }
 
+// XP for non-check-in actions
+export type XPAction = 'focus_step' | 'goal_step' | 'goal_complete' | 'focus_plan_complete'
+
+export const XP_VALUES: Record<XPAction, number> = {
+  focus_step: 5,
+  goal_step: 8,
+  goal_complete: 25,
+  focus_plan_complete: 15,
+}
+
+export function getXPForAction(action: XPAction): number {
+  return XP_VALUES[action] ?? 0
+}
+
 // Get quick-select emotion options based on mood score
 export function getEmotionOptions(moodScore: number | null): string[] {
   if (moodScore === null) return ['Okay', 'Mixed', 'Restless', 'Meh']

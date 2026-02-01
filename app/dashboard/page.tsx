@@ -98,6 +98,18 @@ export default function Dashboard() {
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
 
+  // "Today's Wins" section
+  const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
+  const [showWins, setShowWins] = useState(false)
+
+  // "Do This Next" recommendation
+  const [recommendation, setRecommendation] = useState<{
+    suggestion: string
+    reason: string
+    goalId?: string
+    url: string
+  } | null>(null)
+
   const [pulseSaved, setPulseSaved] = useState(false)
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -125,12 +137,44 @@ export default function Dashboard() {
       }
 
       setLoading(false)
+
+      // Load "Do This Next" recommendation (non-blocking)
+      loadRecommendation(session.access_token)
     }
     init()
     return () => {
       if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current)
     }
   }, [router])
+
+  const loadRecommendation = async (token: string) => {
+    try {
+      const res = await fetch('/api/goals-coach', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'suggest_next',
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.suggestion) {
+          setRecommendation({
+            suggestion: data.suggestion.suggestion,
+            reason: data.suggestion.reason,
+            goalId: data.suggestion.goalId,
+            url: data.suggestion.goalId ? '/goals' : '/focus',
+          })
+        }
+      }
+    } catch {
+      // Silently fail — recommendation is optional
+    }
+  }
 
   const fetchData = async (userId: string) => {
     const { data } = await supabase
@@ -198,6 +242,38 @@ export default function Dashboard() {
     } else {
       setActiveGoal(null)
     }
+
+    // Fetch today's wins from goal_progress_logs
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const { data: winsData } = await supabase
+      .from('goal_progress_logs')
+      .select('action_type, step_text')
+      .eq('user_id', userId)
+      .gte('created_at', todayStart.toISOString())
+      .order('created_at', { ascending: false })
+
+    const wins: Array<{ text: string; icon: string }> = []
+    if (winsData) {
+      for (const w of winsData) {
+        if (w.action_type === 'goal_completed') {
+          wins.push({ text: w.step_text || 'Completed a goal', icon: '🌸' })
+        } else if (w.action_type === 'step_completed') {
+          wins.push({ text: w.step_text || 'Completed a step', icon: '✅' })
+        }
+      }
+    }
+    // Count today's mood entries as a win
+    if (data && data.length > 0) {
+      const todayEntries = data.filter((d: MoodEntry) =>
+        new Date(d.created_at).toDateString() === new Date().toDateString()
+      )
+      if (todayEntries.length > 0) {
+        wins.push({ text: 'Checked in today', icon: '📋' })
+      }
+    }
+    setTodaysWins(wins)
   }
 
   // Phase 1: User Mode calculation logic
@@ -470,6 +546,18 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* "Do This Next" Recommendation Card */}
+        {recommendation && !isRecoveryView && (
+          <button onClick={() => router.push(recommendation.url)} className="card rec-card">
+            <div className="rec-header">
+              <span className="rec-icon">💡</span>
+              <span className="rec-title">Do This Next</span>
+            </div>
+            <p className="rec-suggestion">{recommendation.suggestion}</p>
+            <p className="rec-reason">{recommendation.reason}</p>
+          </button>
+        )}
+
         {/* Recovery Mode: 2-column action grid */}
         {isRecoveryView && (
           <div className="recovery-actions-grid">
@@ -523,6 +611,26 @@ export default function Dashboard() {
             </div>
           )
         })()}
+
+        {/* Today's Wins */}
+        {todaysWins.length > 0 && (
+          <div className="card wins-card">
+            <button onClick={() => setShowWins(!showWins)} className="wins-toggle">
+              <span>🏆 Today&apos;s Wins ({todaysWins.length})</span>
+              <span className={`wins-chevron ${showWins ? 'open' : ''}`}>▾</span>
+            </button>
+            {showWins && (
+              <div className="wins-list">
+                {todaysWins.map((win, i) => (
+                  <div key={i} className="win-item">
+                    <span className="win-icon">{win.icon}</span>
+                    <span className="win-text">{win.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       </main>
 
@@ -924,6 +1032,59 @@ const styles = `
     animation: fadeIn 0.3s ease;
   }
 
+  /* ===== "DO THIS NEXT" RECOMMENDATION CARD ===== */
+  .rec-card {
+    display: block;
+    width: 100%;
+    padding: clamp(16px, 4.5vw, 22px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+    border: 1.5px solid rgba(255, 173, 31, 0.3);
+    background: linear-gradient(135deg, white 0%, rgba(255, 215, 0, 0.04) 100%);
+    cursor: pointer;
+    text-align: left;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .rec-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(255, 173, 31, 0.15);
+  }
+
+  .rec-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 10px);
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .rec-icon {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .rec-title {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 700;
+    color: #b8860b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .rec-suggestion {
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 600;
+    color: #0f1419;
+    margin: 0 0 clamp(4px, 1vw, 6px) 0;
+    line-height: 1.4;
+  }
+
+  .rec-reason {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0;
+    line-height: 1.4;
+  }
+
   /* ===== SHARED SLIDER STYLES (DailyPulse) ===== */
   .slider-container {
     margin-bottom: clamp(20px, 5vw, 28px);
@@ -974,6 +1135,63 @@ const styles = `
     font-size: clamp(18px, 5vw, 24px);
     font-weight: 700;
     color: var(--primary);
+  }
+
+  /* ===== TODAY'S WINS ===== */
+  .wins-card {
+    padding: 0;
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  .wins-toggle {
+    width: 100%;
+    padding: clamp(14px, 4vw, 18px) clamp(16px, 4.5vw, 22px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .wins-chevron {
+    font-size: clamp(16px, 4.5vw, 20px);
+    transition: transform 0.2s ease;
+    color: var(--light-gray);
+  }
+
+  .wins-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .wins-list {
+    padding: 0 clamp(16px, 4.5vw, 22px) clamp(14px, 4vw, 18px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 2vw, 12px);
+  }
+
+  .win-item {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+    padding: clamp(8px, 2vw, 10px) 0;
+    border-top: 1px solid #eff3f4;
+  }
+
+  .win-icon {
+    font-size: clamp(16px, 4.5vw, 20px);
+    flex-shrink: 0;
+  }
+
+  .win-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    line-height: 1.3;
   }
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */

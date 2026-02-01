@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getXPForNextLevel } from '@/lib/gamification'
+import { getXPForNextLevel, getXPForAction, calculateLevel, type XPAction } from '@/lib/gamification'
 
 export interface UserStats {
   total_xp: number
@@ -16,12 +16,14 @@ interface UserStatsContextValue {
   userStats: UserStats | null
   loading: boolean
   refreshStats: () => Promise<void>
+  awardXP: (action: XPAction) => Promise<void>
 }
 
 const UserStatsContext = createContext<UserStatsContextValue>({
   userStats: null,
   loading: true,
   refreshStats: async () => {},
+  awardXP: async () => {},
 })
 
 export function useUserStats() {
@@ -96,8 +98,34 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
     await fetchStats()
   }, [fetchStats])
 
+  const awardXP = useCallback(async (action: XPAction) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const xp = getXPForAction(action)
+    if (xp === 0) return
+
+    const { data: current } = await supabase
+      .from('user_stats')
+      .select('total_xp, current_level')
+      .eq('user_id', session.user.id)
+      .single()
+
+    if (!current) return
+
+    const newTotalXP = current.total_xp + xp
+    const newLevel = calculateLevel(newTotalXP)
+
+    await supabase
+      .from('user_stats')
+      .update({ total_xp: newTotalXP, current_level: newLevel })
+      .eq('user_id', session.user.id)
+
+    setUserStats(prev => prev ? { ...prev, total_xp: newTotalXP, current_level: newLevel } : prev)
+  }, [])
+
   return (
-    <UserStatsContext.Provider value={{ userStats, loading, refreshStats }}>
+    <UserStatsContext.Provider value={{ userStats, loading, refreshStats, awardXP }}>
       {children}
     </UserStatsContext.Provider>
   )

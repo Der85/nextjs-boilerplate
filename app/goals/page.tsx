@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import AppHeader from '@/components/AppHeader'
+import { useUserStats } from '@/context/UserStatsContext'
+import { XP_VALUES } from '@/lib/gamification'
 
 // ============================================
 // Types
@@ -153,6 +155,8 @@ function GoalsPageContent() {
 
   // Real-time presence - isFocusing: false because Goals page is planning, not focusing
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
+  const { awardXP } = useUserStats()
+  const [xpToast, setXpToast] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false })
 
   // ============================================
   // Initialize
@@ -326,8 +330,15 @@ function GoalsPageContent() {
   // ============================================
   // Step Completion
   // ============================================
+  const showXpToast = (amount: number) => {
+    setXpToast({ amount, visible: true })
+    setTimeout(() => setXpToast({ amount: 0, visible: false }), 2000)
+  }
+
   const handleStepToggle = async (goal: Goal, stepId: string) => {
     if (!user) return
+
+    const wasCompleted = goal.micro_steps.find(s => s.id === stepId)?.completed
 
     const updatedSteps = goal.micro_steps.map(s =>
       s.id === stepId ? { ...s, completed: !s.completed } : s
@@ -372,6 +383,17 @@ function GoalsPageContent() {
       mood_at_action: context.mood,
       energy_at_action: context.energyLevel
     })
+
+    // Award XP when a step is checked (not unchecked)
+    if (!wasCompleted) {
+      let xpGained = XP_VALUES.goal_step
+      await awardXP('goal_step')
+      if (isNowComplete) {
+        xpGained += XP_VALUES.goal_complete
+        await awardXP('goal_complete')
+      }
+      showXpToast(xpGained)
+    }
 
     await loadData(user.id)
 
@@ -770,6 +792,11 @@ function GoalsPageContent() {
           </>
         )}
       </main>
+
+      {/* XP Toast */}
+      {xpToast.visible && (
+        <div className="xp-toast">+{xpToast.amount} XP</div>
+      )}
 
       <style jsx>{styles}</style>
     </div>
@@ -1370,6 +1397,29 @@ const styles = `
     background: white;
     border: 2px solid var(--success);
     color: var(--success);
+  }
+
+  /* XP Toast */
+  .xp-toast {
+    position: fixed;
+    bottom: clamp(60px, 16vw, 80px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+    color: white;
+    padding: clamp(8px, 2vw, 12px) clamp(16px, 4vw, 24px);
+    border-radius: 100px;
+    font-size: clamp(14px, 3.8vw, 17px);
+    font-weight: 700;
+    z-index: 950;
+    box-shadow: 0 4px 14px rgba(0, 186, 124, 0.4);
+    animation: xpPop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes xpPop {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.8); }
+    60% { transform: translateX(-50%) translateY(-4px) scale(1.05); }
+    100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   }
 
   @media (min-width: 768px) {
