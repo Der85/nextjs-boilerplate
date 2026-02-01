@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 
 type Step = 'intro' | 'hold' | 'emotion' | 'breathing' | 'complete'
 
@@ -17,6 +17,9 @@ const emotions = [
 
 export default function BreakOnboardingPage() {
   const router = useRouter()
+
+  // Trojan Horse: silently log overwhelm when user visits this page
+  useImplicitOverwhelmLogger()
   const [step, setStep] = useState<Step>('intro')
   const [holdProgress, setHoldProgress] = useState(0)
   const [isHolding, setIsHolding] = useState(false)
@@ -72,20 +75,6 @@ export default function BreakOnboardingPage() {
         clearInterval(holdInterval.current)
       }
     }
-  }, [])
-
-  // Rescue Inference: auto-log overwhelm (fire-and-forget)
-  useEffect(() => {
-    const logRescue = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      supabase.from('burnout_logs').insert({
-        user_id: session.user.id,
-        overwhelm: 2,
-        source: 'rescue_inference',
-      })
-    }
-    logRescue()
   }, [])
 
   // Breathing exercise

@@ -8,6 +8,7 @@ import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
+import MorningSleepCard from '@/components/micro/MorningSleepCard'
 
 interface MoodEntry {
   id: string
@@ -73,7 +74,6 @@ export default function Dashboard() {
   // Trojan Horse intercepts
   const [showMorningKey, setShowMorningKey] = useState(false)
   const [showEveningWindDown, setShowEveningWindDown] = useState(false)
-  const [sleepValue, setSleepValue] = useState(5)
   const [tensionValue, setTensionValue] = useState(5)
   const [savingIntercept, setSavingIntercept] = useState(false)
 
@@ -252,19 +252,7 @@ export default function Dashboard() {
     return null
   }
 
-  // Trojan Horse save handlers
-  const saveMorningKey = async () => {
-    if (!user || savingIntercept) return
-    setSavingIntercept(true)
-    await supabase.from('burnout_logs').insert({
-      user_id: user.id,
-      sleep_quality: sleepValue,
-      source: 'morning_key',
-    })
-    setShowMorningKey(false)
-    setSavingIntercept(false)
-  }
-
+  // Trojan Horse save handler (Evening Wind Down only — Morning Key is in MorningSleepCard)
   const saveEveningWindDown = async () => {
     if (!user || savingIntercept) return
     setSavingIntercept(true)
@@ -516,35 +504,8 @@ export default function Dashboard() {
       </main>
 
       {/* Morning Key Overlay (before 11 AM) */}
-      {showMorningKey && (
-        <div className="intercept-overlay">
-          <div className="intercept-card">
-            <span className="intercept-emoji">🌅</span>
-            <h2 className="intercept-title">How did we sleep?</h2>
-            <p className="intercept-subtitle">Quick check before you start your day</p>
-            <div className="slider-container">
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={sleepValue}
-                onChange={(e) => setSleepValue(Number(e.target.value))}
-                className="intercept-slider"
-              />
-              <div className="slider-labels">
-                <span>Terrible</span>
-                <span className="slider-value">{sleepValue}/10</span>
-                <span>Amazing</span>
-              </div>
-            </div>
-            <button onClick={saveMorningKey} className="intercept-btn" disabled={savingIntercept}>
-              {savingIntercept ? 'Saving...' : 'Log Sleep'}
-            </button>
-            <button onClick={() => setShowMorningKey(false)} className="intercept-skip">
-              Skip
-            </button>
-          </div>
-        </div>
+      {showMorningKey && user && (
+        <MorningSleepCard userId={user.id} onDismiss={() => setShowMorningKey(false)} />
       )}
 
       <style jsx>{styles}</style>
@@ -1092,48 +1053,7 @@ const styles = `
   }
 
 
-  /* ===== MORNING KEY OVERLAY ===== */
-  .intercept-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    padding: clamp(16px, 4vw, 24px);
-    animation: fadeIn 0.3s ease;
-  }
-
-  .intercept-card {
-    background: white;
-    border-radius: clamp(20px, 5vw, 28px);
-    padding: clamp(28px, 7vw, 40px);
-    max-width: 400px;
-    width: 100%;
-    text-align: center;
-    animation: slideUp 0.4s ease;
-  }
-
-  .intercept-emoji {
-    font-size: clamp(48px, 14vw, 64px);
-    display: block;
-    margin-bottom: clamp(14px, 4vw, 20px);
-  }
-
-  .intercept-title {
-    font-size: clamp(20px, 5.5vw, 26px);
-    font-weight: 700;
-    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
-    color: #0f1419;
-  }
-
-  .intercept-subtitle {
-    font-size: clamp(14px, 3.8vw, 16px);
-    color: var(--dark-gray);
-    margin: 0 0 clamp(24px, 6vw, 32px) 0;
-  }
-
+  /* ===== SHARED SLIDER STYLES (Evening Wind Down) ===== */
   .slider-container {
     margin-bottom: clamp(20px, 5vw, 28px);
   }
@@ -1183,39 +1103,6 @@ const styles = `
     font-size: clamp(18px, 5vw, 24px);
     font-weight: 700;
     color: var(--primary);
-  }
-
-  .intercept-btn {
-    width: 100%;
-    padding: clamp(14px, 4vw, 18px);
-    background: linear-gradient(135deg, #ffad1f 0%, #f59e0b 100%);
-    color: white;
-    border: none;
-    border-radius: 100px;
-    font-size: clamp(15px, 4.2vw, 18px);
-    font-weight: 700;
-    cursor: pointer;
-    margin-bottom: clamp(8px, 2vw, 12px);
-    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
-  }
-
-  .intercept-btn:disabled { opacity: 0.7; cursor: wait; }
-
-  .intercept-skip {
-    width: 100%;
-    padding: clamp(10px, 2.5vw, 14px);
-    background: none;
-    border: none;
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--dark-gray);
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
   }
 
   /* ===== EVENING WIND DOWN CARD ===== */

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
+import PostFocusToast from '@/components/micro/PostFocusToast'
 
 interface Step {
   id: string
@@ -66,7 +67,6 @@ export default function FocusDashboard({
 
   // Post-Action Survey (Trojan Horse)
   const [showFocusSurvey, setShowFocusSurvey] = useState(false)
-  const [surveyPlanId, setSurveyPlanId] = useState<string | null>(null)
 
   // Task action menu
   const [taskMenuId, setTaskMenuId] = useState<string | null>(null)
@@ -117,7 +117,6 @@ export default function FocusDashboard({
 
     if (isNowComplete) {
       // Show focus quality survey (Trojan Horse)
-      setSurveyPlanId(planId)
       setShowFocusSurvey(true)
 
       if (plan.related_goal_id && plan.related_step_id) {
@@ -126,35 +125,8 @@ export default function FocusDashboard({
     }
   }
 
-  const handleFocusSurvey = async (quality: 'laser' | 'foggy' | 'distracted') => {
-    if (!user) return
-
-    const mappings: Record<string, { focus_difficulty: number; motivation: number }> = {
-      laser: { focus_difficulty: 9, motivation: 9 },
-      foggy: { focus_difficulty: 4, motivation: 5 },
-      distracted: { focus_difficulty: 2, motivation: 3 },
-    }
-
-    const values = mappings[quality]
-    await supabase.from('burnout_logs').insert({
-      user_id: user.id,
-      focus_difficulty: values.focus_difficulty,
-      motivation: values.motivation,
-      source: 'focus_survey',
-    })
-
+  const handleFocusToastDismiss = () => {
     setShowFocusSurvey(false)
-    setSurveyPlanId(null)
-
-    // Show goal sync modal if applicable
-    if (completedPlan) {
-      setShowCompletionModal(true)
-    }
-  }
-
-  const dismissFocusSurvey = () => {
-    setShowFocusSurvey(false)
-    setSurveyPlanId(null)
     if (completedPlan) {
       setShowCompletionModal(true)
     }
@@ -492,32 +464,11 @@ export default function FocusDashboard({
       </main>
 
       {/* Focus Quality Survey (Trojan Horse) */}
-      {showFocusSurvey && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <div className="modal-icon">⏱️</div>
-            <h2 className="modal-title">Session complete!</h2>
-            <p className="modal-text">How was your focus?</p>
-            <div className="survey-buttons">
-              <button className="survey-btn laser" onClick={() => handleFocusSurvey('laser')}>
-                <span className="survey-btn-icon">🧠</span>
-                <span className="survey-btn-label">Laser</span>
-              </button>
-              <button className="survey-btn foggy" onClick={() => handleFocusSurvey('foggy')}>
-                <span className="survey-btn-icon">🌫️</span>
-                <span className="survey-btn-label">Foggy</span>
-              </button>
-              <button className="survey-btn distracted" onClick={() => handleFocusSurvey('distracted')}>
-                <span className="survey-btn-icon">🐿️</span>
-                <span className="survey-btn-label">Distracted</span>
-              </button>
-            </div>
-            <button className="survey-skip" onClick={dismissFocusSurvey}>
-              Skip
-            </button>
-          </div>
-        </div>
-      )}
+      <PostFocusToast
+        userId={user?.id}
+        show={showFocusSurvey}
+        onDismiss={handleFocusToastDismiss}
+      />
 
       {/* Goal Sync Modal */}
       {showCompletionModal && completedPlan && (
@@ -1065,67 +1016,6 @@ export default function FocusDashboard({
         @keyframes confettiFall {
           0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-
-        /* Focus Quality Survey */
-        .survey-buttons {
-          display: flex;
-          gap: clamp(10px, 3vw, 14px);
-          margin-bottom: clamp(12px, 3vw, 16px);
-        }
-
-        .survey-btn {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: clamp(6px, 1.5vw, 10px);
-          padding: clamp(14px, 4vw, 20px) clamp(8px, 2vw, 12px);
-          border: 2px solid transparent;
-          border-radius: clamp(12px, 3vw, 16px);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .survey-btn.laser {
-          background: rgba(0, 186, 124, 0.08);
-          border-color: rgba(0, 186, 124, 0.2);
-        }
-        .survey-btn.laser:hover { border-color: var(--success); }
-
-        .survey-btn.foggy {
-          background: rgba(99, 102, 241, 0.08);
-          border-color: rgba(99, 102, 241, 0.2);
-        }
-        .survey-btn.foggy:hover { border-color: #6366f1; }
-
-        .survey-btn.distracted {
-          background: rgba(245, 158, 11, 0.08);
-          border-color: rgba(245, 158, 11, 0.2);
-        }
-        .survey-btn.distracted:hover { border-color: #f59e0b; }
-
-        .survey-btn-icon {
-          font-size: clamp(28px, 8vw, 36px);
-        }
-
-        .survey-btn-label {
-          font-size: clamp(12px, 3.2vw, 14px);
-          font-weight: 600;
-          color: var(--dark-gray);
-        }
-
-        .survey-skip {
-          width: 100%;
-          padding: clamp(8px, 2vw, 12px);
-          background: none;
-          border: none;
-          font-size: clamp(13px, 3.5vw, 15px);
-          color: var(--light-gray);
-          cursor: pointer;
-          text-decoration: underline;
-          text-underline-offset: 2px;
         }
 
         @media (min-width: 768px) {

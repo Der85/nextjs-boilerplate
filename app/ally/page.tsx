@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
+import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 
 // ============================================
 // Types
@@ -108,6 +109,9 @@ export default function AllyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
 
+  // Trojan Horse: silently log overwhelm when user visits this page
+  useImplicitOverwhelmLogger()
+
   // Flow state
   const [currentStep, setCurrentStep] = useState<Step>('loading')
   const [stuckBefore, setStuckBefore] = useState<number | null>(null)
@@ -144,14 +148,6 @@ export default function AllyPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-
-      // Rescue Inference: auto-log decision fatigue (fire-and-forget)
-      supabase.from('burnout_logs').insert({
-        user_id: session.user.id,
-        decision_fatigue: 2,
-        motivation: 3,
-        source: 'rescue_inference',
-      })
 
       try {
         const data = await fetchStuckCoach('initial')
