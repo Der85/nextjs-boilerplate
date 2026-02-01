@@ -29,7 +29,7 @@ export default function AppHeader({
   const router = useRouter()
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
-  const { userStats } = useUserStats()
+  const { userStats, loading: statsLoading } = useUserStats()
 
   const levelProgress = userStats ? getLevelProgress(userStats) : null
 
@@ -43,6 +43,21 @@ export default function AppHeader({
         <button onClick={() => router.push('/dashboard')} className="logo">
           ADHDer.io
         </button>
+
+        {statsLoading ? (
+          <div className="xp-inline skeleton">
+            <span className="xp-inline-badge-skeleton" />
+            <span className="xp-inline-track-skeleton" />
+          </div>
+        ) : userStats && levelProgress ? (
+          <div className="xp-inline">
+            <span className="xp-inline-badge">Lv {userStats.current_level}</span>
+            <div className="xp-inline-track">
+              <div className="xp-inline-fill" style={{ width: `${levelProgress.progress}%` }} />
+            </div>
+            <span className="xp-inline-xp">{levelProgress.xpInLevel}/{levelProgress.xpNeeded}</span>
+          </div>
+        ) : null}
 
         <nav className="header-nav">
           {navItems.map((item) => (
@@ -114,16 +129,6 @@ export default function AppHeader({
         >
           {notificationBar.icon && <span className="notif-icon">{notificationBar.icon}</span>}
           <span className="notif-text">{notificationBar.text}</span>
-        </div>
-      )}
-
-      {userStats && levelProgress && (
-        <div className="xp-strip">
-          <span className="xp-level-badge">Lv {userStats.current_level}</span>
-          <div className="xp-track">
-            <div className="xp-fill" style={{ width: `${levelProgress.progress}%` }} />
-          </div>
-          <span className="xp-label">{levelProgress.xpInLevel}/{levelProgress.xpNeeded}</span>
         </div>
       )}
 
@@ -301,51 +306,78 @@ export default function AppHeader({
           line-height: 1.3;
         }
 
-        /* ===== COMPACT XP STRIP ===== */
-        .xp-strip {
+        /* ===== INLINE XP BAR (inside header) ===== */
+        .xp-inline {
           display: flex;
           align-items: center;
-          gap: clamp(6px, 1.5vw, 10px);
-          padding: clamp(4px, 1vw, 6px) clamp(12px, 4vw, 20px);
-          background: #f7f9fa;
-          border-bottom: 1px solid #eff3f4;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          gap: 4px;
+          flex-shrink: 0;
+          min-width: 0;
         }
 
-        .xp-level-badge {
-          font-size: clamp(10px, 2.8vw, 12px);
+        .xp-inline-badge {
+          font-size: 10px;
           font-weight: 700;
           color: white;
           background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
-          padding: 2px clamp(6px, 1.5vw, 8px);
+          padding: 1px 5px;
           border-radius: 100px;
           white-space: nowrap;
-          flex-shrink: 0;
           letter-spacing: 0.3px;
           text-transform: uppercase;
+          line-height: 1.4;
         }
 
-        .xp-track {
-          flex: 1;
-          height: clamp(6px, 1.5vw, 8px);
+        .xp-inline-track {
+          width: clamp(48px, 14vw, 100px);
+          height: 5px;
           background: #e5e7eb;
           border-radius: 100px;
           overflow: hidden;
+          flex-shrink: 0;
         }
 
-        .xp-fill {
+        .xp-inline-fill {
           height: 100%;
           background: linear-gradient(90deg, #00ba7c 0%, #22c55e 100%);
           border-radius: 100px;
           transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .xp-label {
-          font-size: clamp(10px, 2.5vw, 12px);
+        .xp-inline-xp {
+          font-size: 9px;
           font-weight: 600;
           color: #8899a6;
           white-space: nowrap;
-          flex-shrink: 0;
+        }
+
+        /* Skeleton loading state */
+        .xp-inline.skeleton {
+          gap: 4px;
+        }
+
+        .xp-inline-badge-skeleton {
+          display: inline-block;
+          width: 28px;
+          height: 14px;
+          background: #e5e7eb;
+          border-radius: 100px;
+          animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        .xp-inline-track-skeleton {
+          display: inline-block;
+          width: clamp(48px, 14vw, 100px);
+          height: 5px;
+          background: #e5e7eb;
+          border-radius: 100px;
+          animation: shimmer 1.5s ease-in-out infinite;
+          animation-delay: 0.15s;
+        }
+
+        @keyframes shimmer {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
 
         @media (min-width: 480px) {

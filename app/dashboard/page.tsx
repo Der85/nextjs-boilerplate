@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import AppHeader from '@/components/AppHeader'
-import MorningSleepCard from '@/components/micro/MorningSleepCard'
 
 interface MoodEntry {
   id: string
@@ -49,11 +48,18 @@ const getMoodLabel = (score: number): { text: string; dot: string } => {
   return { text: 'Charged (Ready to Go)', dot: '🟢' }
 }
 
+const getEnergyParam = (score: number | null): 'low' | 'medium' | 'high' => {
+  if (score === null) return 'medium'
+  if (score <= 3) return 'low'
+  if (score <= 6) return 'medium'
+  return 'high'
+}
+
 const getPulseLabel = (): string => {
   const hour = new Date().getHours()
-  if (hour >= 5 && hour < 11) return 'Morning Check-in: How did you sleep?'
-  if (hour >= 11 && hour < 18) return 'Daily Pulse: How is your energy?'
-  return 'Evening Wind Down: Carrying any tension?'
+  if (hour >= 5 && hour < 11) return '🌅 Morning Check-in: How did you sleep?'
+  if (hour >= 11 && hour < 18) return '☀️ Daily Pulse: How is your energy?'
+  return '🌙 Evening Wind Down: Carrying any tension?'
 }
 
 const getGreeting = (): string => {
@@ -92,8 +98,6 @@ export default function Dashboard() {
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
 
-  // Trojan Horse intercepts
-  const [showMorningKey, setShowMorningKey] = useState(false)
   const [pulseSaved, setPulseSaved] = useState(false)
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -106,22 +110,6 @@ export default function Dashboard() {
       }
       setUser(session.user)
       await fetchData(session.user.id)
-
-      // Check for Trojan Horse intercepts
-      const hour = new Date().getHours()
-      const today = new Date()
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
-
-      if (hour < 11) {
-        const { data: mk } = await supabase
-          .from('burnout_logs')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .eq('source', 'morning_key')
-          .gte('created_at', todayStart)
-          .limit(1)
-        if (!mk || mk.length === 0) setShowMorningKey(true)
-      }
 
       // Fetch latest undismissed AI insight (for inline display in PinnedCard)
       const { data: insightRows } = await supabase
@@ -511,35 +499,32 @@ export default function Dashboard() {
         )}
 
         {/* Maintenance Mode: 2x2 action grid */}
-        {!isRecoveryView && !isGrowthView && (
-          <div className="maintenance-actions-grid">
-            <button onClick={() => router.push(
-              moodScore !== null && moodScore <= 3
-                ? '/focus?mode=gentle&energy=low'
-                : moodScore !== null && moodScore >= 7
-                  ? '/focus?mode=sprint&energy=high'
-                  : '/focus'
-            )} className="maintenance-action-btn primary">
-              ⏱️ Focus
-            </button>
-            <button onClick={() => router.push('/goals')} className="maintenance-action-btn secondary">
-              🎯 Goals{activeGoal && <span className="maintenance-badge">1 active</span>}
-            </button>
-            <button onClick={() => router.push('/ally')} className="maintenance-action-btn secondary">
-              💜 Ally
-            </button>
-            <button onClick={() => router.push('/history')} className="maintenance-action-btn secondary">
-              📊 History
-            </button>
-          </div>
-        )}
+        {!isRecoveryView && !isGrowthView && (() => {
+          const energy = getEnergyParam(moodScore)
+          const focusUrl = energy === 'low'
+            ? '/focus?mode=gentle&energy=low'
+            : energy === 'high'
+              ? '/focus?mode=sprint&energy=high'
+              : `/focus?energy=${energy}`
+          return (
+            <div className="maintenance-actions-grid">
+              <button onClick={() => router.push(focusUrl)} className="maintenance-action-btn primary">
+                ⏱️ Focus Mode
+              </button>
+              <button onClick={() => router.push(`/goals?energy=${energy}`)} className="maintenance-action-btn secondary">
+                🎯 Goals{activeGoal && <span className="maintenance-badge">1 active</span>}
+              </button>
+              <button onClick={() => router.push(`/ally?energy=${energy}`)} className="maintenance-action-btn secondary">
+                💜 I&apos;m Stuck
+              </button>
+              <button onClick={() => router.push(`/history?energy=${energy}`)} className="maintenance-action-btn secondary">
+                📊 History
+              </button>
+            </div>
+          )
+        })()}
 
       </main>
-
-      {/* Morning Key Overlay (before 11 AM) — hidden in Recovery */}
-      {!isRecoveryView && showMorningKey && user && (
-        <MorningSleepCard userId={user.id} onDismiss={() => setShowMorningKey(false)} />
-      )}
 
       <style jsx>{styles}</style>
     </div>
@@ -939,7 +924,7 @@ const styles = `
     animation: fadeIn 0.3s ease;
   }
 
-  /* ===== SHARED SLIDER STYLES (Evening Wind Down + DailyPulse) ===== */
+  /* ===== SHARED SLIDER STYLES (DailyPulse) ===== */
   .slider-container {
     margin-bottom: clamp(20px, 5vw, 28px);
   }
