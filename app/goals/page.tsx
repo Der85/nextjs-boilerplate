@@ -30,7 +30,6 @@ interface Goal {
 
 interface ContextState {
   energyLevel?: 'green' | 'yellow' | 'red'
-  energyRecent?: boolean
   mood?: number
   contextMessage?: string
   streak?: { type: string; days: number } | null
@@ -161,7 +160,6 @@ export default function GoalsPage() {
       const contextData = await fetchGoalsCoach('context_check')
       setContext({
         energyLevel: contextData.energyState?.level,
-        energyRecent: contextData.energyState?.isRecent,
         mood: contextData.mood,
         contextMessage: contextData.contextMessage,
         streak: contextData.streak
@@ -409,26 +407,7 @@ export default function GoalsPage() {
       <main className="main">
         <div className="page-header-title">
           <h1>🎯 Goals</h1>
-          {context.energyLevel && context.energyRecent && (
-            <span
-              className="energy-badge"
-              style={{
-                background: getEnergyBg(context.energyLevel),
-                color: getEnergyColor(context.energyLevel)
-              }}
-            >
-              {context.energyLevel === 'green' ? '⚡' : context.energyLevel === 'yellow' ? '🔋' : '🪫'}
-              {context.energyLevel}
-            </span>
-          )}
         </div>
-
-        {/* Context Message */}
-        {context.contextMessage && view === 'list' && (
-          <div className="card context-card">
-            <p className="context-message">{context.contextMessage}</p>
-          </div>
-        )}
 
         {/* Tabs */}
         {view !== 'detail' && (
@@ -662,30 +641,6 @@ export default function GoalsPage() {
         {/* List View */}
         {view === 'list' && (
           <>
-            {/* AI Suggestion Card */}
-            {suggestion && activeGoals.length > 0 && (
-              <div className="card suggestion-card">
-                <div className="suggestion-header">
-                  <span className="suggestion-icon">💡</span>
-                  <span className="suggestion-label">Suggested next step</span>
-                </div>
-                <p className="suggestion-text">{suggestion.suggestion}</p>
-                <p className="suggestion-reason">{suggestion.reason}</p>
-                <button
-                  className="suggestion-btn"
-                  onClick={() => {
-                    const goal = goals.find(g => g.id === suggestion.goalId)
-                    if (goal) {
-                      setSelectedGoal(goal)
-                      setView('detail')
-                    }
-                  }}
-                >
-                  Go to goal →
-                </button>
-              </div>
-            )}
-
             {goals.length === 0 ? (
               <div className="card empty-state">
                 <span className="empty-emoji">🌱</span>
@@ -702,29 +657,35 @@ export default function GoalsPage() {
                     <div className="section-header">
                       <h2>Growing ({activeGoals.length})</h2>
                     </div>
-                    {activeGoals.map((goal) => (
-                      <div
-                        key={goal.id}
-                        className="card goal-card"
-                        onClick={() => { setSelectedGoal(goal); setView('detail') }}
-                      >
-                        <div className="goal-header">
-                          <span className="goal-emoji">{getPlantEmoji(goal.progress_percent)}</span>
-                          <div className="goal-info">
-                            <p className="goal-title">{goal.title}</p>
-                            {goal.micro_steps.length > 0 && (
-                              <p className="goal-steps-count">
-                                {goal.micro_steps.filter(s => s.completed).length}/{goal.micro_steps.length} steps
-                              </p>
-                            )}
+                    {activeGoals.map((goal) => {
+                      const isRecommended = suggestion?.goalId === goal.id
+                      return (
+                        <div
+                          key={goal.id}
+                          className={`card goal-card${isRecommended ? ' recommended' : ''}`}
+                          onClick={() => { setSelectedGoal(goal); setView('detail') }}
+                        >
+                          {isRecommended && (
+                            <span className="recommended-badge">💡 Recommended</span>
+                          )}
+                          <div className="goal-header">
+                            <span className="goal-emoji">{getPlantEmoji(goal.progress_percent)}</span>
+                            <div className="goal-info">
+                              <p className="goal-title">{goal.title}</p>
+                              {goal.micro_steps.length > 0 && (
+                                <p className="goal-steps-count">
+                                  {goal.micro_steps.filter(s => s.completed).length}/{goal.micro_steps.length} steps
+                                </p>
+                              )}
+                            </div>
+                            <span className="goal-percent">{goal.progress_percent}%</span>
                           </div>
-                          <span className="goal-percent">{goal.progress_percent}%</span>
+                          <div className="progress-bar">
+                            <div className="progress-fill green" style={{ width: `${goal.progress_percent}%` }} />
+                          </div>
                         </div>
-                        <div className="progress-bar">
-                          <div className="progress-fill green" style={{ width: `${goal.progress_percent}%` }} />
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </>
                 )}
 
@@ -828,26 +789,6 @@ const styles = `
     font-size: clamp(22px, 6vw, 28px);
     font-weight: 700;
     margin: 0;
-  }
-
-  .energy-badge {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 100px;
-    font-weight: 600;
-    text-transform: capitalize;
-  }
-
-  .context-card {
-    background: linear-gradient(135deg, rgba(29, 155, 240, 0.05), rgba(0, 186, 124, 0.05));
-    border-left: 3px solid var(--primary);
-  }
-
-  .context-message {
-    font-size: 14px;
-    color: var(--dark-gray);
-    margin: 0;
-    line-height: 1.5;
   }
 
   .tabs {
@@ -1058,50 +999,6 @@ const styles = `
     transform: scale(0.95);
   }
 
-  .suggestion-card {
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 173, 31, 0.08));
-    border-left: 3px solid #ffad1f;
-  }
-
-  .suggestion-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .suggestion-icon { font-size: 18px; }
-  .suggestion-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #b8860b;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .suggestion-text {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 4px 0;
-  }
-
-  .suggestion-reason {
-    font-size: 13px;
-    color: var(--light-gray);
-    margin: 0 0 12px 0;
-  }
-
-  .suggestion-btn {
-    background: none;
-    border: 1px solid #ffad1f;
-    color: #b8860b;
-    padding: 8px 16px;
-    border-radius: 100px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
   .label {
     font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 700;
@@ -1289,6 +1186,22 @@ const styles = `
   .goal-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .goal-card.recommended {
+    border: 1.5px solid rgba(255, 173, 31, 0.35);
+    background: linear-gradient(135deg, white 0%, rgba(255, 215, 0, 0.04) 100%);
+  }
+
+  .recommended-badge {
+    display: inline-block;
+    font-size: clamp(11px, 2.8vw, 12px);
+    font-weight: 600;
+    color: #b8860b;
+    background: rgba(255, 173, 31, 0.12);
+    padding: 3px clamp(8px, 2vw, 12px);
+    border-radius: 100px;
+    margin-bottom: clamp(8px, 2vw, 12px);
   }
 
   .goal-card.completed { opacity: 0.7; }

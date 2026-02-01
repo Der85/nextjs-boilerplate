@@ -3,13 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getADHDCoachAdvice, CoachResponse } from '@/lib/gemini'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
-import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
 import MorningSleepCard from '@/components/micro/MorningSleepCard'
-import InsightCard, { InsightData } from '@/components/micro/InsightCard'
 
 interface MoodEntry {
   id: string
@@ -69,14 +66,11 @@ export default function Dashboard() {
 
   // Mood check-in state
   const [moodScore, setMoodScore] = useState<number | null>(null)
-  const [note, setNote] = useState('')
-  const [coachResponse, setCoachResponse] = useState<CoachResponse | null>(null)
-  const [checkInComplete, setCheckInComplete] = useState(false)
 
   // Data state
-  const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([])
   const [insights, setInsights] = useState<UserInsights | null>(null)
   const [activeGoal, setActiveGoal] = useState<ActiveGoal | null>(null)
+  const [aiInsight, setAiInsight] = useState<string | null>(null)
   
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
@@ -84,11 +78,6 @@ export default function Dashboard() {
   // Real-time presence - isFocusing: false because Dashboard is for overview
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
-  // UI state
-  const [showCheckInAnyway, setShowCheckInAnyway] = useState(false) // Phase 3: Allow check-in in Recovery/Growth modes
-
-  // AI Insight (Pattern Engine)
-  const [aiInsight, setAiInsight] = useState<InsightData | null>(null)
 
   // Trojan Horse intercepts
   const [showMorningKey, setShowMorningKey] = useState(false)
@@ -133,17 +122,17 @@ export default function Dashboard() {
         if (!ew || ew.length === 0) setShowEveningWindDown(true)
       }
 
-      // Fetch latest undismissed AI insight
+      // Fetch latest undismissed AI insight (for inline display in PinnedCard)
       const { data: insightRows } = await supabase
         .from('user_insights')
-        .select('id, type, title, message, icon')
+        .select('message')
         .eq('user_id', session.user.id)
         .eq('is_dismissed', false)
         .order('created_at', { ascending: false })
         .limit(1)
 
       if (insightRows && insightRows.length > 0) {
-        setAiInsight(insightRows[0] as InsightData)
+        setAiInsight(insightRows[0].message)
       }
 
       setLoading(false)
@@ -160,8 +149,6 @@ export default function Dashboard() {
       .limit(14)
 
     if (data && data.length > 0) {
-      setRecentMoods(data)
-
       const lastEntry = data[0]
       const daysSince = Math.floor(
         (Date.now() - new Date(lastEntry.created_at).getTime()) / (1000 * 60 * 60 * 24)
@@ -240,46 +227,6 @@ export default function Dashboard() {
     return 'maintenance'
   }
 
-  const handleSubmit = async () => {
-    if (moodScore === null || !user) return
-    setSaving(true)
-
-    const response = await getADHDCoachAdvice(moodScore, note || null)
-
-    await supabase.from('mood_entries').insert({
-      user_id: user.id,
-      mood_score: moodScore,
-      note: note || null,
-      coach_advice: response.advice,
-    })
-
-    setCoachResponse(response)
-    setCheckInComplete(true)
-    setSaving(false)
-  }
-
-  const resetCheckIn = async () => {
-    setCheckInComplete(false)
-    setCoachResponse(null)
-    setMoodScore(null)
-    setNote('')
-    setShowCheckInAnyway(false) // Phase 3: Reset check-in anyway state
-    if (user) await fetchData(user.id)
-  }
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const mins = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (mins < 60) return `${mins}m ago`
-    if (hours < 24) return `${hours}h ago`
-    if (days === 1) return 'Yesterday'
-    return `${days}d ago`
-  }
 
   const getContextMessage = (): string | null => {
     if (!insights) return null
@@ -297,6 +244,30 @@ export default function Dashboard() {
       return `I noticed things have been tough. I'm here.`
     }
     return null
+  }
+
+  const handlePulseSave = async () => {
+    if (moodScore === null || !user) return
+    setSaving(true)
+    await supabase.from('mood_entries').insert({
+      user_id: user.id,
+      mood_score: moodScore,
+      note: null,
+      coach_advice: null,
+    })
+    await fetchData(user.id)
+    setSaving(false)
+  }
+
+  const handlePulseChange = (value: number) => {
+    setMoodScore(value)
+    if (value <= 3) {
+      setUserMode('recovery')
+    } else if (value >= 8 && insights?.currentStreak && insights.currentStreak.days > 2) {
+      setUserMode('growth')
+    } else {
+      setUserMode('maintenance')
+    }
   }
 
   // Trojan Horse save handler (Evening Wind Down only — Morning Key is in MorningSleepCard)
@@ -361,8 +332,8 @@ export default function Dashboard() {
   const modeConfig = getModeConfig()
 
   // Computed view flags for mode-specific rendering
-  const isRecoveryView = userMode === 'recovery' && !showCheckInAnyway && !checkInComplete
-  const isGrowthView = userMode === 'growth' && !showCheckInAnyway && !checkInComplete
+  const isRecoveryView = userMode === 'recovery'
+  const isGrowthView = userMode === 'growth'
 
   return (
     <div className="dashboard">
@@ -376,8 +347,8 @@ export default function Dashboard() {
       />
 
       <main className="main">
-        {/* Phase 3: Pinned Context Card - Dynamic based on userMode */}
-        {userMode === 'recovery' && !showCheckInAnyway && !checkInComplete ? (
+        {/* Pinned Context Card - Dynamic based on userMode */}
+        {isRecoveryView ? (
           // RECOVERY MODE CARD
           <div className="card pinned-card recovery">
             <ModeIndicator mode={userMode} position="absolute" />
@@ -385,20 +356,29 @@ export default function Dashboard() {
               <span className="pinned-icon">🫂</span>
               <div className="pinned-titles">
                 <h2 className="pinned-title">Low Power Mode Active</h2>
-                <p className="pinned-subtitle">Energy is low — let's skip the big tasks.</p>
+                <p className="pinned-subtitle">Energy is low — let&apos;s skip the big tasks.</p>
               </div>
             </div>
             <p className="pinned-message">
-              Your last check-in showed you're running on fumes. Today isn't about productivity — it's about getting back to baseline.
+              Your last check-in showed you&apos;re running on fumes. Today isn&apos;t about productivity — it&apos;s about getting back to baseline.
             </p>
+            {(aiInsight || insights?.trend) && (
+              <div className="pinned-insights">
+                {insights?.trend && insights.trend !== 'stable' && (
+                  <p className="pinned-insight-item">
+                    {insights.trend === 'up' ? '📈' : '📉'} Trend: Mood trending {insights.trend}
+                  </p>
+                )}
+                {aiInsight && (
+                  <p className="pinned-insight-item">✨ Pattern: {aiInsight}</p>
+                )}
+              </div>
+            )}
             <button onClick={() => router.push('/brake')} className="btn-action recovery">
               🛑 Start 10s Reset
             </button>
-            <button onClick={() => setShowCheckInAnyway(true)} className="btn-text">
-              Check in anyway →
-            </button>
           </div>
-        ) : userMode === 'growth' && !showCheckInAnyway && !checkInComplete ? (
+        ) : isGrowthView ? (
           // GROWTH MODE CARD
           <div className="card pinned-card growth">
             <ModeIndicator mode={userMode} position="absolute" />
@@ -410,49 +390,47 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="pinned-message">
-              Your mood is high and you've been consistent. Let's channel this energy into something meaningful before it fades.
+              Your mood is high and you&apos;ve been consistent. Let&apos;s channel this energy into something meaningful before it fades.
             </p>
+            {(aiInsight || insights?.trend) && (
+              <div className="pinned-insights">
+                {insights?.trend && insights.trend !== 'stable' && (
+                  <p className="pinned-insight-item">
+                    {insights.trend === 'up' ? '📈' : '📉'} Trend: Mood trending {insights.trend}
+                  </p>
+                )}
+                {aiInsight && (
+                  <p className="pinned-insight-item">✨ Pattern: {aiInsight}</p>
+                )}
+              </div>
+            )}
             <button onClick={() => router.push('/focus')} className="btn-action growth">
               ⏱️ Start Focus Session
             </button>
-            <button onClick={() => setShowCheckInAnyway(true)} className="btn-text">
-              Check in anyway →
-            </button>
           </div>
         ) : (
-          // MAINTENANCE MODE CARD (or check-in anyway)
+          // MAINTENANCE MODE CARD
           <div className="card main-card">
             <ModeIndicator mode={userMode} position="absolute" />
             <div className="greeting">
               <h1>{getGreeting()} 👋</h1>
-              {!showCheckInAnyway && getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
-              {showCheckInAnyway && (
-                <p className="context-msg">
-                  <button onClick={() => setShowCheckInAnyway(false)} className="back-link">
-                    ← Back to {userMode === 'recovery' ? 'Recovery' : 'Growth'} mode
-                  </button>
-                </p>
-              )}
+              {getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
             </div>
 
-            <div className="checkin-button-container">
-              <p className="checkin-prompt">
-                {userMode === 'maintenance' ? 'Daily Pulse — How are you feeling right now?' : 'Quick check-in:'}
-              </p>
-              <button
-                onClick={() => router.push('/check-in')}
-                className="btn-checkin-start"
-              >
-                🎯 Start Daily Check-In
-                {insights?.currentStreak && insights.currentStreak.days >= 1 && (
-                  <span className="streak-badge-inline">
-                    🔥 {insights.currentStreak.days} {insights.currentStreak.days === 1 ? 'day' : 'days'}
-                  </span>
+            {(aiInsight || (insights?.trend && insights.trend !== 'stable')) && (
+              <div className="pinned-insights">
+                {insights?.trend && insights.trend !== 'stable' && (
+                  <p className="pinned-insight-item">
+                    {insights.trend === 'up' ? '📈' : '📉'} Trend: Mood trending {insights.trend}
+                  </p>
                 )}
-              </button>
-            </div>
+                {aiInsight && (
+                  <p className="pinned-insight-item">✨ Pattern: {aiInsight}</p>
+                )}
+              </div>
+            )}
 
-            {activeGoal && userMode === 'maintenance' && (
+            {activeGoal && (
               <button
                 onClick={() => router.push('/goals')}
                 className="active-goal-badge"
@@ -464,6 +442,29 @@ export default function Dashboard() {
             )}
           </div>
         )}
+
+        {/* DailyPulse Slider — always visible */}
+        <div className="card pulse-card">
+          <p className="pulse-label">
+            Daily Pulse {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
+          </p>
+          <div className="slider-container">
+            <input
+              type="range" min="1" max="10"
+              value={moodScore ?? 5}
+              onChange={(e) => handlePulseChange(Number(e.target.value))}
+              className="intercept-slider"
+            />
+            <div className="slider-labels">
+              <span>Low</span>
+              <span className="slider-value">{moodScore ?? 5}/10</span>
+              <span>High</span>
+            </div>
+          </div>
+          <button onClick={handlePulseSave} disabled={saving || moodScore === null} className="pulse-save-btn">
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
 
         {/* Recovery Mode: 2-column action grid */}
         {isRecoveryView && (
@@ -493,76 +494,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* AI Insight Card (Pattern Engine) — hidden in Recovery */}
-        {!isRecoveryView && aiInsight && (
-          <InsightCard insight={aiInsight} onDismiss={() => setAiInsight(null)} />
-        )}
-
-        {/* Phase 4: Insight Card (replaces stats-row) — hidden in Recovery */}
-        {!isRecoveryView && insights && (insights.trend === 'up' || insights.trend === 'down') && (
-          <ProgressiveCard
-            id="mood-trend-insight"
-            title="Insights"
-            icon="💡"
-            preview={`Mood trending ${insights.trend === 'up' ? 'up 📈' : 'down 📉'}`}
-            defaultExpanded={insights.trend === 'down'} // Auto-expand if trending down
-          >
-            <div className="insight-content-inner">
-              <p className="insight-text">
-                Your mood is trending <strong>{insights.trend === 'up' ? 'up 📈' : 'down 📉'}</strong> this week.
-                {insights.trend === 'up'
-                  ? " You're building momentum — keep it going!"
-                  : " Be gentle with yourself. Consider using BREAK today."
-                }
-              </p>
-            </div>
-          </ProgressiveCard>
-        )}
-
-        {/* Phase 4: Activity Feed — hidden in Recovery */}
-        {!isRecoveryView && recentMoods.length > 0 && (
-          <ProgressiveCard
-            id="recent-activity"
-            title="Recent Activity"
-            preview={`${recentMoods.length} check-ins`}
-            defaultExpanded={false}
-          >
-            <div className="activity-feed">
-              {recentMoods.map((entry) => (
-              <div key={entry.id} className="feed-item">
-                {/* Tweet-style layout: Avatar left, content right */}
-                <div className="feed-avatar">
-                  <span className="feed-emoji">{getMoodEmoji(entry.mood_score)}</span>
-                </div>
-
-                <div className="feed-body">
-                  <div className="feed-meta">
-                    <span className="feed-score">{entry.mood_score}/10</span>
-                    <span className="feed-dot">·</span>
-                    <span className="feed-time">{formatTime(entry.created_at)}</span>
-                  </div>
-
-                  {entry.note && (
-                    <p className="feed-note">{entry.note}</p>
-                  )}
-
-                  {/* Coach advice bubble */}
-                  {entry.coach_advice && (
-                    <div className="coach-bubble">
-                      <span className="coach-label">Der's advice</span>
-                      <p className="coach-text">{entry.coach_advice}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-
-              <button onClick={() => router.push('/history')} className="feed-view-all">
-                View full history & charts →
-              </button>
-            </div>
-          </ProgressiveCard>
-        )}
         {/* Evening Wind Down intercept (after 7 PM) */}
         {showEveningWindDown && (
           <div className="card evening-card">
@@ -746,6 +677,23 @@ const styles = `
     margin: 0 0 clamp(18px, 5vw, 26px) 0;
   }
 
+  .pinned-insights {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.5vw, 10px);
+    margin-bottom: clamp(18px, 5vw, 26px);
+    padding: clamp(10px, 3vw, 14px);
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: clamp(10px, 2.5vw, 14px);
+  }
+
+  .pinned-insight-item {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    line-height: 1.5;
+    margin: 0;
+  }
+
   .btn-action {
     width: 100%;
     padding: clamp(14px, 4vw, 18px);
@@ -777,35 +725,6 @@ const styles = `
     box-shadow: 0 4px 14px rgba(0, 186, 124, 0.3);
   }
 
-  .btn-text {
-    width: 100%;
-    margin-top: clamp(12px, 3vw, 16px);
-    padding: clamp(8px, 2.5vw, 12px);
-    background: none;
-    border: none;
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--dark-gray);
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .btn-text:hover {
-    color: var(--primary);
-  }
-
-  .back-link {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: inherit;
-    color: var(--primary);
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-
   /* ===== GREETING ===== */
   .greeting {
     margin-bottom: clamp(16px, 4vw, 24px);
@@ -823,139 +742,6 @@ const styles = `
     margin: 0;
   }
 
-  /* ===== CHECK-IN FORM ===== */
-  .checkin-prompt {
-    font-size: clamp(14px, 3.8vw, 17px);
-    color: var(--dark-gray);
-    margin: 0 0 clamp(14px, 4vw, 20px) 0;
-  }
-
-  .mood-grid {
-    display: grid;
-    grid-template-columns: repeat(11, 1fr);
-    gap: clamp(3px, 1vw, 6px);
-    margin-bottom: clamp(14px, 4vw, 20px);
-  }
-
-  .mood-btn {
-    aspect-ratio: 1;
-    border: 1px solid #e5e5e5;
-    border-radius: clamp(6px, 1.5vw, 10px);
-    background: white;
-    cursor: pointer;
-    font-size: clamp(11px, 3vw, 15px);
-    font-weight: 500;
-    color: var(--dark-gray);
-    transition: all 0.15s ease;
-    padding: 0;
-  }
-
-  .mood-btn.active {
-    border: 2px solid var(--primary);
-    background: rgba(29, 155, 240, 0.1);
-    font-weight: 700;
-    color: var(--primary);
-  }
-
-  .mood-selected {
-    animation: fadeIn 0.2s ease;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .selected-display {
-    display: flex;
-    align-items: center;
-    gap: clamp(10px, 3vw, 16px);
-    margin-bottom: clamp(12px, 3vw, 16px);
-  }
-
-  .emoji-xlarge { font-size: clamp(36px, 10vw, 52px); }
-  .score-large { font-size: clamp(24px, 7vw, 34px); font-weight: 800; }
-
-  .note-input {
-    width: 100%;
-    padding: clamp(10px, 3vw, 14px);
-    border: 1px solid #e5e5e5;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    font-size: clamp(14px, 3.8vw, 17px);
-    resize: none;
-    font-family: inherit;
-    margin-bottom: clamp(12px, 3vw, 16px);
-    box-sizing: border-box;
-  }
-
-  .note-input:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  .btn-primary {
-    width: 100%;
-    padding: clamp(12px, 3.5vw, 16px);
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    font-size: clamp(14px, 4vw, 18px);
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-primary:disabled { opacity: 0.7; cursor: wait; }
-
-  .btn-checkin-start {
-    width: 100%;
-    padding: clamp(16px, 4.5vw, 22px);
-    background: linear-gradient(135deg, var(--primary) 0%, #1a8cd8 100%);
-    color: white;
-    border: none;
-    border-radius: clamp(12px, 3vw, 16px);
-    font-size: clamp(16px, 4.5vw, 20px);
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(8px, 2vw, 12px);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 16px rgba(29, 155, 240, 0.25);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .btn-checkin-start:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(29, 155, 240, 0.35);
-  }
-
-  .btn-checkin-start:active {
-    transform: translateY(0);
-  }
-
-  .streak-badge-inline {
-    font-size: clamp(13px, 3.5vw, 15px);
-    font-weight: 600;
-    padding: clamp(4px, 1.5vw, 6px) clamp(8px, 2vw, 12px);
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 100px;
-  }
-
-  .checkin-button-container {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(12px, 3vw, 16px);
-  }
-
-  .btn-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
   .btn-secondary {
     width: 100%;
     margin-top: clamp(12px, 3vw, 18px);
@@ -967,186 +753,6 @@ const styles = `
     color: var(--dark-gray);
     cursor: pointer;
   }
-
-  /* ===== CHECK-IN COMPLETE ===== */
-  .logged-mood {
-    display: flex;
-    align-items: center;
-    gap: clamp(10px, 3vw, 14px);
-    margin-bottom: clamp(14px, 4vw, 18px);
-    padding: clamp(10px, 3vw, 14px);
-    background: var(--bg-gray);
-    border-radius: clamp(10px, 2.5vw, 14px);
-  }
-
-  .emoji-large { font-size: clamp(28px, 8vw, 38px); }
-  .mood-score { font-size: clamp(18px, 5vw, 24px); font-weight: 700; }
-  .mood-time {
-    color: var(--light-gray);
-    margin-left: clamp(6px, 2vw, 10px);
-    font-size: clamp(12px, 3.2vw, 15px);
-  }
-
-  .ai-response {
-    background: linear-gradient(135deg, rgba(29, 155, 240, 0.08) 0%, rgba(29, 155, 240, 0.02) 100%);
-    border-left: 3px solid var(--primary);
-    border-radius: 0 clamp(12px, 3vw, 18px) clamp(12px, 3vw, 18px) 0;
-    padding: clamp(14px, 4vw, 20px);
-  }
-
-  .ai-response p {
-    font-size: clamp(14px, 3.8vw, 17px);
-    line-height: 1.6;
-    color: var(--dark-gray);
-    margin: 0 0 clamp(12px, 3vw, 16px) 0;
-  }
-
-  .context-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(4px, 1.5vw, 8px);
-    background: rgba(29, 155, 240, 0.1);
-    padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.5vw, 12px);
-    border-radius: 20px;
-    font-size: clamp(11px, 3vw, 13px);
-    color: var(--primary);
-  }
-
-  /* ===== INSIGHT CONTENT (inside ProgressiveCard) ===== */
-  .insight-content-inner {
-    padding: clamp(4px, 1vw, 8px) 0;
-  }
-
-  .insight-text {
-    font-size: clamp(14px, 3.8vw, 16px);
-    color: var(--dark-gray);
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  .insight-text strong {
-    color: var(--primary);
-  }
-
-  /* ===== PHASE 4: ACTIVITY FEED ===== */
-  .activity-feed {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(12px, 3.5vw, 16px);
-  }
-
-  .feed-header {
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 600;
-    color: var(--dark-gray);
-    margin: 0 0 clamp(4px, 1vw, 8px) 0;
-    padding-left: clamp(4px, 1vw, 8px);
-  }
-
-  .feed-item {
-    display: flex;
-    gap: clamp(12px, 3.5vw, 16px);
-    padding: clamp(16px, 4.5vw, 22px);
-    background: white;
-    border-radius: clamp(14px, 4vw, 20px);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    border: 1px solid rgba(0,0,0,0.04);
-  }
-
-  .feed-avatar {
-    flex-shrink: 0;
-    width: clamp(40px, 11vw, 52px);
-    height: clamp(40px, 11vw, 52px);
-    background: var(--bg-gray);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .feed-emoji {
-    font-size: clamp(22px, 6vw, 28px);
-  }
-
-  .feed-body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .feed-meta {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 1.5vw, 8px);
-    margin-bottom: clamp(6px, 1.5vw, 10px);
-  }
-
-  .feed-score {
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 700;
-    color: var(--text-dark, #0f1419);
-  }
-
-  .feed-dot {
-    color: var(--light-gray);
-    font-size: clamp(10px, 2.5vw, 12px);
-  }
-
-  .feed-time {
-    font-size: clamp(12px, 3.2vw, 14px);
-    color: var(--light-gray);
-  }
-
-  .feed-note {
-    font-size: clamp(14px, 3.8vw, 16px);
-    color: var(--dark-gray);
-    line-height: 1.5;
-    margin: 0 0 clamp(10px, 3vw, 14px) 0;
-    word-wrap: break-word;
-  }
-
-  /* Coach advice bubble */
-  .coach-bubble {
-    background: linear-gradient(135deg, rgba(29, 155, 240, 0.08) 0%, rgba(29, 155, 240, 0.03) 100%);
-    border-left: 3px solid var(--primary);
-    border-radius: 0 clamp(10px, 2.5vw, 14px) clamp(10px, 2.5vw, 14px) 0;
-    padding: clamp(10px, 3vw, 14px);
-    margin-top: clamp(8px, 2vw, 12px);
-  }
-
-  .coach-label {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 600;
-    color: var(--primary);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    display: block;
-    margin-bottom: clamp(4px, 1vw, 6px);
-  }
-
-  .coach-text {
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--dark-gray);
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  .feed-view-all {
-    width: 100%;
-    padding: clamp(14px, 4vw, 18px);
-    background: white;
-    border: 1px solid var(--extra-light-gray, #eff3f4);
-    border-radius: clamp(12px, 3vw, 16px);
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 600;
-    color: var(--primary);
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-
-  .feed-view-all:hover {
-    background: var(--bg-gray);
-  }
-
 
   /* ===== RECOVERY MODE: 2-COLUMN ACTION GRID ===== */
   .recovery-actions-grid {
@@ -1214,7 +820,44 @@ const styles = `
     flex-shrink: 0;
   }
 
-  /* ===== SHARED SLIDER STYLES (Evening Wind Down) ===== */
+  /* ===== DAILY PULSE CARD ===== */
+  .pulse-card {
+    padding: clamp(16px, 4.5vw, 24px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  .pulse-label {
+    font-size: clamp(14px, 3.8vw, 17px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    margin: 0 0 clamp(12px, 3vw, 16px) 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pulse-emoji {
+    font-size: clamp(20px, 5.5vw, 26px);
+  }
+
+  .pulse-save-btn {
+    width: 100%;
+    padding: clamp(10px, 2.5vw, 14px);
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .pulse-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pulse-save-btn:hover:not(:disabled) { background: #1a8cd8; }
+
+  /* ===== SHARED SLIDER STYLES (Evening Wind Down + DailyPulse) ===== */
   .slider-container {
     margin-bottom: clamp(20px, 5vw, 28px);
   }
@@ -1329,9 +972,6 @@ const styles = `
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {
     .main { padding: 24px; padding-bottom: 24px; }
-    .mood-grid { gap: 8px; }
-    .mood-btn { font-size: 16px; }
-    .stats-row { gap: 16px; }
   }
 
   @media (min-width: 1024px) {
