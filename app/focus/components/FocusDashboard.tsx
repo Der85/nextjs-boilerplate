@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
 import PostFocusToast from '@/components/micro/PostFocusToast'
@@ -36,6 +37,7 @@ interface FocusDashboardProps {
   goals: Goal[]
   user: any
   onlineCount: number
+  userMode: 'recovery' | 'growth' | 'maintenance'
   onNewBrainDump: () => void
   onPlansUpdate: () => void
 }
@@ -58,9 +60,11 @@ export default function FocusDashboard({
   goals,
   user,
   onlineCount,
+  userMode,
   onNewBrainDump,
   onPlansUpdate,
 }: FocusDashboardProps) {
+  const router = useRouter()
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [completedPlan, setCompletedPlan] = useState<Plan | null>(null)
   const [syncingGoal, setSyncingGoal] = useState(false)
@@ -68,6 +72,9 @@ export default function FocusDashboard({
 
   // Post-Action Survey (Trojan Horse)
   const [showFocusSurvey, setShowFocusSurvey] = useState(false)
+
+  // Mode-specific completion modal
+  const [showModeModal, setShowModeModal] = useState(false)
 
   // Task action menu
   const [taskMenuId, setTaskMenuId] = useState<string | null>(null)
@@ -132,7 +139,9 @@ export default function FocusDashboard({
 
   const handleFocusToastDismiss = () => {
     setShowFocusSurvey(false)
-    if (completedPlan) {
+    if (userMode === 'recovery' || userMode === 'growth') {
+      setShowModeModal(true)
+    } else if (completedPlan) {
       setShowCompletionModal(true)
     }
   }
@@ -522,6 +531,59 @@ export default function FocusDashboard({
                 disabled={syncingGoal}
               >
                 {syncingGoal ? 'Syncing...' : 'Yes, mark complete!'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mode-Specific Completion Modal */}
+      {showModeModal && userMode === 'recovery' && (
+        <div className="modal-overlay">
+          <div className="modal-card mode-modal recovery">
+            <div className="modal-icon">🌿</div>
+            <h2 className="modal-title">You did it, even on low battery.</h2>
+            <p className="modal-text">
+              That took real strength. You showed up when it was hard — that counts more than you think.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="modal-btn secondary"
+                onClick={() => { setShowModeModal(false); router.push('/dashboard') }}
+              >
+                I'm done for now
+              </button>
+              <button
+                className="modal-btn primary recovery-btn"
+                onClick={() => setShowModeModal(false)}
+              >
+                I have a bit more energy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModeModal && userMode === 'growth' && (
+        <div className="modal-overlay">
+          <div className="modal-card mode-modal growth">
+            <div className="modal-icon">🔥</div>
+            <h2 className="modal-title">Momentum is high!</h2>
+            <p className="modal-text">
+              You're in the zone. Ride the wave or take a well-earned break — both are wins.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="modal-btn primary growth-btn"
+                onClick={() => { setShowModeModal(false); onNewBrainDump() }}
+              >
+                Keep Streak Alive
+              </button>
+              <button
+                className="modal-btn secondary"
+                onClick={() => { setShowModeModal(false); router.push('/dashboard') }}
+              >
+                Take a Break
               </button>
             </div>
           </div>
@@ -1024,6 +1086,39 @@ export default function FocusDashboard({
         .modal-btn.secondary { background: var(--bg-gray); border: none; color: var(--dark-gray); }
         .modal-btn.primary { background: var(--success); border: none; color: white; }
         .modal-btn.primary:hover:not(:disabled) { background: #00a06a; }
+
+        /* Mode-Specific Modal Accents */
+        .mode-modal.recovery {
+          border-top: 4px solid #f4212e;
+        }
+
+        .mode-modal.growth {
+          border-top: 4px solid #00ba7c;
+        }
+
+        .mode-modal.recovery .modal-title {
+          color: #dc2626;
+        }
+
+        .mode-modal.growth .modal-title {
+          color: #059669;
+        }
+
+        .recovery-btn {
+          background: linear-gradient(135deg, #f4212e 0%, #dc2626 100%) !important;
+        }
+
+        .recovery-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+        }
+
+        .growth-btn {
+          background: linear-gradient(135deg, #00ba7c 0%, #059669 100%) !important;
+        }
+
+        .growth-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+        }
 
         /* Celebration */
         .celebration-overlay {

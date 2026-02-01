@@ -113,6 +113,7 @@ function FocusPageContent() {
 
   // Sprint/Gentle mode state (from check-in handoff)
   const [sprintMode, setSprintMode] = useState(false)
+  const [userMode, setUserMode] = useState<'recovery' | 'growth' | 'maintenance'>('maintenance')
 
   // Presence
   const { onlineCount } = usePresenceWithFallback({ isFocusing: true })
@@ -138,6 +139,10 @@ function FocusPageContent() {
       // Handle URL params from Check-in handoff (mode & energy)
       const modeParam = searchParams.get('mode') as 'sprint' | 'gentle' | null
       const energyParam = searchParams.get('energy') as 'high' | 'low' | null
+
+      // Derive userMode from URL params for post-task completion flow
+      if (modeParam === 'gentle') setUserMode('recovery')
+      else if (modeParam === 'sprint') setUserMode('growth')
 
       if (createParam === 'true' && taskNameParam) {
         // Goal handoff: skip to context with pre-filled task
@@ -451,6 +456,7 @@ function FocusPageContent() {
           goals={goals}
           user={user}
           onlineCount={onlineCount}
+          userMode={userMode}
           onNewBrainDump={handleNewBrainDump}
           onPlansUpdate={handlePlansUpdate}
         />
