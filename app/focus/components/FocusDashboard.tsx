@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
 import PostFocusToast from '@/components/micro/PostFocusToast'
+import QuickAllyModal from './QuickAllyModal'
 
 interface Step {
   id: string
@@ -70,6 +71,10 @@ export default function FocusDashboard({
 
   // Task action menu
   const [taskMenuId, setTaskMenuId] = useState<string | null>(null)
+
+  // Quick Ally (Stuck) modal state
+  const [showStuckModal, setShowStuckModal] = useState(false)
+  const [stuckTaskName, setStuckTaskName] = useState('')
 
   // Editing state
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
@@ -395,6 +400,16 @@ export default function FocusDashboard({
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
 
+                <button
+                  className="stuck-btn"
+                  onClick={() => {
+                    setStuckTaskName(plan.task_name)
+                    setShowStuckModal(true)
+                  }}
+                >
+                  💜 Hitting a Wall
+                </button>
+
                 {plan.steps.map((step) => {
                   const stepKey = `${plan.id}:${step.id}`
                   const isEditingThisStep = editingStepKey === stepKey
@@ -462,6 +477,13 @@ export default function FocusDashboard({
           })
         )}
       </main>
+
+      {/* Quick Ally (Stuck) Modal */}
+      <QuickAllyModal
+        taskName={stuckTaskName}
+        isOpen={showStuckModal}
+        onClose={() => setShowStuckModal(false)}
+      />
 
       {/* Focus Quality Survey (Trojan Horse) */}
       <PostFocusToast
@@ -697,6 +719,30 @@ export default function FocusDashboard({
           background: var(--success);
           border-radius: 100px;
           transition: width 0.3s ease;
+        }
+
+        .stuck-btn {
+          width: 100%;
+          padding: clamp(10px, 2.5vw, 12px);
+          background: rgba(128, 90, 213, 0.06);
+          border: 1px dashed rgba(128, 90, 213, 0.3);
+          border-radius: clamp(10px, 2.5vw, 14px);
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 600;
+          color: #805ad5;
+          cursor: pointer;
+          margin-bottom: clamp(12px, 3vw, 18px);
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .stuck-btn:hover {
+          background: rgba(128, 90, 213, 0.12);
+          border-color: rgba(128, 90, 213, 0.5);
+        }
+
+        .stuck-btn:active {
+          transform: scale(0.98);
         }
 
         .step-item {
