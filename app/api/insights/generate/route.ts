@@ -151,76 +151,79 @@ function buildInsightPrompt(
   burnoutLogs: any[],
   focusPlans: any[]
 ): string {
-  // Summarise focus plans into completed/failed counts
+  // 1. Interpret Focus Plans (Success Rate)
   const focusSummary = focusPlans.map((p) => {
-    let completed = 0
-    let failed = 0
+    let completedCount = 0
+    let totalCount = 0
     try {
+      // Handle both JSONB array and stringified JSON
       const tasks = typeof p.tasks === 'string' ? JSON.parse(p.tasks) : p.tasks
       if (Array.isArray(tasks)) {
-        tasks.forEach((t: any) => {
-          if (t.completed || t.status === 'completed') completed++
-          else failed++
-        })
+        totalCount = tasks.length
+        completedCount = tasks.filter((t: any) => t.completed || t.status === 'completed').length
       }
-    } catch {
-      // ignore parse errors
-    }
+    } catch { /* ignore parse errors */ }
+    
     return {
       date: p.created_at,
-      status: p.status,
-      tasks_completed: completed,
-      tasks_failed: failed,
+      success_rate: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) + '%' : 'N/A',
+      status: p.status
     }
   })
 
-  return `You are a data detective analysing an ADHD user's self-tracking data.
-Your job is to find ONE hidden, non-obvious pattern — the kind of insight the user would never notice themselves.
+  // 2. Interpret Burnout Logs (Trojan Horse Data)
+  // We translate raw scores into meanings so Gemini doesn't have to guess
+  const interpretedBurnout = burnoutLogs.map(b => ({
+    date: b.created_at,
+    source: b.source, // 'morning_key', 'focus_exit', etc.
+    // Sleep: 1=Terrible, 10=Great
+    sleep: b.sleep_quality ? (b.sleep_quality < 4 ? "POOR" : b.sleep_quality > 7 ? "GREAT" : "OK") : null,
+    // Focus: 1=Laser, 5=Foggy, 8=Distracted
+    focus_state: b.focus_difficulty ? (b.focus_difficulty <= 2 ? "LASER" : b.focus_difficulty >= 7 ? "DISTRACTED" : "FOGGY") : null,
+    // Overwhelm: 8=High (from Implicit Logger)
+    overwhelm: b.overwhelm ? (b.overwhelm > 6 ? "HIGH ALERT" : "Manageable") : null,
+    tension: b.physical_tension,
+  }))
 
-=== MOOD CHECK-INS (last 14 days) ===
+  return `You are an expert ADHD Data Analyst. 
+I am sending you 14 days of tracked data from an ADHD user.
+Your goal is to find ONE specific, hidden cause-and-effect correlation.
+
+=== DATA STREAM ===
+
+[MOOD & ENERGY]
 ${JSON.stringify(moodEntries.map(m => ({
   date: m.created_at,
-  mood: m.mood_score,
-  energy: m.energy_level,
-  note: m.note,
+  mood_1_to_10: m.mood_score,
+  energy_1_to_5: m.energy_level,
+  note_keywords: m.note ? m.note.substring(0, 50) : null // Shorten notes for token limits
 })), null, 2)}
 
-=== BURNOUT MICRO-SIGNALS (last 14 days) ===
-${JSON.stringify(burnoutLogs.map(b => ({
-  date: b.created_at,
-  source: b.source,
-  sleep: b.sleep_quality,
-  focus_difficulty: b.focus_difficulty,
-  overwhelm: b.overwhelm,
-  energy: b.energy_level,
-  tension: b.physical_tension,
-  motivation: b.motivation,
-})), null, 2)}
+[MICRO-SIGNALS (Sleep, Focus Quality, Overwhelm)]
+${JSON.stringify(interpretedBurnout, null, 2)}
 
-=== FOCUS SESSIONS (last 14 days) ===
+[TASK EXECUTION]
 ${JSON.stringify(focusSummary, null, 2)}
 
-INSTRUCTIONS:
-Analyse this ADHD user's data. Find one specific, actionable pattern.
-Do NOT state the obvious (e.g. "you feel better on good days").
-Look for HIDDEN LINKS across days and data sources, like a detective:
-- "Poor sleep on Tuesday led to low focus on Wednesday"
-- "Every time your overwhelm goes above 6, your task completion drops to zero the next day"
-- "You have a mid-week slump — Tuesdays and Wednesdays are consistently your hardest days"
-- "Your mood crashes the day after skipping a check-in"
-- "On days you log physical tension above 7, your focus difficulty doubles"
+=== INSTRUCTIONS ===
+1. Look for TIME-LAGGED patterns (e.g., "Poor sleep on Monday causes low Mood on Tuesday").
+2. Look for IMMEDIATE triggers (e.g., "High Overwhelm immediately precedes Failed Tasks").
+3. Look for "WINNING CONDITIONS" (e.g., "When Sleep is GREAT, Task Success is 100%").
 
-Pick the most surprising and useful pattern you can find.
+=== OUTPUT RULES ===
+- If you find a negative pattern, phrase it as a gentle "Did you know?" observation, not a judgment.
+- If you find a positive pattern, phrase it as a "Superpower" discovery.
+- Keep the title punchy (max 6 words).
+- Keep the message short (max 2 sentences).
+- Use strictly valid JSON format.
 
-RULES:
-1. Only cite a pattern you can PROVE from the actual data — never fabricate.
-2. If the data is too sparse for a real correlation, say so honestly with a gentle nudge to keep tracking.
-3. Keep the message under 2 sentences, written warmly for someone with ADHD.
-4. Pick an emoji icon that matches the topic (sleep=😴, focus=🧠, mood=🌤️, energy=⚡, stress=🫠, pattern=🔗, general=🔍).
-5. Choose the most fitting type: "correlation" for cross-metric links, "streak" for time patterns, "warning" for negative trends, "praise" for positive discoveries.
-
-RESPOND with valid JSON only — no markdown fences, no explanation outside the JSON:
-{"type":"correlation|streak|warning|praise","title":"short punchy title (max 8 words)","message":"1-2 sentence insight","icon":"emoji"}`
+JSON TEMPLATE:
+{
+  "type": "correlation", 
+  "title": "Sleep impacts your Focus",
+  "message": "When you sleep poorly, your focus is 'Distracted' 80% of the time the next day.",
+  "icon": "😴"
+}`
 }
 
 // ============================================
