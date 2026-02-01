@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import BottomNav from '@/components/BottomNav'
+import AppHeader from '@/components/AppHeader'
 
 // ============================================
 // Types
@@ -107,7 +107,6 @@ const STATIC_ACTIONS: ActionSuggestion[] = [
 export default function AllyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [showMenu, setShowMenu] = useState(false)
 
   // Flow state
   const [currentStep, setCurrentStep] = useState<Step>('loading')
@@ -158,8 +157,7 @@ export default function AllyPage() {
         } else {
           setCurrentStep('rating')
         }
-      } catch (e) {
-        console.error('Failed to load initial data:', e)
+      } catch {
         setCurrentStep('rating')
       }
     }
@@ -167,122 +165,118 @@ export default function AllyPage() {
   }, [router])
 
   // Handlers
-  const handleCommitmentResponse = async (response: 'yes' | 'no' | 'partial') => {
-    setCommitmentFollowUp(response)
-    if (activeCommitment) {
-      await supabase.from('stuck_commitments').update({
-        follow_up_shown: true,
-        follow_up_response: response,
-        completed: response === 'yes',
-        completed_at: response === 'yes' ? new Date().toISOString() : null
-      }).eq('id', activeCommitment.id)
+  const handleCommitmentResponse = useCallback(async (response: 'yes' | 'no' | 'partial') => {
+    setIsLoading(true)
+    try {
+      const data = await fetchStuckCoach('commitment_response', {
+        commitmentId: activeCommitment?.id,
+        response,
+        blockType: activeCommitment?.block_type,
+      })
+      if (data.blocks) setBlocks(data.blocks)
+      if (data.greeting) setGreeting(data.greeting)
+      setCommitmentFollowUp(response)
+      setCurrentStep('rating')
+    } catch {
+      setCommitmentFollowUp(response)
+      setCurrentStep('rating')
+    } finally {
+      setIsLoading(false)
     }
-    setCurrentStep('rating')
-  }
+  }, [activeCommitment])
 
-  const handleRatingSelect = (rating: number) => {
+  const handleRatingSelect = useCallback(async (rating: number) => {
     setStuckBefore(rating)
+    setIsLoading(true)
+    try {
+      const data = await fetchStuckCoach('rating', { stuckRating: rating })
+      if (data.blocks) setBlocks(data.blocks)
+      if (data.greeting) setGreeting(data.greeting)
+    } catch { /* use defaults */ }
+    setIsLoading(false)
     setCurrentStep('block')
-  }
+  }, [])
 
-  const handleBlockSelect = async (block: BlockSuggestion) => {
+  const handleBlockSelect = useCallback(async (block: BlockSuggestion) => {
     setSelectedBlock(block)
     setIsLoading(true)
     try {
-      const data = await fetchStuckCoach('block_selected', { selectedBlock: block.id })
-      setThoughts(data.thoughts || STATIC_THOUGHTS)
-    } catch (e) {
-      console.error('Failed to load thoughts:', e)
-    }
+      const data = await fetchStuckCoach('block', { blockType: block.id, blockLabel: block.label, stuckRating: stuckBefore })
+      if (data.thoughts) setThoughts(data.thoughts)
+    } catch { /* use defaults */ }
     setIsLoading(false)
     setCurrentStep('thought')
-  }
+  }, [stuckBefore])
 
-  const handleCustomBlockSubmit = async () => {
-    if (!customBlock.trim()) return
-    const block: BlockSuggestion = {
-      id: 'custom', label: customBlock.trim(),
-      description: 'Your own words', icon: '✨', isAIGenerated: false
-    }
-    await handleBlockSelect(block)
-  }
+  const handleCustomBlockSubmit = useCallback(async () => {
+    const block: BlockSuggestion = { id: 'custom', label: customBlock, description: 'Custom block', icon: '✏️', isAIGenerated: false }
+    setSelectedBlock(block)
+    setIsLoading(true)
+    try {
+      const data = await fetchStuckCoach('block', { blockType: 'custom', blockLabel: customBlock, stuckRating: stuckBefore })
+      if (data.thoughts) setThoughts(data.thoughts)
+    } catch { /* use defaults */ }
+    setIsLoading(false)
+    setCurrentStep('thought')
+  }, [customBlock, stuckBefore])
 
-  const handleThoughtSelect = async (thought: string) => {
+  const handleThoughtSelect = useCallback(async (thought: string) => {
     setSelectedThought(thought)
     setIsLoading(true)
     try {
-      const data = await fetchStuckCoach('reframe', {
-        selectedBlock: selectedBlock?.id,
-        selectedThought: thought
+      const data = await fetchStuckCoach('thought', {
+        thought,
+        blockType: selectedBlock?.id,
+        blockLabel: selectedBlock?.label,
+        stuckRating: stuckBefore,
       })
-      setReframe(data.reframe || {
-        harshVoice: thought,
-        kindVoice: "Your brain works differently—not wrongly. This challenge is about neurology, not character.",
-        affirmation: "I'm doing the best I can with the brain I have."
-      })
-    } catch (e) {
-      console.error('Failed to load reframe:', e)
-      setReframe({
-        harshVoice: thought,
-        kindVoice: "Your brain works differently—not wrongly.",
-        affirmation: "I'm doing the best I can with the brain I have."
-      })
+      if (data.reframe) setReframe(data.reframe)
+      else setReframe({ harshVoice: thought, kindVoice: "Your brain works differently, not wrong. This difficulty is real, not laziness.", affirmation: "I'm doing my best with a brain that works differently." })
+    } catch {
+      setReframe({ harshVoice: thought, kindVoice: "Your brain works differently, not wrong. This difficulty is real, not laziness.", affirmation: "I'm doing my best with a brain that works differently." })
     }
     setIsLoading(false)
     setCurrentStep('reframe')
-  }
+  }, [selectedBlock, stuckBefore])
 
-  const handleCustomThoughtSubmit = async () => {
+  const handleCustomThoughtSubmit = useCallback(async () => {
     if (!customThought.trim()) return
-    await handleThoughtSelect(customThought.trim())
-  }
+    await handleThoughtSelect(customThought)
+  }, [customThought, handleThoughtSelect])
 
-  const handleReframeContinue = async () => {
+  const handleReframeContinue = useCallback(async () => {
     setIsLoading(true)
     try {
-      const data = await fetchStuckCoach('action', { selectedBlock: selectedBlock?.id })
-      setActions(data.actions || STATIC_ACTIONS)
-    } catch (e) {
-      console.error('Failed to load actions:', e)
-    }
+      const data = await fetchStuckCoach('reframe', {
+        blockType: selectedBlock?.id,
+        blockLabel: selectedBlock?.label,
+        thought: selectedThought || customThought,
+        stuckRating: stuckBefore,
+      })
+      if (data.actions) setActions(data.actions)
+    } catch { /* use defaults */ }
     setIsLoading(false)
     setCurrentStep('action')
-  }
+  }, [selectedBlock, selectedThought, customThought, stuckBefore])
 
-  const handleComplete = async () => {
-    if (!user) return
-    const finalAction = selectedAction?.text || customAction.trim()
-    if (!finalAction) return
-    
+  const handleComplete = useCallback(async () => {
+    const actionText = selectedAction?.text || customAction
+    if (!actionText?.trim()) return
     setSaving(true)
     try {
-      const { data: sessionData } = await supabase.from('ally_sessions').insert({
-        user_id: user.id,
-        block_type: selectedBlock?.id || 'custom',
-        custom_block: selectedBlock?.isAIGenerated || selectedBlock?.id === 'custom' ? selectedBlock.label : null,
-        drill_sergeant_thought: selectedThought || customThought,
-        micro_action: finalAction,
-        challenge_before: stuckBefore,
-        challenge_after: stuckAfter,
-        completed: true,
-        used_ai_suggestions: selectedBlock?.isAIGenerated || false,
-        reframe_shown: true
-      }).select().single()
-
-      await supabase.from('stuck_commitments').insert({
-        user_id: user.id,
-        ally_session_id: sessionData?.id,
-        action_text: finalAction,
-        action_type: selectedAction?.id || 'custom',
-        block_type: selectedBlock?.id || 'custom',
-        stuck_level_before: stuckBefore
+      await fetchStuckCoach('complete', {
+        stuckBefore,
+        stuckAfter,
+        blockType: selectedBlock?.id,
+        blockLabel: selectedBlock?.label,
+        thought: selectedThought || customThought,
+        actionType: selectedAction?.id || 'custom',
+        actionText,
       })
-      setCurrentStep('done')
-    } catch (e) {
-      console.error('Failed to save session:', e)
-    }
+    } catch { /* save failed, still show done */ }
     setSaving(false)
-  }
+    setCurrentStep('done')
+  }, [selectedAction, customAction, stuckBefore, stuckAfter, selectedBlock, selectedThought, customThought])
 
   const reset = () => {
     setCurrentStep('rating')
@@ -292,9 +286,9 @@ export default function AllyPage() {
     setCustomBlock('')
     setSelectedThought(null)
     setCustomThought('')
+    setReframe(null)
     setSelectedAction(null)
     setCustomAction('')
-    setReframe(null)
     setShowCustomBlock(false)
     setShowCustomThought(false)
     setShowCustomAction(false)
@@ -318,27 +312,13 @@ export default function AllyPage() {
 
   return (
     <div className="ally-page">
-      {/* Header */}
-      <header className="header">
-        <button onClick={() => router.push('/dashboard')} className="logo">ADHDer.io</button>
-        <div className="header-actions">
-          <button className="icon-btn purple active" title="I'm stuck">💜</button>
-          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">🛑</button>
-          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">☰</button>
-        </div>
-        {showMenu && (
-          <div className="dropdown-menu">
-            <button onClick={() => { router.push('/dashboard'); setShowMenu(false) }} className="menu-item">🏠 Dashboard</button>
-            <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">⏱️ Focus Mode</button>
-            <button onClick={() => { router.push('/goals'); setShowMenu(false) }} className="menu-item">🎯 Goals</button>
-            <button onClick={() => { router.push('/burnout'); setShowMenu(false) }} className="menu-item">⚡ Energy Tracker</button>
-            <button onClick={() => { router.push('/village'); setShowMenu(false) }} className="menu-item">👥 My Village</button>
-            <div className="menu-divider" />
-            <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="menu-item logout">Log out</button>
-          </div>
-        )}
-      </header>
-      {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
+      <AppHeader
+        notificationBar={{
+          text: 'Break through executive dysfunction blocks',
+          color: '#805ad5',
+          icon: '💜',
+        }}
+      />
 
       <main className="main">
         <div className="page-header-title">
@@ -532,8 +512,6 @@ export default function AllyPage() {
         )}
       </main>
 
-      <BottomNav />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -561,21 +539,7 @@ const styles = `
   .spinner.small { width: 20px; height: 20px; border-width: 2px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-overlay { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: white; border-radius: 12px; margin-bottom: 16px; color: var(--purple); font-size: 14px; }
-  .header { position: sticky; top: 0; background: white; border-bottom: 1px solid #eee; padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px); display: flex; justify-content: space-between; align-items: center; z-index: 100; }
-  .logo { background: none; border: none; cursor: pointer; font-size: clamp(16px, 4vw, 20px); font-weight: 800; color: var(--primary); }
-  .header-actions { display: flex; gap: clamp(6px, 2vw, 10px); }
-  .icon-btn { width: clamp(32px, 8vw, 42px); height: clamp(32px, 8vw, 42px); border-radius: 50%; border: none; cursor: pointer; font-size: clamp(14px, 3.5vw, 18px); display: flex; align-items: center; justify-content: center; }
-  .icon-btn.purple { background: var(--purple-light); }
-  .icon-btn.purple.active { background: var(--purple-medium); box-shadow: 0 0 0 2px var(--purple); }
-  .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
-  .icon-btn.menu { background: white; border: 1px solid #ddd; font-size: clamp(12px, 3vw, 16px); }
-  .dropdown-menu { position: absolute; top: clamp(50px, 12vw, 60px); right: clamp(12px, 4vw, 20px); background: white; border-radius: clamp(10px, 2.5vw, 14px); box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: clamp(6px, 1.5vw, 10px); min-width: clamp(140px, 40vw, 180px); z-index: 200; }
-  .menu-item { display: block; width: 100%; padding: clamp(8px, 2.5vw, 12px) clamp(10px, 3vw, 14px); text-align: left; background: none; border: none; border-radius: clamp(6px, 1.5vw, 10px); cursor: pointer; font-size: clamp(13px, 3.5vw, 15px); color: var(--dark-gray); }
-  .menu-item:hover { background: var(--bg-gray); }
-  .menu-item.logout { color: #ef4444; }
-  .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
-  .menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99; }
-  .main { padding: clamp(12px, 4vw, 20px); padding-bottom: clamp(80px, 20vw, 110px); max-width: 600px; margin: 0 auto; }
+  .main { padding: clamp(12px, 4vw, 20px); padding-bottom: clamp(16px, 4vw, 24px); max-width: 600px; margin: 0 auto; }
   .page-header-title { display: flex; align-items: center; gap: 12px; margin-bottom: clamp(14px, 4vw, 20px); }
   .page-header-title h1 { font-size: clamp(22px, 6vw, 28px); font-weight: 700; margin: 0; }
   .streak-badge { font-size: 12px; background: linear-gradient(135deg, #ff6b35, #f7c59f); color: white; padding: 4px 10px; border-radius: 100px; font-weight: 600; }
@@ -675,12 +639,6 @@ const styles = `
   .done-commitment-text { font-size: 15px; font-weight: 600; color: var(--purple); margin: 0; }
   .done-buttons { display: flex; gap: clamp(10px, 3vw, 14px); }
   .done-buttons .btn-primary { flex: 1; }
-  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; padding: clamp(6px, 2vw, 10px) 0; padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom)); z-index: 100; }
-  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: clamp(2px, 1vw, 4px); background: none; border: none; cursor: pointer; padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px); color: var(--light-gray); }
-  .nav-btn.active { color: var(--primary); }
-  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
-  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
-  .nav-btn.active .nav-label { font-weight: 600; }
-  @media (min-width: 768px) { .main { padding: 24px; padding-bottom: 120px; } .rating-grid { gap: 16px; } .option-card:hover { background: var(--bg-gray); } }
-  @media (min-width: 1024px) { .header { padding: 16px 32px; } .main { max-width: 680px; } }
+  @media (min-width: 768px) { .main { padding: 24px; padding-bottom: 24px; } .rating-grid { gap: 16px; } .option-card:hover { background: var(--bg-gray); } }
+  @media (min-width: 1024px) { .main { max-width: 680px; } }
 `

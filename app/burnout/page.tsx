@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import BottomNav from '@/components/BottomNav'
+import AppHeader from '@/components/AppHeader'
 
 interface BurnoutLog {
   id: string
@@ -41,7 +41,6 @@ export default function BurnoutPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
   const [recentLogs, setRecentLogs] = useState<BurnoutLog[]>([])
 
   const [answers, setAnswers] = useState<Record<string, number>>({
@@ -180,53 +179,17 @@ export default function BurnoutPage() {
 
   return (
     <div className="burnout-page">
-      {/* Header - Consistent with Dashboard */}
-      <header className="header">
-        <button onClick={() => router.push('/dashboard')} className="logo">
-          ADHDer.io
-        </button>
-        
-        <div className="header-actions">
-          <button onClick={() => router.push('/ally')} className="icon-btn purple" title="I'm stuck">
-            💜
-          </button>
-          <button onClick={() => router.push('/brake')} className="icon-btn red" title="Need to pause">
-            🛑
-          </button>
-          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
-            ☰
-          </button>
-        </div>
-
-        {showMenu && (
-          <div className="dropdown-menu">
-            <button onClick={() => { router.push('/dashboard'); setShowMenu(false) }} className="menu-item">
-              🏠 Dashboard
-            </button>
-            <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
-              ⏱️ Focus Mode
-            </button>
-            <button onClick={() => { router.push('/goals'); setShowMenu(false) }} className="menu-item">
-              🎯 Goals
-            </button>
-            <button onClick={() => { setShowMenu(false) }} className="menu-item active">
-              ⚡ Energy Tracker
-            </button>
-            <button onClick={() => { router.push('/village'); setShowMenu(false) }} className="menu-item">
-              👥 My Village
-            </button>
-            <div className="menu-divider" />
-            <button 
-              onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
-              className="menu-item logout"
-            >
-              Log out
-            </button>
-          </div>
-        )}
-      </header>
-
-      {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
+      <AppHeader
+        notificationBar={recentLogs.length > 0 ? {
+          text: getSeverityInfo(recentLogs[0].severity_level).label,
+          color: getSeverityInfo(recentLogs[0].severity_level).color,
+          icon: '🔋',
+        } : {
+          text: 'Track your energy levels',
+          color: '#1D9BF0',
+          icon: '🔋',
+        }}
+      />
 
       <main className="main">
         {/* Page Title */}
@@ -417,9 +380,6 @@ export default function BurnoutPage() {
         </div>
       </main>
 
-      {/* Bottom Nav */}
-      <BottomNav />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -470,94 +430,10 @@ const styles = `
     to { transform: rotate(360deg); }
   }
 
-  /* ===== HEADER ===== */
-  .header {
-    position: sticky;
-    top: 0;
-    background: white;
-    border-bottom: 1px solid #eee;
-    padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    z-index: 100;
-  }
-
-  .logo {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(16px, 4vw, 20px);
-    font-weight: 800;
-    color: var(--primary);
-  }
-
-  .header-actions {
-    display: flex;
-    gap: clamp(6px, 2vw, 10px);
-  }
-
-  .icon-btn {
-    width: clamp(32px, 8vw, 42px);
-    height: clamp(32px, 8vw, 42px);
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(14px, 3.5vw, 18px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .icon-btn.purple { background: rgba(128, 90, 213, 0.1); }
-  .icon-btn.red { background: rgba(239, 68, 68, 0.1); }
-  .icon-btn.menu { 
-    background: white; 
-    border: 1px solid #ddd;
-    font-size: clamp(12px, 3vw, 16px);
-  }
-
-  .dropdown-menu {
-    position: absolute;
-    top: clamp(50px, 12vw, 60px);
-    right: clamp(12px, 4vw, 20px);
-    background: white;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    padding: clamp(6px, 1.5vw, 10px);
-    min-width: clamp(140px, 40vw, 180px);
-    z-index: 200;
-  }
-
-  .menu-item {
-    display: block;
-    width: 100%;
-    padding: clamp(8px, 2.5vw, 12px) clamp(10px, 3vw, 14px);
-    text-align: left;
-    background: none;
-    border: none;
-    border-radius: clamp(6px, 1.5vw, 10px);
-    cursor: pointer;
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--dark-gray);
-  }
-
-  .menu-item:hover, .menu-item.active { background: var(--bg-gray); }
-  .menu-item.logout { color: #ef4444; }
-  .menu-divider { border-top: 1px solid #eee; margin: 8px 0; }
-  .menu-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 99;
-  }
-
   /* ===== MAIN CONTENT ===== */
   .main {
     padding: clamp(12px, 4vw, 20px);
-    padding-bottom: clamp(80px, 20vw, 110px);
+    padding-bottom: clamp(16px, 4vw, 24px);
     max-width: 600px;
     margin: 0 auto;
   }
@@ -931,67 +807,19 @@ const styles = `
     margin: 0;
   }
 
-  /* ===== BOTTOM NAV ===== */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: space-around;
-    padding: clamp(6px, 2vw, 10px) 0;
-    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
-    z-index: 100;
-  }
-
-  .nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(2px, 1vw, 4px);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
-    color: var(--light-gray);
-  }
-
-  .nav-btn.active {
-    color: var(--primary);
-  }
-
-  .nav-icon {
-    font-size: clamp(18px, 5vw, 24px);
-  }
-
-  .nav-label {
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 400;
-  }
-
-  .nav-btn.active .nav-label {
-    font-weight: 600;
-  }
-
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {
     .main {
       padding: 24px;
-      padding-bottom: 120px;
+      padding-bottom: 24px;
     }
-    
+
     .answers-grid {
       gap: 12px;
     }
   }
 
   @media (min-width: 1024px) {
-    .header {
-      padding: 16px 32px;
-    }
-    
     .main {
       max-width: 680px;
     }

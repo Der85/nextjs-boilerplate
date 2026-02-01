@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
-import BottomNav from '@/components/BottomNav'
 import AppHeader from '@/components/AppHeader'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 
@@ -174,7 +173,14 @@ export default function HistoryPage() {
 
   return (
     <div className="history-page">
-      <AppHeader showBackButton backPath="/dashboard" backLabel="Home" title="History & Insights" onlineCount={onlineCount} />
+      <AppHeader
+        onlineCount={onlineCount}
+        notificationBar={{
+          text: 'Your mood journey over the last 90 days',
+          color: '#1D9BF0',
+          icon: '📊',
+        }}
+      />
 
       <main className="main">
         {/* Page Title with Export Button */}
@@ -310,9 +316,6 @@ export default function HistoryPage() {
           </ProgressiveCard>
         )}
       </main>
-
-      {/* Bottom Nav */}
-      <BottomNav />
 
       <style jsx>{styles}</style>
     </div>
@@ -481,7 +484,7 @@ const styles = `
   /* ===== MAIN CONTENT ===== */
   .main {
     padding: clamp(12px, 4vw, 20px);
-    padding-bottom: clamp(80px, 20vw, 110px);
+    padding-bottom: clamp(16px, 4vw, 24px);
     max-width: 600px;
     margin: 0 auto;
   }
@@ -810,7 +813,7 @@ const styles = `
   @media (min-width: 768px) {
     .main {
       padding: 24px;
-      padding-bottom: 120px;
+      padding-bottom: 24px;
     }
 
     .stats-grid {

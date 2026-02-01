@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
-import BottomNav from '@/components/BottomNav'
 
 interface Step {
   id: string
@@ -274,7 +273,14 @@ export default function FocusDashboard({
 
   return (
     <div className="focus-page">
-      <AppHeader onlineCount={onlineCount} />
+      <AppHeader
+        onlineCount={onlineCount}
+        notificationBar={{
+          text: 'Break down tasks into manageable steps',
+          color: '#1D9BF0',
+          icon: '⏱️',
+        }}
+      />
 
       <main className="main">
         <div className="page-header-title">
@@ -442,8 +448,6 @@ export default function FocusDashboard({
         )}
       </main>
 
-      <BottomNav />
-
       {/* Goal Sync Modal */}
       {showCompletionModal && completedPlan && (
         <div className="modal-overlay">
@@ -519,7 +523,7 @@ export default function FocusDashboard({
 
         .main {
           padding: clamp(12px, 4vw, 20px);
-          padding-bottom: clamp(80px, 20vw, 110px);
+          padding-bottom: clamp(16px, 4vw, 24px);
           max-width: 600px;
           margin: 0 auto;
         }

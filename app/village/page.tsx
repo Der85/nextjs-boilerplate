@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
-import BottomNav from '@/components/BottomNav'
 import AppHeader from '@/components/AppHeader'
 
 interface ContactLog {
@@ -316,7 +315,14 @@ export default function VillagePage() {
 
   return (
     <div className="village-page">
-      <AppHeader onlineCount={onlineCount} />
+      <AppHeader
+        onlineCount={onlineCount}
+        notificationBar={{
+          text: `${onlineCount} villagers online right now`,
+          color: '#00ba7c',
+          icon: '👥',
+        }}
+      />
 
       <main className="main">
         {/* Page Title */}
@@ -715,9 +721,6 @@ export default function VillagePage() {
         </div>
       </main>
 
-      {/* Bottom Nav */}
-      <BottomNav />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -770,7 +773,7 @@ const styles = `
   /* ===== MAIN CONTENT ===== */
   .main {
     padding: clamp(12px, 4vw, 20px);
-    padding-bottom: clamp(80px, 20vw, 110px);
+    padding-bottom: clamp(16px, 4vw, 24px);
     max-width: 600px;
     margin: 0 auto;
   }
@@ -1587,43 +1590,11 @@ const styles = `
     margin: 0;
   }
 
-  /* ===== BOTTOM NAV ===== */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: space-around;
-    padding: clamp(6px, 2vw, 10px) 0;
-    padding-bottom: max(clamp(6px, 2vw, 10px), env(safe-area-inset-bottom));
-    z-index: 100;
-  }
-
-  .nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(2px, 1vw, 4px);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: clamp(6px, 2vw, 10px) clamp(14px, 4vw, 20px);
-    color: var(--light-gray);
-  }
-
-  .nav-btn.active { color: var(--primary); }
-  .nav-icon { font-size: clamp(18px, 5vw, 24px); }
-  .nav-label { font-size: clamp(10px, 2.8vw, 12px); font-weight: 400; }
-  .nav-btn.active .nav-label { font-weight: 600; }
-
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {
     .main {
       padding: 24px;
-      padding-bottom: 120px;
+      padding-bottom: 24px;
     }
 
     .avatars-grid {

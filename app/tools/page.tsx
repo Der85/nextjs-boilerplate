@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import BottomNav from '@/components/BottomNav'
 import AppHeader from '@/components/AppHeader'
 
 type UserMode = 'recovery' | 'maintenance' | 'growth'
@@ -141,12 +140,11 @@ export default function ToolsPage() {
   if (loading) {
     return (
       <div className="tools-page">
-        <AppHeader showBackButton backPath="/dashboard" title="Your Toolkit" />
+        <AppHeader notificationBar={{ text: 'Loading your toolkit...', color: '#1D9BF0', icon: '🧰' }} />
         <div className="loading-container">
           <div className="spinner" />
           <p>Loading...</p>
         </div>
-        <BottomNav />
         <style jsx>{globalStyles}</style>
       </div>
     )
@@ -156,7 +154,13 @@ export default function ToolsPage() {
 
   return (
     <div className="tools-page">
-      <AppHeader showBackButton backPath="/dashboard" title="Your ADHD Toolkit" />
+      <AppHeader
+        notificationBar={{
+          text: modeInfo.text,
+          color: userMode === 'recovery' ? '#f4212e' : userMode === 'growth' ? '#00ba7c' : '#1D9BF0',
+          icon: modeInfo.icon || '🧰',
+        }}
+      />
 
       <main className="main">
         {/* Mode-aware message */}
@@ -223,8 +227,6 @@ export default function ToolsPage() {
         </button>
       </main>
 
-      <BottomNav />
-
       <style jsx>{globalStyles}</style>
     </div>
   )
@@ -267,7 +269,7 @@ const globalStyles = `
 
   .main {
     padding: clamp(16px, 4vw, 24px);
-    padding-bottom: clamp(120px, 25vw, 160px);
+    padding-bottom: clamp(16px, 4vw, 24px);
     max-width: 680px;
     margin: 0 auto;
   }

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getADHDCoachAdvice, CoachResponse } from '@/lib/gemini'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
-import BottomNav from '@/components/BottomNav'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
@@ -268,7 +267,14 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
-      <AppHeader onlineCount={onlineCount} />
+      <AppHeader
+        onlineCount={onlineCount}
+        notificationBar={{
+          text: modeConfig.message,
+          color: modeConfig.color,
+          icon: modeConfig.icon,
+        }}
+      />
 
       <main className="main">
         {/* Phase 3: Pinned Context Card - Dynamic based on userMode */}
@@ -416,9 +422,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Bottom Nav */}
-      <BottomNav />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -481,7 +484,7 @@ const styles = `
   /* ===== MAIN CONTENT ===== */
   .main {
     padding: clamp(12px, 4vw, 20px);
-    padding-bottom: clamp(80px, 20vw, 110px);
+    padding-bottom: clamp(16px, 4vw, 24px);
     max-width: 600px;
     margin: 0 auto;
   }
@@ -966,7 +969,7 @@ const styles = `
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {
-    .main { padding: 24px; padding-bottom: 120px; }
+    .main { padding: 24px; padding-bottom: 24px; }
     .mood-grid { gap: 8px; }
     .mood-btn { font-size: 16px; }
     .stats-row { gap: 16px; }

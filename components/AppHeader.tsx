@@ -1,46 +1,57 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-interface AppHeaderProps {
-  showBackButton?: boolean
-  backPath?: string
-  backLabel?: string
-  title?: string
-  onlineCount?: number
+interface NotificationBar {
+  text: string
+  color: string
+  icon?: string
 }
 
+interface AppHeaderProps {
+  onlineCount?: number
+  notificationBar?: NotificationBar | null
+}
+
+const navItems = [
+  { path: '/dashboard', label: 'Home', icon: '🏠', matchPaths: ['/dashboard', '/check-in'] },
+  { path: '/tools', label: 'Tools', icon: '🧰', matchPaths: ['/tools', '/ally', '/brake', '/focus', '/goals'] },
+  { path: '/history', label: 'You', icon: '📊', matchPaths: ['/history', '/burnout', '/settings', '/village'] },
+]
+
 export default function AppHeader({
-  showBackButton = false,
-  backPath = '/dashboard',
-  backLabel = 'Home',
-  title,
-  onlineCount = 0
+  onlineCount = 0,
+  notificationBar,
 }: AppHeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
+
+  const isActive = (item: typeof navItems[0]) => {
+    return item.matchPaths.some(p => pathname.startsWith(p))
+  }
 
   return (
     <>
       <header className="app-header">
-        <div className="header-left">
-          {showBackButton && (
-            <button onClick={() => router.push(backPath)} className="back-btn" aria-label={`Back to ${backLabel}`}>
-              <span className="back-arrow">←</span>
-            </button>
-          )}
-          <button onClick={() => router.push('/dashboard')} className="logo">
-            ADHDer.io
-          </button>
-        </div>
+        <button onClick={() => router.push('/dashboard')} className="logo">
+          ADHDer.io
+        </button>
 
-        {title && (
-          <div className="header-center">
-            <h1 className="page-title">{title}</h1>
-          </div>
-        )}
+        <nav className="header-nav">
+          {navItems.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => router.push(item.path)}
+              className={`nav-link ${isActive(item) ? 'active' : ''}`}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-text">{item.label}</span>
+            </button>
+          ))}
+        </nav>
 
         <div className="header-actions">
           <button onClick={() => router.push('/brake')} className="icon-btn red" title="BREAK">
@@ -89,95 +100,101 @@ export default function AppHeader({
 
       {showMenu && <div className="menu-overlay" onClick={() => setShowMenu(false)} />}
 
+      {notificationBar && (
+        <div
+          className="notification-bar"
+          style={{
+            background: `${notificationBar.color}12`,
+            color: notificationBar.color,
+          }}
+        >
+          {notificationBar.icon && <span className="notif-icon">{notificationBar.icon}</span>}
+          <span className="notif-text">{notificationBar.text}</span>
+        </div>
+      )}
+
       <style jsx>{`
         .app-header {
           position: sticky;
           top: 0;
           background: white;
           border-bottom: 1px solid #eee;
-          padding: clamp(10px, 2.5vw, 14px) clamp(12px, 4vw, 20px);
+          padding: clamp(8px, 2vw, 12px) clamp(12px, 4vw, 20px);
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          gap: clamp(8px, 2vw, 12px);
+          gap: clamp(6px, 1.5vw, 10px);
           z-index: 100;
-        }
-
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: clamp(8px, 2vw, 12px);
-          flex-shrink: 0;
         }
 
         .logo {
           background: none;
           border: none;
           cursor: pointer;
-          font-size: clamp(16px, 4vw, 20px);
+          font-size: clamp(15px, 3.8vw, 19px);
           font-weight: 800;
           color: #1D9BF0;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .logo:hover {
           opacity: 0.8;
         }
 
-        .back-btn {
+        .header-nav {
           display: flex;
           align-items: center;
+          justify-content: center;
+          gap: clamp(2px, 1vw, 6px);
+          flex: 1;
+        }
+
+        .nav-link {
+          display: flex;
+          align-items: center;
+          gap: clamp(3px, 0.8vw, 6px);
+          padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 14px);
           background: none;
           border: none;
+          border-bottom: 2px solid transparent;
           cursor: pointer;
+          color: #8899a6;
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 500;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          transition: color 0.15s ease, border-color 0.15s ease;
+          white-space: nowrap;
+        }
+
+        .nav-link:hover {
           color: #536471;
-          padding: 0;
-          width: clamp(28px, 7vw, 36px);
-          height: clamp(28px, 7vw, 36px);
-          border-radius: 50%;
-          justify-content: center;
-          transition: background 0.15s ease, color 0.15s ease;
         }
 
-        .back-btn:hover {
-          background: rgba(29, 155, 240, 0.1);
+        .nav-link.active {
           color: #1D9BF0;
+          font-weight: 600;
+          border-bottom-color: #1D9BF0;
         }
 
-        .back-arrow {
-          font-size: clamp(20px, 5.5vw, 24px);
+        .nav-icon {
+          font-size: clamp(16px, 4vw, 20px);
           line-height: 1;
         }
 
-        .header-center {
-          flex: 1;
-          display: flex;
-          justify-content: center;
-          min-width: 0;
-        }
-
-        .page-title {
-          font-size: clamp(14px, 3.8vw, 16px);
-          font-weight: 600;
-          color: #536471;
-          margin: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          max-width: 100%;
+        .nav-text {
+          display: none;
         }
 
         .header-actions {
           display: flex;
-          gap: clamp(6px, 2vw, 10px);
-          margin-left: auto;
+          gap: clamp(4px, 1.5vw, 8px);
+          flex-shrink: 0;
         }
 
         .icon-btn {
-          width: clamp(32px, 8vw, 42px);
-          height: clamp(32px, 8vw, 42px);
+          width: clamp(32px, 8vw, 40px);
+          height: clamp(32px, 8vw, 40px);
           border-radius: 50%;
           border: none;
           cursor: pointer;
@@ -204,7 +221,7 @@ export default function AppHeader({
 
         .dropdown-menu {
           position: absolute;
-          top: clamp(50px, 12vw, 60px);
+          top: clamp(48px, 12vw, 58px);
           right: clamp(12px, 4vw, 20px);
           background: white;
           border-radius: clamp(10px, 2.5vw, 14px);
@@ -251,14 +268,28 @@ export default function AppHeader({
           z-index: 99;
         }
 
-        @media (max-width: 480px) {
-          .header-center {
-            flex: 0 1 auto;
-            max-width: 35%;
-          }
+        .notification-bar {
+          padding: clamp(8px, 2vw, 10px) clamp(12px, 4vw, 20px);
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: clamp(6px, 1.5vw, 8px);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
 
-          .logo {
-            font-size: clamp(14px, 3.5vw, 16px);
+        .notif-icon {
+          font-size: clamp(14px, 3.5vw, 16px);
+          flex-shrink: 0;
+        }
+
+        .notif-text {
+          line-height: 1.3;
+        }
+
+        @media (min-width: 480px) {
+          .nav-text {
+            display: inline;
           }
         }
       `}</style>
