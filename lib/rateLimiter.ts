@@ -131,6 +131,9 @@ export const stuckRateLimiter = new RateLimiter(60_000, 20)
 // Focus API: 30 requests per minute (parse + breakdown actions)
 export const focusRateLimiter = new RateLimiter(60_000, 30)
 
+// Insights API: 10 requests per minute (heavy Gemini calls)
+export const insightsRateLimiter = new RateLimiter(60_000, 10)
+
 // Generic helper for backwards compatibility
 export function createRateLimiter(windowMs?: number, maxRequests?: number): RateLimiter {
   return new RateLimiter(windowMs, maxRequests)
