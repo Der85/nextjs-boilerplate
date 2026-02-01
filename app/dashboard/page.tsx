@@ -19,6 +19,12 @@ interface MoodEntry {
   created_at: string
 }
 
+interface ActiveGoal {
+  id: string
+  title: string
+  progress_percent: number
+}
+
 interface UserInsights {
   totalCheckIns: number
   currentStreak: { type: string; days: number } | null
@@ -47,6 +53,14 @@ const getGreeting = (): string => {
   return 'Good evening'
 }
 
+const getPlantEmoji = (p: number): string => {
+  if (p >= 100) return '🌸'
+  if (p >= 75) return '🌷'
+  if (p >= 50) return '🪴'
+  if (p >= 25) return '🌿'
+  return '🌱'
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -62,6 +76,7 @@ export default function Dashboard() {
   // Data state
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([])
   const [insights, setInsights] = useState<UserInsights | null>(null)
+  const [activeGoal, setActiveGoal] = useState<ActiveGoal | null>(null)
   
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
@@ -188,6 +203,21 @@ export default function Dashboard() {
       // Phase 1: Calculate User Mode based on mood data
       const calculatedMode = calculateUserMode(lastEntry, streak)
       setUserMode(calculatedMode)
+    }
+
+    // Fetch most recent active goal
+    const { data: goalData } = await supabase
+      .from('goals')
+      .select('id, title, progress_percent')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (goalData && goalData.length > 0) {
+      setActiveGoal(goalData[0] as ActiveGoal)
+    } else {
+      setActiveGoal(null)
     }
   }
 
@@ -421,6 +451,17 @@ export default function Dashboard() {
                 )}
               </button>
             </div>
+
+            {activeGoal && userMode === 'maintenance' && (
+              <button
+                onClick={() => router.push('/goals')}
+                className="active-goal-badge"
+              >
+                <span className="goal-plant">{getPlantEmoji(activeGoal.progress_percent)}</span>
+                <span className="goal-badge-text">{activeGoal.title}</span>
+                <span className="goal-badge-percent">{activeGoal.progress_percent}%</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -439,8 +480,15 @@ export default function Dashboard() {
         {/* Growth Mode: Primary CTA */}
         {isGrowthView && (
           <div className="growth-cta">
-            <button onClick={() => router.push('/focus?mode=sprint&energy=high')} className="btn-action growth">
-              ⚡️ Start Hyperfocus Session
+            <button
+              onClick={() => router.push(
+                activeGoal
+                  ? `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}`
+                  : '/focus?mode=sprint&energy=high'
+              )}
+              className="btn-action growth"
+            >
+              {activeGoal ? `⚡️ Focus on: ${activeGoal.title}` : '⚡️ Start Hyperfocus Session'}
             </button>
           </div>
         )}
@@ -1121,6 +1169,49 @@ const styles = `
   /* ===== GROWTH MODE: CTA WRAPPER ===== */
   .growth-cta {
     margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  /* ===== ACTIVE GOAL BADGE (Maintenance Mode) ===== */
+  .active-goal-badge {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+    width: 100%;
+    padding: clamp(12px, 3vw, 16px);
+    margin-top: clamp(14px, 4vw, 18px);
+    background: rgba(0, 186, 124, 0.06);
+    border: 1px solid rgba(0, 186, 124, 0.15);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: background 0.15s ease;
+  }
+
+  .active-goal-badge:hover {
+    background: rgba(0, 186, 124, 0.1);
+  }
+
+  .goal-plant {
+    font-size: clamp(20px, 5.5vw, 26px);
+    flex-shrink: 0;
+  }
+
+  .goal-badge-text {
+    flex: 1;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .goal-badge-percent {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 700;
+    color: var(--success);
+    flex-shrink: 0;
   }
 
   /* ===== SHARED SLIDER STYLES (Evening Wind Down) ===== */
