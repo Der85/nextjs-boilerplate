@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 type Step = 'intro' | 'hold' | 'emotion' | 'breathing' | 'complete'
 
@@ -71,6 +72,20 @@ export default function BreakOnboardingPage() {
         clearInterval(holdInterval.current)
       }
     }
+  }, [])
+
+  // Rescue Inference: auto-log overwhelm (fire-and-forget)
+  useEffect(() => {
+    const logRescue = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      supabase.from('burnout_logs').insert({
+        user_id: session.user.id,
+        overwhelm: 2,
+        source: 'rescue_inference',
+      })
+    }
+    logRescue()
   }, [])
 
   // Breathing exercise

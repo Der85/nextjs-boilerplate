@@ -61,6 +61,24 @@ export interface UserContext {
   // Personalization
   preferredCopingStrategies: string[]
   triggersIdentified: string[]
+
+  // Burnout snapshot (aggregated from partial Trojan Horse logs)
+  burnoutSnapshot?: BurnoutSnapshot
+}
+
+export interface BurnoutSnapshot {
+  [key: string]: number | null
+  sleep_quality: number | null
+  energy_level: number | null
+  physical_tension: number | null
+  irritability: number | null
+  overwhelm: number | null
+  motivation: number | null
+  focus_difficulty: number | null
+  forgetfulness: number | null
+  decision_fatigue: number | null
+  battery_level: number | null
+  completeness: number
 }
 
 export interface ContextualPrompt {

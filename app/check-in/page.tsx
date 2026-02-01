@@ -9,14 +9,13 @@ import type { SessionData, Badge, UserStats } from '@/lib/gamification'
 // Step components
 import WelcomeScreen from './components/WelcomeScreen'
 import BreathingScreen from './components/BreathingScreen'
-import EnergySelector from './components/EnergySelector'
-import MoodSelector from './components/MoodSelector'
+import HolisticSlider from './components/HolisticSlider'
 import ReflectionScreen from './components/ReflectionScreen'
 import CoachProcessing from './components/CoachProcessing'
 import AchievementScreen from './components/AchievementScreen'
 import SummaryScreen from './components/SummaryScreen'
 
-type Step = 'welcome' | 'breathe' | 'energy' | 'mood' | 'reflect' | 'coach' | 'achievement' | 'summary'
+type Step = 'welcome' | 'breathe' | 'holistic' | 'reflect' | 'coach' | 'achievement' | 'summary'
 type UserMode = 'recovery' | 'maintenance' | 'growth'
 
 interface CoachResponse {
@@ -161,21 +160,16 @@ export default function CheckInPage() {
 
   const handleBreathingComplete = () => {
     setSessionData(prev => ({ ...prev, breathingCompleted: true }))
-    advanceStep('energy')
+    advanceStep('holistic')
   }
 
   const handleBreathingSkip = () => {
     setSessionData(prev => ({ ...prev, breathingCompleted: false }))
-    advanceStep('energy')
+    advanceStep('holistic')
   }
 
-  const handleEnergySelect = (level: number) => {
-    setSessionData(prev => ({ ...prev, energyLevel: level }))
-    advanceStep('mood')
-  }
-
-  const handleMoodSelect = (score: number) => {
-    setSessionData(prev => ({ ...prev, moodScore: score }))
+  const handleHolisticSelect = (moodScore: number, energyLevel: number) => {
+    setSessionData(prev => ({ ...prev, moodScore, energyLevel }))
     advanceStep('reflect')
   }
 
@@ -358,12 +352,9 @@ export default function CheckInPage() {
           onSkip={handleBreathingSkip}
         />
       )}
-      {step === 'energy' && (
-        <EnergySelector onSelect={handleEnergySelect} />
-      )}
-      {step === 'mood' && (
-        <MoodSelector
-          onSelect={handleMoodSelect}
+      {step === 'holistic' && (
+        <HolisticSlider
+          onSelect={handleHolisticSelect}
           yesterdayMood={yesterdayMood}
         />
       )}

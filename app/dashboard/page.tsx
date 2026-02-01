@@ -70,6 +70,13 @@ export default function Dashboard() {
   // UI state
   const [showCheckInAnyway, setShowCheckInAnyway] = useState(false) // Phase 3: Allow check-in in Recovery/Growth modes
 
+  // Trojan Horse intercepts
+  const [showMorningKey, setShowMorningKey] = useState(false)
+  const [showEveningWindDown, setShowEveningWindDown] = useState(false)
+  const [sleepValue, setSleepValue] = useState(5)
+  const [tensionValue, setTensionValue] = useState(5)
+  const [savingIntercept, setSavingIntercept] = useState(false)
+
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -79,6 +86,34 @@ export default function Dashboard() {
       }
       setUser(session.user)
       await fetchData(session.user.id)
+
+      // Check for Trojan Horse intercepts
+      const hour = new Date().getHours()
+      const today = new Date()
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+
+      if (hour < 11) {
+        const { data: mk } = await supabase
+          .from('burnout_logs')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('source', 'morning_key')
+          .gte('created_at', todayStart)
+          .limit(1)
+        if (!mk || mk.length === 0) setShowMorningKey(true)
+      }
+
+      if (hour >= 19) {
+        const { data: ew } = await supabase
+          .from('burnout_logs')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('source', 'evening_winddown')
+          .gte('created_at', todayStart)
+          .limit(1)
+        if (!ew || ew.length === 0) setShowEveningWindDown(true)
+      }
+
       setLoading(false)
     }
     init()
@@ -215,6 +250,31 @@ export default function Dashboard() {
       return `I noticed things have been tough. I'm here.`
     }
     return null
+  }
+
+  // Trojan Horse save handlers
+  const saveMorningKey = async () => {
+    if (!user || savingIntercept) return
+    setSavingIntercept(true)
+    await supabase.from('burnout_logs').insert({
+      user_id: user.id,
+      sleep_quality: sleepValue,
+      source: 'morning_key',
+    })
+    setShowMorningKey(false)
+    setSavingIntercept(false)
+  }
+
+  const saveEveningWindDown = async () => {
+    if (!user || savingIntercept) return
+    setSavingIntercept(true)
+    await supabase.from('burnout_logs').insert({
+      user_id: user.id,
+      physical_tension: tensionValue,
+      source: 'evening_winddown',
+    })
+    setShowEveningWindDown(false)
+    setSavingIntercept(false)
   }
 
   // Phase 1: Get mode-specific styling and content
@@ -420,7 +480,72 @@ export default function Dashboard() {
             </div>
           </ProgressiveCard>
         )}
+        {/* Evening Wind Down intercept (after 7 PM) */}
+        {showEveningWindDown && (
+          <div className="card evening-card">
+            <div className="evening-header">
+              <span className="evening-icon">🌙</span>
+              <div>
+                <h3 className="evening-title">Evening Wind Down</h3>
+                <p className="evening-subtitle">Carrying any tension?</p>
+              </div>
+            </div>
+            <div className="slider-container">
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={tensionValue}
+                onChange={(e) => setTensionValue(Number(e.target.value))}
+                className="intercept-slider"
+              />
+              <div className="slider-labels">
+                <span>None</span>
+                <span className="slider-value">{tensionValue}/10</span>
+                <span>Very tense</span>
+              </div>
+            </div>
+            <button onClick={saveEveningWindDown} className="evening-btn" disabled={savingIntercept}>
+              {savingIntercept ? 'Saving...' : 'Log & Relax'}
+            </button>
+            <button onClick={() => setShowEveningWindDown(false)} className="evening-skip">
+              Dismiss
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Morning Key Overlay (before 11 AM) */}
+      {showMorningKey && (
+        <div className="intercept-overlay">
+          <div className="intercept-card">
+            <span className="intercept-emoji">🌅</span>
+            <h2 className="intercept-title">How did we sleep?</h2>
+            <p className="intercept-subtitle">Quick check before you start your day</p>
+            <div className="slider-container">
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={sleepValue}
+                onChange={(e) => setSleepValue(Number(e.target.value))}
+                className="intercept-slider"
+              />
+              <div className="slider-labels">
+                <span>Terrible</span>
+                <span className="slider-value">{sleepValue}/10</span>
+                <span>Amazing</span>
+              </div>
+            </div>
+            <button onClick={saveMorningKey} className="intercept-btn" disabled={savingIntercept}>
+              {savingIntercept ? 'Saving...' : 'Log Sleep'}
+            </button>
+            <button onClick={() => setShowMorningKey(false)} className="intercept-skip">
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
 
       <style jsx>{styles}</style>
     </div>
@@ -966,6 +1091,192 @@ const styles = `
     background: var(--bg-gray);
   }
 
+
+  /* ===== MORNING KEY OVERLAY ===== */
+  .intercept-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: clamp(16px, 4vw, 24px);
+    animation: fadeIn 0.3s ease;
+  }
+
+  .intercept-card {
+    background: white;
+    border-radius: clamp(20px, 5vw, 28px);
+    padding: clamp(28px, 7vw, 40px);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    animation: slideUp 0.4s ease;
+  }
+
+  .intercept-emoji {
+    font-size: clamp(48px, 14vw, 64px);
+    display: block;
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .intercept-title {
+    font-size: clamp(20px, 5.5vw, 26px);
+    font-weight: 700;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+    color: #0f1419;
+  }
+
+  .intercept-subtitle {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    margin: 0 0 clamp(24px, 6vw, 32px) 0;
+  }
+
+  .slider-container {
+    margin-bottom: clamp(20px, 5vw, 28px);
+  }
+
+  .intercept-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, #f4212e, #ffad1f, #00ba7c);
+    border-radius: 100px;
+    outline: none;
+    margin-bottom: clamp(10px, 2.5vw, 14px);
+  }
+
+  .intercept-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: clamp(24px, 6.5vw, 32px);
+    height: clamp(24px, 6.5vw, 32px);
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--primary);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .intercept-slider::-moz-range-thumb {
+    width: clamp(24px, 6.5vw, 32px);
+    height: clamp(24px, 6.5vw, 32px);
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--primary);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .slider-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+  }
+
+  .slider-value {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .intercept-btn {
+    width: 100%;
+    padding: clamp(14px, 4vw, 18px);
+    background: linear-gradient(135deg, #ffad1f 0%, #f59e0b 100%);
+    color: white;
+    border: none;
+    border-radius: 100px;
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: clamp(8px, 2vw, 12px);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+  }
+
+  .intercept-btn:disabled { opacity: 0.7; cursor: wait; }
+
+  .intercept-skip {
+    width: 100%;
+    padding: clamp(10px, 2.5vw, 14px);
+    background: none;
+    border: none;
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== EVENING WIND DOWN CARD ===== */
+  .evening-card {
+    padding: clamp(18px, 5vw, 26px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    background: rgba(99, 102, 241, 0.04);
+  }
+
+  .evening-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3.5vw, 16px);
+    margin-bottom: clamp(16px, 4vw, 22px);
+  }
+
+  .evening-icon {
+    font-size: clamp(32px, 9vw, 42px);
+    flex-shrink: 0;
+  }
+
+  .evening-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-weight: 700;
+    color: #4338ca;
+    margin: 0 0 clamp(2px, 0.5vw, 4px) 0;
+  }
+
+  .evening-subtitle {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0;
+  }
+
+  .evening-btn {
+    width: 100%;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+    color: white;
+    border: none;
+    border-radius: 100px;
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: clamp(6px, 1.5vw, 10px);
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  }
+
+  .evening-btn:disabled { opacity: 0.7; cursor: wait; }
+
+  .evening-skip {
+    width: 100%;
+    padding: clamp(8px, 2vw, 12px);
+    background: none;
+    border: none;
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+    cursor: pointer;
+    text-align: center;
+  }
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {

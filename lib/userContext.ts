@@ -1,12 +1,13 @@
 // User Context Service - Fetches and analyzes mood history for context-aware coaching
 import { SupabaseClient } from '@supabase/supabase-js'
-import { 
-  MoodEntry, 
-  MoodPattern, 
-  TimePattern, 
-  RecurringTheme, 
+import {
+  MoodEntry,
+  MoodPattern,
+  TimePattern,
+  RecurringTheme,
   UserContext,
-  ContextualPrompt 
+  ContextualPrompt,
+  BurnoutSnapshot
 } from './types/context'
 
 // ============================================
@@ -296,6 +297,69 @@ function calculateStreak(entries: MoodEntry[], timeZone?: string): UserContext['
 }
 
 // ============================================
+// AGGREGATE PARTIAL BURNOUT LOGS (Trojan Horse)
+// ============================================
+const BURNOUT_FIELDS = [
+  'sleep_quality', 'energy_level', 'physical_tension', 'irritability',
+  'overwhelm', 'motivation', 'focus_difficulty', 'forgetfulness', 'decision_fatigue'
+] as const
+
+async function aggregateBurnoutSnapshot(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<BurnoutSnapshot> {
+  // Fetch burnout logs from the last 24 hours
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: logs } = await supabase
+    .from('burnout_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('created_at', cutoff)
+    .order('created_at', { ascending: false })
+
+  const snapshot: BurnoutSnapshot = {
+    sleep_quality: null,
+    energy_level: null,
+    physical_tension: null,
+    irritability: null,
+    overwhelm: null,
+    motivation: null,
+    focus_difficulty: null,
+    forgetfulness: null,
+    decision_fatigue: null,
+    battery_level: null,
+    completeness: 0,
+  }
+
+  if (!logs || logs.length === 0) return snapshot
+
+  // Take the most recent non-null value for each field
+  for (const field of BURNOUT_FIELDS) {
+    for (const log of logs) {
+      if (log[field] != null) {
+        snapshot[field] = log[field]
+        break
+      }
+    }
+  }
+
+  // Battery level from most recent smart_battery entry
+  for (const log of logs) {
+    if (log.battery_level != null) {
+      snapshot.battery_level = log.battery_level
+      break
+    }
+  }
+
+  // Calculate completeness (how many of 9 fields have values)
+  const filled = BURNOUT_FIELDS.filter(f => snapshot[f] != null).length
+  snapshot.completeness = Math.round((filled / BURNOUT_FIELDS.length) * 100)
+
+  return snapshot
+}
+
+// ============================================
 // BUILD COMPLETE USER CONTEXT
 // ============================================
 export async function buildUserContext(
@@ -304,7 +368,7 @@ export async function buildUserContext(
   timeZone?: string
 ): Promise<UserContext> {
   const entries = await fetchUserMoodHistory(supabase, userId, 30)
-  
+
   // Default context for new users
   if (entries.length === 0) {
     return {
@@ -351,6 +415,9 @@ export async function buildUserContext(
   const triggersIdentified = extractKeywords(negativeEntries.map(e => e.note!))
   const preferredCopingStrategies = extractKeywords(positiveEntries.map(e => e.note!))
 
+  // Aggregate partial burnout logs (Trojan Horse data)
+  const burnoutSnapshot = await aggregateBurnoutSnapshot(supabase, userId)
+
   return {
     totalCheckIns: entries.length,
     averageMood: Math.round(averageMood * 10) / 10,
@@ -365,7 +432,8 @@ export async function buildUserContext(
     baselineDifference: Math.round(baselineDifference * 10) / 10,
     currentStreak: calculateStreak(entries, timeZone),
     preferredCopingStrategies,
-    triggersIdentified
+    triggersIdentified,
+    burnoutSnapshot
   }
 }
 

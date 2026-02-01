@@ -144,7 +144,15 @@ export default function AllyPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-      
+
+      // Rescue Inference: auto-log decision fatigue (fire-and-forget)
+      supabase.from('burnout_logs').insert({
+        user_id: session.user.id,
+        decision_fatigue: 2,
+        motivation: 3,
+        source: 'rescue_inference',
+      })
+
       try {
         const data = await fetchStuckCoach('initial')
         setBlocks(data.blocks || STATIC_BLOCKS)
