@@ -123,7 +123,7 @@ export default function Dashboard() {
         .from('user_insights')
         .select('id, type, title, message, icon')
         .eq('user_id', session.user.id)
-        .is('dismissed_at', null)
+        .eq('is_dismissed', false)
         .order('created_at', { ascending: false })
         .limit(1)
 
@@ -418,6 +418,11 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* AI Insight Card (Pattern Engine) */}
+        {aiInsight && (
+          <InsightCard insight={aiInsight} onDismiss={() => setAiInsight(null)} />
         )}
 
         {/* Phase 4: Insight Card (replaces stats-row) */}

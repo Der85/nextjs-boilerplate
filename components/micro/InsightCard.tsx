@@ -21,18 +21,18 @@ interface InsightCardProps {
 
 // ============================================
 // InsightCard — "A-Ha!" Card
-// Gradient-bordered card displaying AI-generated
-// correlations from the Pattern Engine.
+// Horizontal layout: Icon | Title+Message | Dismiss(X)
+// Footer: "Was this helpful?" Thumbs Up / Down
 // ============================================
 export default function InsightCard({ insight, onDismiss }: InsightCardProps) {
   const [helpful, setHelpful] = useState<boolean | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
-  const handleHelpful = async () => {
-    setHelpful(true)
+  const handleHelpful = async (value: boolean) => {
+    setHelpful(value)
     await supabase
       .from('user_insights')
-      .update({ helpful: true })
+      .update({ is_helpful: value })
       .eq('id', insight.id)
   }
 
@@ -40,9 +40,8 @@ export default function InsightCard({ insight, onDismiss }: InsightCardProps) {
     setDismissed(true)
     await supabase
       .from('user_insights')
-      .update({ dismissed_at: new Date().toISOString() })
+      .update({ is_dismissed: true })
       .eq('id', insight.id)
-    // Small delay so the exit animation plays
     setTimeout(() => onDismiss(), 300)
   }
 
@@ -57,30 +56,52 @@ export default function InsightCard({ insight, onDismiss }: InsightCardProps) {
   return (
     <div className="insight-card">
       <div className="insight-card-inner">
-        {/* Icon */}
-        <div className="insight-icon-wrap">
-          <span className="insight-icon">{insight.icon}</span>
-        </div>
+        {/* Top row: Icon | Content | X */}
+        <div className="insight-row">
+          <div className="insight-icon-wrap">
+            <span className="insight-icon">{insight.icon}</span>
+          </div>
 
-        {/* Content */}
-        <div className="insight-body">
-          <span className="insight-badge">Pattern Engine</span>
-          <h3 className="insight-title">{insight.title}</h3>
-          <p className="insight-message">{insight.message}</p>
-        </div>
+          <div className="insight-body">
+            <span className="insight-badge">Pattern Engine</span>
+            <h3 className="insight-title">{insight.title}</h3>
+            <p className="insight-message">{insight.message}</p>
+          </div>
 
-        {/* Actions */}
-        <div className="insight-actions">
           <button
-            onClick={handleHelpful}
-            className={`insight-btn helpful ${helpful === true ? 'active' : ''}`}
-            disabled={helpful === true}
+            onClick={handleDismiss}
+            className="insight-dismiss"
+            aria-label="Dismiss insight"
           >
-            {helpful ? '👍 Noted!' : '👍 Helpful'}
+            ✕
           </button>
-          <button onClick={handleDismiss} className="insight-btn dismiss">
-            Dismiss
-          </button>
+        </div>
+
+        {/* Footer: Was this helpful? */}
+        <div className="insight-feedback">
+          {helpful === null ? (
+            <>
+              <span className="feedback-label">Was this helpful?</span>
+              <button
+                onClick={() => handleHelpful(true)}
+                className="feedback-btn"
+                aria-label="Yes, helpful"
+              >
+                👍
+              </button>
+              <button
+                onClick={() => handleHelpful(false)}
+                className="feedback-btn"
+                aria-label="Not helpful"
+              >
+                👎
+              </button>
+            </>
+          ) : (
+            <span className="feedback-thanks">
+              {helpful ? '👍 Thanks for the feedback!' : '👎 Got it — I\'ll do better.'}
+            </span>
+          )}
         </div>
       </div>
 
@@ -97,7 +118,6 @@ const cardStyles = `
     --purple: #7c3aed;
     --purple-light: rgba(124, 58, 237, 0.08);
     --purple-border: rgba(124, 58, 237, 0.25);
-    --purple-glow: rgba(124, 58, 237, 0.12);
 
     background: linear-gradient(135deg, var(--purple-border), rgba(59, 130, 246, 0.25), var(--purple-border));
     border-radius: clamp(16px, 4.5vw, 24px);
@@ -128,12 +148,20 @@ const cardStyles = `
   }
 
   .insight-card-inner {
-    background: white;
+    background: #f5f3ff;
     border-radius: clamp(14px, 4vw, 22px);
     padding: clamp(18px, 5vw, 26px);
   }
 
+  /* ---- Top Row: Icon | Content | X ---- */
+  .insight-row {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(12px, 3.5vw, 18px);
+  }
+
   .insight-icon-wrap {
+    flex-shrink: 0;
     width: clamp(48px, 13vw, 64px);
     height: clamp(48px, 13vw, 64px);
     background: var(--purple-light);
@@ -141,7 +169,6 @@ const cardStyles = `
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: clamp(14px, 4vw, 18px);
   }
 
   .insight-icon {
@@ -149,7 +176,8 @@ const cardStyles = `
   }
 
   .insight-body {
-    margin-bottom: clamp(16px, 4.5vw, 22px);
+    flex: 1;
+    min-width: 0;
   }
 
   .insight-badge {
@@ -159,17 +187,17 @@ const cardStyles = `
     text-transform: uppercase;
     letter-spacing: 0.6px;
     color: var(--purple);
-    background: var(--purple-light);
+    background: rgba(124, 58, 237, 0.12);
     padding: clamp(3px, 0.8vw, 5px) clamp(8px, 2vw, 12px);
     border-radius: 100px;
-    margin-bottom: clamp(8px, 2vw, 12px);
+    margin-bottom: clamp(6px, 1.5vw, 10px);
   }
 
   .insight-title {
     font-size: clamp(17px, 4.8vw, 22px);
     font-weight: 700;
     color: #0f1419;
-    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+    margin: 0 0 clamp(4px, 1vw, 8px) 0;
     line-height: 1.3;
   }
 
@@ -180,47 +208,68 @@ const cardStyles = `
     margin: 0;
   }
 
-  .insight-actions {
-    display: flex;
-    gap: clamp(8px, 2.5vw, 12px);
-  }
-
-  .insight-btn {
-    padding: clamp(8px, 2.5vw, 12px) clamp(14px, 4vw, 20px);
-    border-radius: 100px;
-    font-size: clamp(13px, 3.5vw, 15px);
-    font-weight: 600;
+  .insight-dismiss {
+    flex-shrink: 0;
+    width: clamp(32px, 9vw, 38px);
+    height: clamp(32px, 9vw, 38px);
+    border-radius: 50%;
+    border: none;
+    background: rgba(124, 58, 237, 0.08);
+    color: #7c3aed;
+    font-size: clamp(14px, 4vw, 18px);
     cursor: pointer;
-    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
     font-family: inherit;
+    line-height: 1;
   }
 
-  .insight-btn.helpful {
-    background: var(--purple-light);
-    border: 1px solid var(--purple-border);
-    color: var(--purple);
+  .insight-dismiss:hover {
+    background: rgba(124, 58, 237, 0.18);
   }
 
-  .insight-btn.helpful:hover {
-    background: rgba(124, 58, 237, 0.15);
+  /* ---- Feedback Footer ---- */
+  .insight-feedback {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2.5vw, 12px);
+    margin-top: clamp(14px, 4vw, 20px);
+    padding-top: clamp(12px, 3.5vw, 16px);
+    border-top: 1px solid rgba(124, 58, 237, 0.12);
   }
 
-  .insight-btn.helpful.active {
-    background: var(--purple);
-    color: white;
+  .feedback-label {
+    font-size: clamp(12px, 3.3vw, 14px);
+    color: #7c3aed;
+    font-weight: 600;
+  }
+
+  .feedback-btn {
+    width: clamp(34px, 9vw, 40px);
+    height: clamp(34px, 9vw, 40px);
+    border-radius: 50%;
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    background: white;
+    font-size: clamp(16px, 4.5vw, 20px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+
+  .feedback-btn:hover {
+    background: rgba(124, 58, 237, 0.1);
     border-color: var(--purple);
-    cursor: default;
+    transform: scale(1.1);
   }
 
-  .insight-btn.dismiss {
-    background: none;
-    border: 1px solid #e5e5e5;
+  .feedback-thanks {
+    font-size: clamp(12px, 3.3vw, 14px);
     color: #536471;
-  }
-
-  .insight-btn.dismiss:hover {
-    background: #f7f9fa;
-    border-color: #ccc;
+    font-weight: 500;
   }
 
   @media (min-width: 768px) {

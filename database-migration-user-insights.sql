@@ -8,18 +8,18 @@
 CREATE TABLE IF NOT EXISTS user_insights (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  type VARCHAR(30) NOT NULL DEFAULT 'correlation',
+  type TEXT NOT NULL DEFAULT 'correlation',
   title TEXT NOT NULL,
   message TEXT NOT NULL,
-  icon VARCHAR(10) NOT NULL DEFAULT '🔍',
-  helpful BOOLEAN DEFAULT NULL,
-  dismissed_at TIMESTAMPTZ DEFAULT NULL,
+  icon TEXT NOT NULL DEFAULT '🔍',
+  is_dismissed BOOLEAN NOT NULL DEFAULT FALSE,
+  is_helpful BOOLEAN DEFAULT NULL,
   data_window_start DATE,
   data_window_end DATE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Step 2: Index for quick lookup of latest insight per user
+-- Step 2: Index for quick lookup of latest undismissed insight per user
 CREATE INDEX IF NOT EXISTS idx_user_insights_user_created
   ON user_insights(user_id, created_at DESC);
 

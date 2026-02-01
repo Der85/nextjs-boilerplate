@@ -1,7 +1,10 @@
-// app/api/insights/route.ts
-// Pattern Engine — Insight Generator
+// app/api/insights/generate/route.ts
+// Pattern Engine — "Sherlock" Insight Generator
 // Fetches 14 days of mood, burnout & focus data, sends to Gemini
-// for a single actionable correlation, then caches it in user_insights.
+// for hidden cross-day correlations, then caches in user_insights.
+//
+// Cache constraint: only generates a new insight if none exists
+// from the last 10 minutes (prevents spam and saves API costs).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
@@ -9,6 +12,8 @@ import { insightsRateLimiter } from '@/lib/rateLimiter'
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+
+const CACHE_MINUTES = 10
 
 // ============================================
 // Rate Limiting
@@ -44,10 +49,14 @@ function getServiceClient(): SupabaseClient | null {
 // Types
 // ============================================
 interface Insight {
-  type: 'correlation'
+  type: 'correlation' | 'streak' | 'warning' | 'praise'
   title: string
   message: string
   icon: string
+}
+
+interface InsightRow extends Insight {
+  id: string
 }
 
 // ============================================
@@ -93,35 +102,35 @@ async function fetchRecentFocusPlans(db: SupabaseClient, userId: string) {
 }
 
 // ============================================
-// Check for cached insight (< 24 hours old)
+// Check for cached insight (< 10 minutes old)
 // ============================================
-async function fetchCachedInsight(db: SupabaseClient, userId: string): Promise<Insight | null> {
-  const oneDayAgo = new Date()
-  oneDayAgo.setHours(oneDayAgo.getHours() - 24)
+async function fetchCachedInsight(db: SupabaseClient, userId: string): Promise<InsightRow | null> {
+  const cutoff = new Date()
+  cutoff.setMinutes(cutoff.getMinutes() - CACHE_MINUTES)
 
   const { data } = await db
     .from('user_insights')
-    .select('type, title, message, icon')
+    .select('id, type, title, message, icon')
     .eq('user_id', userId)
-    .gte('created_at', oneDayAgo.toISOString())
+    .gte('created_at', cutoff.toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
 
   if (data && data.length > 0) {
-    return data[0] as Insight
+    return data[0] as InsightRow
   }
   return null
 }
 
 // ============================================
-// Save insight to DB
+// Save insight to DB and return with id
 // ============================================
-async function saveInsight(db: SupabaseClient, userId: string, insight: Insight) {
+async function saveInsight(db: SupabaseClient, userId: string, insight: Insight): Promise<InsightRow | null> {
   const now = new Date()
   const windowStart = new Date()
   windowStart.setDate(windowStart.getDate() - 14)
 
-  await db.from('user_insights').insert({
+  const { data } = await db.from('user_insights').insert({
     user_id: userId,
     type: insight.type,
     title: insight.title,
@@ -129,11 +138,13 @@ async function saveInsight(db: SupabaseClient, userId: string, insight: Insight)
     icon: insight.icon,
     data_window_start: windowStart.toISOString().split('T')[0],
     data_window_end: now.toISOString().split('T')[0],
-  })
+  }).select('id, type, title, message, icon').single()
+
+  return data as InsightRow | null
 }
 
 // ============================================
-// Build the Gemini prompt
+// Build the Gemini prompt — "Sherlock" mode
 // ============================================
 function buildInsightPrompt(
   moodEntries: any[],
@@ -163,9 +174,10 @@ function buildInsightPrompt(
     }
   })
 
-  return `You are an ADHD wellness data analyst. Below is 14 days of data from an ADHD user's self-tracking app.
+  return `You are a data detective analysing an ADHD user's self-tracking data.
+Your job is to find ONE hidden, non-obvious pattern — the kind of insight the user would never notice themselves.
 
-=== MOOD CHECK-INS ===
+=== MOOD CHECK-INS (last 14 days) ===
 ${JSON.stringify(moodEntries.map(m => ({
   date: m.created_at,
   mood: m.mood_score,
@@ -173,7 +185,7 @@ ${JSON.stringify(moodEntries.map(m => ({
   note: m.note,
 })), null, 2)}
 
-=== BURNOUT MICRO-SIGNALS ===
+=== BURNOUT MICRO-SIGNALS (last 14 days) ===
 ${JSON.stringify(burnoutLogs.map(b => ({
   date: b.created_at,
   source: b.source,
@@ -185,24 +197,30 @@ ${JSON.stringify(burnoutLogs.map(b => ({
   motivation: b.motivation,
 })), null, 2)}
 
-=== FOCUS SESSIONS ===
+=== FOCUS SESSIONS (last 14 days) ===
 ${JSON.stringify(focusSummary, null, 2)}
 
-YOUR TASK:
-Find ONE specific, actionable correlation in this data.  Look for patterns like:
-- "On days you sleep < X, your focus difficulty jumps by Y"
-- "Your mood drops the day after high-overwhelm evenings"
-- "You complete more tasks on days you check in with higher energy"
-- "Your overwhelm spikes mid-week — Tuesdays and Wednesdays are your hardest days"
+INSTRUCTIONS:
+Analyse this ADHD user's data. Find one specific, actionable pattern.
+Do NOT state the obvious (e.g. "you feel better on good days").
+Look for HIDDEN LINKS across days and data sources, like a detective:
+- "Poor sleep on Tuesday led to low focus on Wednesday"
+- "Every time your overwhelm goes above 6, your task completion drops to zero the next day"
+- "You have a mid-week slump — Tuesdays and Wednesdays are consistently your hardest days"
+- "Your mood crashes the day after skipping a check-in"
+- "On days you log physical tension above 7, your focus difficulty doubles"
+
+Pick the most surprising and useful pattern you can find.
 
 RULES:
-1. Only cite a pattern you can see in the actual data — do NOT fabricate.
+1. Only cite a pattern you can PROVE from the actual data — never fabricate.
 2. If the data is too sparse for a real correlation, say so honestly with a gentle nudge to keep tracking.
 3. Keep the message under 2 sentences, written warmly for someone with ADHD.
-4. Pick an emoji icon that matches the insight topic (sleep=😴, focus=🧠, mood=🌤️, energy=⚡, stress=🫠, general=🔍).
+4. Pick an emoji icon that matches the topic (sleep=😴, focus=🧠, mood=🌤️, energy=⚡, stress=🫠, pattern=🔗, general=🔍).
+5. Choose the most fitting type: "correlation" for cross-metric links, "streak" for time patterns, "warning" for negative trends, "praise" for positive discoveries.
 
-RESPOND with valid JSON only — no markdown fences:
-{"type":"correlation","title":"short title (max 8 words)","message":"1-2 sentence insight","icon":"emoji"}`
+RESPOND with valid JSON only — no markdown fences, no explanation outside the JSON:
+{"type":"correlation|streak|warning|praise","title":"short punchy title (max 8 words)","message":"1-2 sentence insight","icon":"emoji"}`
 }
 
 // ============================================
@@ -258,7 +276,7 @@ async function callGemini(apiKey: string, prompt: string): Promise<Insight | nul
 // ============================================
 function sparseDataFallback(): Insight {
   return {
-    type: 'correlation',
+    type: 'praise',
     title: 'Keep tracking!',
     message:
       "You're building your data trail — a few more days of check-ins and I'll spot patterns for you.",
@@ -299,7 +317,7 @@ export async function POST(request: NextRequest) {
     const userId = authData.user.id
     const db = getServiceClient() || supabase
 
-    // 1. Check cache — return existing insight if < 24h old
+    // 1. Check cache — return existing insight if < 10 min old
     const cached = await fetchCachedInsight(db, userId)
     if (cached) {
       return NextResponse.json({ insight: cached, cached: true })
@@ -312,7 +330,7 @@ export async function POST(request: NextRequest) {
       fetchRecentFocusPlans(db, userId),
     ])
 
-    // 3. If data is too sparse, return a gentle nudge
+    // 3. If data is too sparse, return a gentle nudge (don't save)
     const totalDataPoints = moodEntries.length + burnoutLogs.length + focusPlans.length
     if (totalDataPoints < 5) {
       const fallback = sparseDataFallback()
@@ -333,12 +351,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ insight: fallback, cached: false })
     }
 
-    // 5. Save to user_insights for caching
-    await saveInsight(db, userId, insight)
+    // 5. Save to user_insights and return with id
+    const saved = await saveInsight(db, userId, insight)
 
-    return NextResponse.json({ insight, cached: false })
+    return NextResponse.json({
+      insight: saved || insight,
+      cached: false,
+    })
   } catch (error) {
-    console.error('Insights API error:', error)
+    console.error('Insights generate API error:', error)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
