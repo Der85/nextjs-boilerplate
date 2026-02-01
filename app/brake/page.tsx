@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 
 type Step = 'intro' | 'hold' | 'emotion' | 'breathing' | 'complete'
@@ -26,6 +27,7 @@ export default function BreakOnboardingPage() {
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null)
   const [breathPhase, setBreathPhase] = useState<'inhale' | 'hold' | 'exhale'>('inhale')
   const [breathCount, setBreathCount] = useState(0)
+  const [saving, setSaving] = useState(false)
   
   const holdInterval = useRef<NodeJS.Timeout | null>(null)
   const holdStartTime = useRef<number>(0)
@@ -116,12 +118,26 @@ export default function BreakOnboardingPage() {
     }, 300)
   }
 
-  const handleContinue = () => {
-    router.push('/onboarding')
+  const handleFeelBetter = async () => {
+    setSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      await supabase.from('mood_entries').insert({
+        user_id: session.user.id,
+        mood_score: 6,
+        note: 'Regulation Success',
+        coach_advice: null,
+      })
+    }
+    router.push('/dashboard?refresh=true&mode=maintenance')
   }
 
-  const handleSkipToApp = () => {
-    router.push('/dashboard')
+  const handleStillStruggling = () => {
+    router.push('/dashboard?mode=recovery')
+  }
+
+  const handleNeedHelp = () => {
+    router.push('/ally')
   }
 
   return (
@@ -146,7 +162,7 @@ export default function BreakOnboardingPage() {
           <button onClick={() => setStep('hold')} className="btn-danger">
             I'm ready to try it
           </button>
-          <button onClick={handleContinue} className="btn-ghost">
+          <button onClick={() => router.push('/dashboard')} className="btn-ghost">
             Skip for now
           </button>
         </div>
@@ -284,48 +300,36 @@ export default function BreakOnboardingPage() {
         </div>
       )}
 
-      {/* Step: Complete */}
+      {/* Step: Re-entry */}
       {step === 'complete' && (
-        <div className="content centered">
+        <div className="content centered reentry">
           <div className="icon-circle success">
-            <span>🌟</span>
+            <span>🌿</span>
           </div>
-          <h1 className="title">You did it!</h1>
-          <p className="subtitle">
-            You just practiced the BREAK technique. Whenever you feel overwhelmed, 
-            frustrated, or about to react impulsively — come here.
+          <h1 className="title">How do you feel now?</h1>
+          <p className="subtitle reentry-sub">
+            You paused, named it, and breathed through it. That takes real strength.
           </p>
-          
-          <div className="summary-card">
-            <div className="summary-row">
-              <span className="summary-icon">⏱️</span>
-              <span>Paused for 10 seconds</span>
-            </div>
-            <div className="summary-row">
-              <span className="summary-icon">
-                {emotions.find(e => e.id === selectedEmotion)?.icon}
-              </span>
-              <span>Identified feeling {selectedEmotion}</span>
-            </div>
-            <div className="summary-row">
-              <span className="summary-icon">🌬️</span>
-              <span>Completed 3 calming breaths</span>
-            </div>
-          </div>
 
-          <div className="info-card">
-            <p>
-              💡 The BREAK button is always available in the top right corner of the app 
-              when you need it.
-            </p>
-          </div>
+          <div className="reentry-options">
+            <button onClick={handleFeelBetter} disabled={saving} className="reentry-btn better">
+              <span className="reentry-icon">🌤️</span>
+              <span className="reentry-label">{saving ? 'Saving...' : 'Better / Ready'}</span>
+              <span className="reentry-hint">Back to dashboard</span>
+            </button>
 
-          <button onClick={handleContinue} className="btn-primary">
-            Continue onboarding
-          </button>
-          <button onClick={handleSkipToApp} className="btn-ghost">
-            Skip to app
-          </button>
+            <button onClick={handleStillStruggling} className="reentry-btn struggling">
+              <span className="reentry-icon">🌧️</span>
+              <span className="reentry-label">Still struggling</span>
+              <span className="reentry-hint">Recovery mode</span>
+            </button>
+
+            <button onClick={handleNeedHelp} className="reentry-btn help">
+              <span className="reentry-icon">💜</span>
+              <span className="reentry-label">I need help</span>
+              <span className="reentry-hint">Talk to Ally</span>
+            </button>
+          </div>
         </div>
       )}
 

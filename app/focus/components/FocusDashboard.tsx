@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
 import PostFocusToast from '@/components/micro/PostFocusToast'
 import QuickAllyModal from './QuickAllyModal'
+
+const OVERWHELM_DELAY_MS = 5 * 60 * 1000 // 5 minutes of inactivity
 
 interface Step {
   id: string
@@ -88,6 +90,49 @@ export default function FocusDashboard({
   const [editingTaskName, setEditingTaskName] = useState('')
   const [editingStepKey, setEditingStepKey] = useState<string | null>(null)
   const [editingStepText, setEditingStepText] = useState('')
+
+  // Implicit Overwhelm Detection
+  const [showOverwhelmToast, setShowOverwhelmToast] = useState(false)
+  const overwhelmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const overwhelmFiredRef = useRef(false)
+
+  const logOverwhelmEvent = async () => {
+    if (!user) return
+    await supabase.from('burnout_logs').insert({
+      user_id: user.id,
+      overwhelm: 6,
+      source: 'focus_stagnation',
+    })
+  }
+
+  const resetOverwhelmTimer = () => {
+    if (overwhelmTimerRef.current) {
+      clearTimeout(overwhelmTimerRef.current)
+      overwhelmTimerRef.current = null
+    }
+  }
+
+  // Start/restart the stagnation timer whenever plans change (step toggled, etc.)
+  useEffect(() => {
+    // Only run if there are active plans and we haven't already fired
+    if (plans.length === 0 || overwhelmFiredRef.current) return
+
+    resetOverwhelmTimer()
+    overwhelmTimerRef.current = setTimeout(() => {
+      if (!overwhelmFiredRef.current) {
+        overwhelmFiredRef.current = true
+        setShowOverwhelmToast(true)
+        logOverwhelmEvent()
+      }
+    }, OVERWHELM_DELAY_MS)
+
+    return () => resetOverwhelmTimer()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plans, user])
+
+  const dismissOverwhelmToast = () => {
+    setShowOverwhelmToast(false)
+  }
 
   const sortedPlans = [...plans].sort(sortByDueDate)
 
@@ -587,6 +632,28 @@ export default function FocusDashboard({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Implicit Overwhelm Toast */}
+      {showOverwhelmToast && (
+        <div className="overwhelm-toast">
+          <span className="overwhelm-text">Things feeling sticky? 💜</span>
+          <div className="overwhelm-actions">
+            <button
+              className="overwhelm-btn break"
+              onClick={() => { dismissOverwhelmToast(); router.push('/brake') }}
+            >
+              Break
+            </button>
+            <button
+              className="overwhelm-btn help"
+              onClick={() => { dismissOverwhelmToast(); setStuckTaskName(sortedPlans[0]?.task_name || 'Current task'); setShowStuckModal(true) }}
+            >
+              Help
+            </button>
+          </div>
+          <button className="overwhelm-dismiss" onClick={dismissOverwhelmToast}>×</button>
         </div>
       )}
 
@@ -1157,6 +1224,96 @@ export default function FocusDashboard({
         @keyframes confettiFall {
           0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Implicit Overwhelm Toast */
+        .overwhelm-toast {
+          position: fixed;
+          bottom: clamp(16px, 4vw, 24px);
+          right: clamp(16px, 4vw, 24px);
+          background: white;
+          border-radius: clamp(12px, 3vw, 16px);
+          padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          border-left: 4px solid #805ad5;
+          display: flex;
+          align-items: center;
+          gap: clamp(10px, 2.5vw, 14px);
+          z-index: 900;
+          max-width: clamp(280px, 75vw, 360px);
+          animation: toastSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes toastSlideIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .overwhelm-text {
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 600;
+          color: var(--dark-gray);
+          flex: 1;
+          white-space: nowrap;
+        }
+
+        .overwhelm-actions {
+          display: flex;
+          gap: clamp(6px, 1.5vw, 8px);
+          flex-shrink: 0;
+        }
+
+        .overwhelm-btn {
+          padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px);
+          border: none;
+          border-radius: clamp(8px, 2vw, 10px);
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          white-space: nowrap;
+        }
+
+        .overwhelm-btn.break {
+          background: rgba(244, 33, 46, 0.1);
+          color: #f4212e;
+        }
+
+        .overwhelm-btn.break:hover {
+          background: rgba(244, 33, 46, 0.2);
+        }
+
+        .overwhelm-btn.help {
+          background: rgba(128, 90, 213, 0.1);
+          color: #805ad5;
+        }
+
+        .overwhelm-btn.help:hover {
+          background: rgba(128, 90, 213, 0.2);
+        }
+
+        .overwhelm-dismiss {
+          position: absolute;
+          top: clamp(4px, 1vw, 6px);
+          right: clamp(6px, 1.5vw, 8px);
+          width: 20px;
+          height: 20px;
+          border: none;
+          background: none;
+          color: var(--light-gray);
+          font-size: 14px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: background 0.15s ease;
+        }
+
+        .overwhelm-dismiss:hover {
+          background: var(--extra-light-gray);
+          color: var(--dark-gray);
         }
 
         @media (min-width: 768px) {

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import AppHeader from '@/components/AppHeader'
@@ -95,11 +95,42 @@ async function fetchGoalsCoach(action: string, data: Record<string, any> = {}) {
   return response.json()
 }
 
+const parseTimeMinutes = (est: string): number => {
+  const match = est.match(/(\d+)\s*(min|hr|hour)/i)
+  if (!match) return 999
+  const val = parseInt(match[1], 10)
+  if (match[2].startsWith('hr') || match[2].startsWith('hour')) return val * 60
+  return val
+}
+
+const hasLowEnergySteps = (goal: Goal): boolean => {
+  return goal.micro_steps.some(s =>
+    !s.completed && (s.energyLevel === 'low' || parseTimeMinutes(s.timeEstimate) < 15)
+  )
+}
+
 // ============================================
 // Main Component
 // ============================================
 export default function GoalsPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f9fa', color: '#8899a6' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #00ba7c', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          <p>Loading your garden...</p>
+        </div>
+      </div>
+    }>
+      <GoalsPageContent />
+    </Suspense>
+  )
+}
+
+function GoalsPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const energyParam = searchParams.get('energy') as 'low' | 'medium' | 'high' | null
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -386,7 +417,13 @@ export default function GoalsPage() {
     )
   }
 
-  const activeGoals = goals.filter(g => g.status === 'active')
+  const isLowEnergy = energyParam === 'low'
+  const isHighEnergy = energyParam === 'high'
+
+  const allActiveGoals = goals.filter(g => g.status === 'active')
+  const activeGoals = isLowEnergy
+    ? allActiveGoals.filter(g => hasLowEnergySteps(g))
+    : allActiveGoals
   const completedGoals = goals.filter(g => g.status === 'completed')
 
   return (
@@ -409,6 +446,18 @@ export default function GoalsPage() {
           <h1>🎯 Goals</h1>
         </div>
 
+        {/* Energy Mode Banner */}
+        {isLowEnergy && (
+          <div className="energy-banner low">
+            🌱 Low energy mode: Showing only tiny, manageable steps.
+          </div>
+        )}
+        {isHighEnergy && (
+          <div className="energy-banner high">
+            ⚡ High energy: Sprint to finish goals that are close!
+          </div>
+        )}
+
         {/* Tabs */}
         {view !== 'detail' && (
           <div className="tabs">
@@ -418,12 +467,14 @@ export default function GoalsPage() {
             >
               My goals
             </button>
-            <button
-              className={`tab ${view === 'create' ? 'active' : ''}`}
-              onClick={() => setView('create')}
-            >
-              + New goal
-            </button>
+            {!isLowEnergy && (
+              <button
+                className={`tab ${view === 'create' ? 'active' : ''}`}
+                onClick={() => setView('create')}
+              >
+                + New goal
+              </button>
+            )}
           </div>
         )}
 
@@ -659,13 +710,17 @@ export default function GoalsPage() {
                     </div>
                     {activeGoals.map((goal) => {
                       const isRecommended = suggestion?.goalId === goal.id
+                      const isSprintCandidate = isHighEnergy && goal.progress_percent >= 75
                       return (
                         <div
                           key={goal.id}
-                          className={`card goal-card${isRecommended ? ' recommended' : ''}`}
+                          className={`card goal-card${isRecommended ? ' recommended' : ''}${isSprintCandidate ? ' sprint' : ''}`}
                           onClick={() => { setSelectedGoal(goal); setView('detail') }}
                         >
-                          {isRecommended && (
+                          {isSprintCandidate && (
+                            <span className="sprint-badge">⚡ Sprint to finish!</span>
+                          )}
+                          {isRecommended && !isSprintCandidate && (
                             <span className="recommended-badge">💡 Recommended</span>
                           )}
                           <div className="goal-header">
@@ -789,6 +844,28 @@ const styles = `
     font-size: clamp(22px, 6vw, 28px);
     font-weight: 700;
     margin: 0;
+  }
+
+  /* ===== ENERGY MODE BANNERS ===== */
+  .energy-banner {
+    padding: clamp(10px, 2.5vw, 14px) clamp(14px, 3.5vw, 18px);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    margin-bottom: clamp(12px, 3.5vw, 16px);
+    text-align: center;
+  }
+
+  .energy-banner.low {
+    background: rgba(0, 186, 124, 0.08);
+    color: #059669;
+    border: 1px solid rgba(0, 186, 124, 0.2);
+  }
+
+  .energy-banner.high {
+    background: rgba(255, 173, 31, 0.08);
+    color: #b45309;
+    border: 1px solid rgba(255, 173, 31, 0.2);
   }
 
   .tabs {
@@ -1199,6 +1276,22 @@ const styles = `
     font-weight: 600;
     color: #b8860b;
     background: rgba(255, 173, 31, 0.12);
+    padding: 3px clamp(8px, 2vw, 12px);
+    border-radius: 100px;
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .goal-card.sprint {
+    border: 1.5px solid rgba(255, 173, 31, 0.4);
+    background: linear-gradient(135deg, white 0%, rgba(255, 173, 31, 0.06) 100%);
+  }
+
+  .sprint-badge {
+    display: inline-block;
+    font-size: clamp(11px, 2.8vw, 12px);
+    font-weight: 600;
+    color: #b45309;
+    background: rgba(255, 173, 31, 0.15);
     padding: 3px clamp(8px, 2vw, 12px);
     border-radius: 100px;
     margin-bottom: clamp(8px, 2vw, 12px);
