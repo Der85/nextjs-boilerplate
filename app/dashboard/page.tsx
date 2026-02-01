@@ -330,6 +330,10 @@ export default function Dashboard() {
 
   const modeConfig = getModeConfig()
 
+  // Computed view flags for mode-specific rendering
+  const isRecoveryView = userMode === 'recovery' && !showCheckInAnyway && !checkInComplete
+  const isGrowthView = userMode === 'growth' && !showCheckInAnyway && !checkInComplete
+
   return (
     <div className="dashboard">
       <AppHeader
@@ -420,13 +424,34 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* AI Insight Card (Pattern Engine) */}
-        {aiInsight && (
+        {/* Recovery Mode: 2-column action grid */}
+        {isRecoveryView && (
+          <div className="recovery-actions-grid">
+            <button onClick={() => router.push('/brake')} className="btn-secondary recovery-action-btn">
+              🛑 Brake / Reset
+            </button>
+            <button onClick={() => router.push('/ally')} className="btn-secondary recovery-action-btn">
+              💜 I'm Stuck
+            </button>
+          </div>
+        )}
+
+        {/* Growth Mode: Primary CTA */}
+        {isGrowthView && (
+          <div className="growth-cta">
+            <button onClick={() => router.push('/focus?mode=sprint&energy=high')} className="btn-action growth">
+              ⚡️ Start Hyperfocus Session
+            </button>
+          </div>
+        )}
+
+        {/* AI Insight Card (Pattern Engine) — hidden in Recovery */}
+        {!isRecoveryView && aiInsight && (
           <InsightCard insight={aiInsight} onDismiss={() => setAiInsight(null)} />
         )}
 
-        {/* Phase 4: Insight Card (replaces stats-row) */}
-        {insights && (insights.trend === 'up' || insights.trend === 'down') && (
+        {/* Phase 4: Insight Card (replaces stats-row) — hidden in Recovery */}
+        {!isRecoveryView && insights && (insights.trend === 'up' || insights.trend === 'down') && (
           <ProgressiveCard
             id="mood-trend-insight"
             title="Insights"
@@ -446,8 +471,8 @@ export default function Dashboard() {
           </ProgressiveCard>
         )}
 
-        {/* Phase 4: Activity Feed (Twitter-style stream) */}
-        {recentMoods.length > 0 && (
+        {/* Phase 4: Activity Feed — hidden in Recovery */}
+        {!isRecoveryView && recentMoods.length > 0 && (
           <ProgressiveCard
             id="recent-activity"
             title="Recent Activity"
@@ -461,18 +486,18 @@ export default function Dashboard() {
                 <div className="feed-avatar">
                   <span className="feed-emoji">{getMoodEmoji(entry.mood_score)}</span>
                 </div>
-                
+
                 <div className="feed-body">
                   <div className="feed-meta">
                     <span className="feed-score">{entry.mood_score}/10</span>
                     <span className="feed-dot">·</span>
                     <span className="feed-time">{formatTime(entry.created_at)}</span>
                   </div>
-                  
+
                   {entry.note && (
                     <p className="feed-note">{entry.note}</p>
                   )}
-                  
+
                   {/* Coach advice bubble */}
                   {entry.coach_advice && (
                     <div className="coach-bubble">
@@ -483,7 +508,7 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-            
+
               <button onClick={() => router.push('/history')} className="feed-view-all">
                 View full history & charts →
               </button>
@@ -525,8 +550,8 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Morning Key Overlay (before 11 AM) */}
-      {showMorningKey && user && (
+      {/* Morning Key Overlay (before 11 AM) — hidden in Recovery */}
+      {!isRecoveryView && showMorningKey && user && (
         <MorningSleepCard userId={user.id} onDismiss={() => setShowMorningKey(false)} />
       )}
 
@@ -1074,6 +1099,29 @@ const styles = `
     background: var(--bg-gray);
   }
 
+
+  /* ===== RECOVERY MODE: 2-COLUMN ACTION GRID ===== */
+  .recovery-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(10px, 3vw, 16px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  .recovery-action-btn {
+    padding: clamp(20px, 5.5vw, 28px) clamp(12px, 3vw, 16px);
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 700;
+    text-align: center;
+    margin-top: 0;
+    border-radius: clamp(14px, 4vw, 22px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  /* ===== GROWTH MODE: CTA WRAPPER ===== */
+  .growth-cta {
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
 
   /* ===== SHARED SLIDER STYLES (Evening Wind Down) ===== */
   .slider-container {
