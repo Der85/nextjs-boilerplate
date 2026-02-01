@@ -51,6 +51,13 @@ const getMoodLabel = (score: number): string => {
   return 'Energized'
 }
 
+const getPulseLabel = (): string => {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 11) return 'Morning Check-in: How did you sleep?'
+  if (hour >= 11 && hour < 18) return 'Daily Pulse: How is your energy?'
+  return 'Evening Wind Down: Carrying any tension?'
+}
+
 const getGreeting = (): string => {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning'
@@ -89,9 +96,6 @@ export default function Dashboard() {
 
   // Trojan Horse intercepts
   const [showMorningKey, setShowMorningKey] = useState(false)
-  const [showEveningWindDown, setShowEveningWindDown] = useState(false)
-  const [tensionValue, setTensionValue] = useState(5)
-  const [savingIntercept, setSavingIntercept] = useState(false)
   const [pulseSaved, setPulseSaved] = useState(false)
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -119,17 +123,6 @@ export default function Dashboard() {
           .gte('created_at', todayStart)
           .limit(1)
         if (!mk || mk.length === 0) setShowMorningKey(true)
-      }
-
-      if (hour >= 19) {
-        const { data: ew } = await supabase
-          .from('burnout_logs')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .eq('source', 'evening_winddown')
-          .gte('created_at', todayStart)
-          .limit(1)
-        if (!ew || ew.length === 0) setShowEveningWindDown(true)
       }
 
       // Fetch latest undismissed AI insight (for inline display in PinnedCard)
@@ -295,25 +288,12 @@ export default function Dashboard() {
     }
     pulseTimerRef.current = setTimeout(() => {
       handlePulseSaveRef.current()
-    }, 3000)
+    }, 1500)
   }
 
   // Ref to always call latest handlePulseSave (avoids stale closure in timer)
   const handlePulseSaveRef = useRef(handlePulseSave)
   handlePulseSaveRef.current = handlePulseSave
-
-  // Trojan Horse save handler (Evening Wind Down only — Morning Key is in MorningSleepCard)
-  const saveEveningWindDown = async () => {
-    if (!user || savingIntercept) return
-    setSavingIntercept(true)
-    await supabase.from('burnout_logs').insert({
-      user_id: user.id,
-      physical_tension: tensionValue,
-      source: 'evening_winddown',
-    })
-    setShowEveningWindDown(false)
-    setSavingIntercept(false)
-  }
 
   // Phase 1: Get mode-specific styling and content
   const getModeConfig = () => {
@@ -475,11 +455,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* DailyPulse Slider — always visible */}
+        {/* DailyPulse Slider — always visible, label adapts to time of day */}
         <div className="card pulse-card">
           <div className="pulse-header">
             <p className="pulse-label">
-              Daily Pulse {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
+              {getPulseLabel()} {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
             </p>
             {moodScore !== null && (
               <span className="pulse-mood-label">{getMoodLabel(moodScore)}</span>
@@ -498,12 +478,8 @@ export default function Dashboard() {
               <span>High</span>
             </div>
           </div>
-          {pulseSaved ? (
+          {pulseSaved && (
             <div className="pulse-saved-toast">✓ Saved</div>
-          ) : (
-            <button onClick={handlePulseSave} disabled={saving || moodScore === null} className="pulse-save-btn">
-              {saving ? 'Saving...' : 'Save'}
-            </button>
           )}
         </div>
 
@@ -553,39 +529,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Evening Wind Down intercept (after 7 PM) */}
-        {showEveningWindDown && (
-          <div className="card evening-card">
-            <div className="evening-header">
-              <span className="evening-icon">🌙</span>
-              <div>
-                <h3 className="evening-title">Evening Wind Down</h3>
-                <p className="evening-subtitle">Carrying any tension?</p>
-              </div>
-            </div>
-            <div className="slider-container">
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={tensionValue}
-                onChange={(e) => setTensionValue(Number(e.target.value))}
-                className="intercept-slider"
-              />
-              <div className="slider-labels">
-                <span>None</span>
-                <span className="slider-value">{tensionValue}/10</span>
-                <span>Very tense</span>
-              </div>
-            </div>
-            <button onClick={saveEveningWindDown} className="evening-btn" disabled={savingIntercept}>
-              {savingIntercept ? 'Saving...' : 'Log & Relax'}
-            </button>
-            <button onClick={() => setShowEveningWindDown(false)} className="evening-skip">
-              Dismiss
-            </button>
-          </div>
-        )}
       </main>
 
       {/* Morning Key Overlay (before 11 AM) — hidden in Recovery */}
@@ -979,23 +922,6 @@ const styles = `
     font-size: clamp(20px, 5.5vw, 26px);
   }
 
-  .pulse-save-btn {
-    width: 100%;
-    padding: clamp(10px, 2.5vw, 14px);
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    font-size: clamp(13px, 3.5vw, 15px);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .pulse-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .pulse-save-btn:hover:not(:disabled) { background: #1a8cd8; }
-
   .pulse-saved-toast {
     width: 100%;
     padding: clamp(10px, 2.5vw, 14px);
@@ -1058,66 +984,6 @@ const styles = `
     font-size: clamp(18px, 5vw, 24px);
     font-weight: 700;
     color: var(--primary);
-  }
-
-  /* ===== EVENING WIND DOWN CARD ===== */
-  .evening-card {
-    padding: clamp(18px, 5vw, 26px);
-    margin-bottom: clamp(12px, 4vw, 18px);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    background: rgba(99, 102, 241, 0.04);
-  }
-
-  .evening-header {
-    display: flex;
-    align-items: center;
-    gap: clamp(12px, 3.5vw, 16px);
-    margin-bottom: clamp(16px, 4vw, 22px);
-  }
-
-  .evening-icon {
-    font-size: clamp(32px, 9vw, 42px);
-    flex-shrink: 0;
-  }
-
-  .evening-title {
-    font-size: clamp(16px, 4.5vw, 20px);
-    font-weight: 700;
-    color: #4338ca;
-    margin: 0 0 clamp(2px, 0.5vw, 4px) 0;
-  }
-
-  .evening-subtitle {
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: var(--dark-gray);
-    margin: 0;
-  }
-
-  .evening-btn {
-    width: 100%;
-    padding: clamp(12px, 3.5vw, 16px);
-    background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
-    color: white;
-    border: none;
-    border-radius: 100px;
-    font-size: clamp(14px, 4vw, 17px);
-    font-weight: 700;
-    cursor: pointer;
-    margin-bottom: clamp(6px, 1.5vw, 10px);
-    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
-  }
-
-  .evening-btn:disabled { opacity: 0.7; cursor: wait; }
-
-  .evening-skip {
-    width: 100%;
-    padding: clamp(8px, 2vw, 12px);
-    background: none;
-    border: none;
-    font-size: clamp(12px, 3.2vw, 14px);
-    color: var(--dark-gray);
-    cursor: pointer;
-    text-align: center;
   }
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
