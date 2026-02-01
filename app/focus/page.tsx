@@ -113,6 +113,7 @@ function FocusPageContent() {
 
   // Sprint/Gentle mode state (from check-in handoff)
   const [sprintMode, setSprintMode] = useState(false)
+  const [gentleMode, setGentleMode] = useState(false)
   const [userMode, setUserMode] = useState<'recovery' | 'growth' | 'maintenance'>('maintenance')
   const [energyLevel, setEnergyLevel] = useState<'high' | 'low' | null>(null)
 
@@ -156,8 +157,9 @@ function FocusPageContent() {
         setHandoffGoalId(goalIdParam || null)
         setHandoffStepId(stepIdParam || null)
         setStep('context')
-      } else if (modeParam === 'gentle' && energyParam === 'low') {
+      } else if ((modeParam === 'gentle' && energyParam === 'low') || (!modeParam && energyParam === 'low')) {
         // Gentle mode: skip brain-dump, go straight to breakdown with a low-demand task
+        setGentleMode(true)
         const gentleTask: ParsedTask = {
           id: 'gentle_1',
           text: 'Just 5 minutes of low-demand work',
@@ -446,12 +448,33 @@ function FocusPageContent() {
         />
       )}
       {step === 'breakdown' && (
-        <BreakdownScreen
-          breakdowns={breakdowns}
-          loading={breakdownLoading}
-          onStartFocusing={handleStartFocusing}
-          onBack={handleBreakdownBack}
-        />
+        <>
+          {gentleMode && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              color: 'white',
+              padding: '10px 16px',
+              textAlign: 'center',
+              fontSize: '14px',
+              fontWeight: 700,
+              letterSpacing: '0.3px',
+              boxShadow: '0 2px 12px rgba(99, 102, 241, 0.3)',
+            }}>
+              🌙 Gentle Mode: Energy is low, so we kept it simple.
+            </div>
+          )}
+          <BreakdownScreen
+            breakdowns={breakdowns}
+            loading={breakdownLoading}
+            onStartFocusing={handleStartFocusing}
+            onBack={handleBreakdownBack}
+          />
+        </>
       )}
       {step === 'dashboard' && (
         <FocusDashboard

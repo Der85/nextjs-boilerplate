@@ -43,12 +43,10 @@ const getMoodEmoji = (score: number): string => {
   return '😄'
 }
 
-const getMoodLabel = (score: number): string => {
-  if (score <= 2) return 'Depleted'
-  if (score <= 4) return 'Low Energy'
-  if (score <= 6) return 'Balanced'
-  if (score <= 8) return 'Good'
-  return 'Energized'
+const getMoodLabel = (score: number): { text: string; dot: string } => {
+  if (score <= 3) return { text: 'Depleted (Need Rest)', dot: '🔴' }
+  if (score <= 6) return { text: 'Steady (Maintenance)', dot: '🔵' }
+  return { text: 'Charged (Ready to Go)', dot: '🟢' }
 }
 
 const getPulseLabel = (): string => {
@@ -305,7 +303,7 @@ export default function Dashboard() {
           borderColor: 'rgba(244, 33, 46, 0.2)',
           icon: '🫂',
           label: 'Recovery Mode',
-          message: "Let's take it easy today. Focus on regulation, not productivity."
+          message: "Low battery detected. Let's simplify."
         }
       case 'growth':
         return {
@@ -314,7 +312,7 @@ export default function Dashboard() {
           borderColor: 'rgba(0, 186, 124, 0.2)',
           icon: '🚀',
           label: 'Growth Mode',
-          message: "You're on fire! Let's channel this energy into something meaningful."
+          message: "Channel this energy before it fades."
         }
       case 'maintenance':
       default:
@@ -367,12 +365,12 @@ export default function Dashboard() {
             <div className="pinned-header">
               <span className="pinned-icon">🫂</span>
               <div className="pinned-titles">
-                <h2 className="pinned-title">Low Power Mode Active</h2>
-                <p className="pinned-subtitle">Energy is low — let&apos;s skip the big tasks.</p>
+                <h2 className="pinned-title">Low Battery Detected</h2>
+                <p className="pinned-subtitle">Let&apos;s simplify.</p>
               </div>
             </div>
             <p className="pinned-message">
-              Your last check-in showed you&apos;re running on fumes. Today isn&apos;t about productivity — it&apos;s about getting back to baseline.
+              Skip the big tasks. Focus on rest and regulation today.
             </p>
             {(aiInsight || insights?.trend) && (
               <div className="pinned-insights">
@@ -398,11 +396,11 @@ export default function Dashboard() {
               <span className="pinned-icon">🚀</span>
               <div className="pinned-titles">
                 <h2 className="pinned-title">Momentum Detected</h2>
-                <p className="pinned-subtitle">You are in the zone.</p>
+                <p className="pinned-subtitle">You&apos;re charged up.</p>
               </div>
             </div>
             <p className="pinned-message">
-              Your mood is high and you&apos;ve been consistent. Let&apos;s channel this energy into something meaningful before it fades.
+              Channel this energy before it fades.
             </p>
             {(aiInsight || insights?.trend) && (
               <div className="pinned-insights">
@@ -461,9 +459,10 @@ export default function Dashboard() {
             <p className="pulse-label">
               {getPulseLabel()} {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
             </p>
-            {moodScore !== null && (
-              <span className="pulse-mood-label">{getMoodLabel(moodScore)}</span>
-            )}
+            {moodScore !== null && (() => {
+              const label = getMoodLabel(moodScore)
+              return <span className="pulse-mood-label">{label.dot} {label.text}</span>
+            })()}
           </div>
           <div className="slider-container">
             <input
@@ -501,7 +500,7 @@ export default function Dashboard() {
             <button
               onClick={() => router.push(
                 activeGoal
-                  ? `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}`
+                  ? `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=high`
                   : '/focus?mode=sprint&energy=high'
               )}
               className="btn-action growth"
@@ -514,7 +513,13 @@ export default function Dashboard() {
         {/* Maintenance Mode: 2x2 action grid */}
         {!isRecoveryView && !isGrowthView && (
           <div className="maintenance-actions-grid">
-            <button onClick={() => router.push('/focus')} className="maintenance-action-btn primary">
+            <button onClick={() => router.push(
+              moodScore !== null && moodScore <= 3
+                ? '/focus?mode=gentle&energy=low'
+                : moodScore !== null && moodScore >= 7
+                  ? '/focus?mode=sprint&energy=high'
+                  : '/focus'
+            )} className="maintenance-action-btn primary">
               ⏱️ Focus
             </button>
             <button onClick={() => router.push('/goals')} className="maintenance-action-btn secondary">
