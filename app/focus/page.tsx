@@ -111,6 +111,9 @@ function FocusPageContent() {
   const [handoffGoalId, setHandoffGoalId] = useState<string | null>(null)
   const [handoffStepId, setHandoffStepId] = useState<string | null>(null)
 
+  // Sprint/Gentle mode state (from check-in handoff)
+  const [sprintMode, setSprintMode] = useState(false)
+
   // Presence
   const { onlineCount } = usePresenceWithFallback({ isFocusing: true })
 
@@ -132,6 +135,10 @@ function FocusPageContent() {
       const goalIdParam = searchParams.get('goalId')
       const stepIdParam = searchParams.get('stepId')
 
+      // Handle URL params from Check-in handoff (mode & energy)
+      const modeParam = searchParams.get('mode') as 'sprint' | 'gentle' | null
+      const energyParam = searchParams.get('energy') as 'high' | 'low' | null
+
       if (createParam === 'true' && taskNameParam) {
         // Goal handoff: skip to context with pre-filled task
         const handoffTask: ParsedTask = {
@@ -142,6 +149,27 @@ function FocusPageContent() {
         setHandoffGoalId(goalIdParam || null)
         setHandoffStepId(stepIdParam || null)
         setStep('context')
+      } else if (modeParam === 'gentle' && energyParam === 'low') {
+        // Gentle mode: skip brain-dump, go straight to breakdown with a low-demand task
+        const gentleTask: ParsedTask = {
+          id: 'gentle_1',
+          text: 'Just 5 minutes of low-demand work',
+        }
+        setParsedTasks([gentleTask])
+        setBreakdowns([{
+          taskName: gentleTask.text,
+          dueDate: 'Today',
+          energyLevel: 'low',
+          steps: [
+            { id: 'gentle_step_1', text: 'Pick the smallest thing on your list', dueBy: 'Now', timeEstimate: '1 min', completed: false },
+            { id: 'gentle_step_2', text: 'Set a 5-minute timer', dueBy: 'Next', timeEstimate: '1 min', completed: false },
+            { id: 'gentle_step_3', text: 'Work until the timer ends — then stop', dueBy: 'After that', timeEstimate: '5 min', completed: false },
+          ],
+        }])
+        setStep('breakdown')
+      } else if (modeParam === 'sprint' && energyParam === 'high') {
+        // Sprint mode: stay on brain-dump but flag it
+        setSprintMode(true)
       } else if (fetchedPlans.length > 0) {
         // Has existing plans: go to dashboard
         setStep('dashboard')
@@ -368,10 +396,31 @@ function FocusPageContent() {
   return (
     <>
       {step === 'brain-dump' && (
-        <BrainDumpScreen
-          onSubmit={handleBrainDumpSubmit}
-          onSkip={handleBrainDumpSkip}
-        />
+        <>
+          {sprintMode && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              background: 'linear-gradient(135deg, #00ba7c 0%, #059669 100%)',
+              color: 'white',
+              padding: '10px 16px',
+              textAlign: 'center',
+              fontSize: '14px',
+              fontWeight: 700,
+              letterSpacing: '0.3px',
+              boxShadow: '0 2px 12px rgba(0, 186, 124, 0.3)',
+            }}>
+              ⚡ Sprint Mode Active: Let&apos;s go!
+            </div>
+          )}
+          <BrainDumpScreen
+            onSubmit={handleBrainDumpSubmit}
+            onSkip={handleBrainDumpSkip}
+          />
+        </>
       )}
       {step === 'triage' && (
         <TriageScreen

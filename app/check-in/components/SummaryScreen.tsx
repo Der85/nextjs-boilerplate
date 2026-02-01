@@ -30,13 +30,13 @@ export default function SummaryScreen({
     switch (userMode) {
       case 'recovery':
         return {
-          label: '🛑 Take a BREAK',
-          path: '/brake'
+          label: '🌱 Try one tiny thing',
+          path: '/focus?mode=gentle&energy=low'
         }
       case 'growth':
         return {
-          label: '⏱️ Start Focus Session',
-          path: '/focus'
+          label: '🔥 Use this energy (Focus)',
+          path: '/focus?mode=sprint&energy=high'
         }
       default:
         return {
