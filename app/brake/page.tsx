@@ -689,29 +689,89 @@ const styles = `
     margin: 0;
   }
 
-  /* ===== SUMMARY CARD ===== */
-  .summary-card {
-    background: #ecfdf5;
-    border-radius: clamp(14px, 4vw, 20px);
-    padding: clamp(16px, 4.5vw, 22px);
-    margin-bottom: clamp(16px, 4vw, 22px);
+  /* ===== RE-ENTRY OVERLAY ===== */
+  .reentry .subtitle.reentry-sub {
+    margin-bottom: clamp(24px, 6vw, 32px);
   }
 
-  .summary-row {
+  .reentry-options {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 3vw, 14px);
+  }
+
+  .reentry-btn {
     display: flex;
     align-items: center;
-    gap: clamp(10px, 3vw, 14px);
-    padding: clamp(8px, 2vw, 12px) 0;
-    font-size: clamp(14px, 3.8vw, 16px);
+    gap: clamp(12px, 3vw, 16px);
+    width: 100%;
+    padding: clamp(14px, 4vw, 20px);
+    background: white;
+    border: 2px solid var(--extra-light-gray);
+    border-radius: clamp(14px, 4vw, 20px);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .reentry-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .reentry-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .reentry-btn.better {
+    border-color: rgba(0, 186, 124, 0.3);
+    background: rgba(0, 186, 124, 0.04);
+  }
+
+  .reentry-btn.better:hover:not(:disabled) {
+    border-color: var(--success);
+    background: rgba(0, 186, 124, 0.08);
+  }
+
+  .reentry-btn.struggling {
+    border-color: rgba(29, 155, 240, 0.3);
+    background: rgba(29, 155, 240, 0.04);
+  }
+
+  .reentry-btn.struggling:hover {
+    border-color: var(--primary);
+    background: rgba(29, 155, 240, 0.08);
+  }
+
+  .reentry-btn.help {
+    border-color: rgba(139, 92, 246, 0.3);
+    background: rgba(139, 92, 246, 0.04);
+  }
+
+  .reentry-btn.help:hover {
+    border-color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.08);
+  }
+
+  .reentry-icon {
+    font-size: clamp(24px, 7vw, 32px);
+    flex-shrink: 0;
+  }
+
+  .reentry-label {
+    font-size: clamp(15px, 4vw, 17px);
+    font-weight: 600;
     color: var(--text-dark);
+    display: block;
   }
 
-  .summary-row:not(:last-child) {
-    border-bottom: 1px solid rgba(0, 186, 124, 0.2);
-  }
-
-  .summary-icon {
-    font-size: clamp(18px, 5vw, 24px);
+  .reentry-hint {
+    font-size: clamp(12px, 3.2vw, 13px);
+    color: var(--light-gray);
+    display: block;
+    margin-top: 2px;
   }
 
   /* ===== TABLET/DESKTOP ===== */
