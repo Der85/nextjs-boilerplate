@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
 
 interface NotificationBar {
   text: string
@@ -28,6 +29,9 @@ export default function AppHeader({
   const router = useRouter()
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
+  const { userStats } = useUserStats()
+
+  const levelProgress = userStats ? getLevelProgress(userStats) : null
 
   const isActive = (item: typeof navItems[0]) => {
     return item.matchPaths.some(p => pathname.startsWith(p))
@@ -110,6 +114,16 @@ export default function AppHeader({
         >
           {notificationBar.icon && <span className="notif-icon">{notificationBar.icon}</span>}
           <span className="notif-text">{notificationBar.text}</span>
+        </div>
+      )}
+
+      {userStats && levelProgress && (
+        <div className="xp-strip">
+          <span className="xp-level-badge">Lv {userStats.current_level}</span>
+          <div className="xp-track">
+            <div className="xp-fill" style={{ width: `${levelProgress.progress}%` }} />
+          </div>
+          <span className="xp-label">{levelProgress.xpInLevel}/{levelProgress.xpNeeded}</span>
         </div>
       )}
 
@@ -285,6 +299,53 @@ export default function AppHeader({
 
         .notif-text {
           line-height: 1.3;
+        }
+
+        /* ===== COMPACT XP STRIP ===== */
+        .xp-strip {
+          display: flex;
+          align-items: center;
+          gap: clamp(6px, 1.5vw, 10px);
+          padding: clamp(4px, 1vw, 6px) clamp(12px, 4vw, 20px);
+          background: #f7f9fa;
+          border-bottom: 1px solid #eff3f4;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .xp-level-badge {
+          font-size: clamp(10px, 2.8vw, 12px);
+          font-weight: 700;
+          color: white;
+          background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+          padding: 2px clamp(6px, 1.5vw, 8px);
+          border-radius: 100px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          letter-spacing: 0.3px;
+          text-transform: uppercase;
+        }
+
+        .xp-track {
+          flex: 1;
+          height: clamp(6px, 1.5vw, 8px);
+          background: #e5e7eb;
+          border-radius: 100px;
+          overflow: hidden;
+        }
+
+        .xp-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #00ba7c 0%, #22c55e 100%);
+          border-radius: 100px;
+          transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .xp-label {
+          font-size: clamp(10px, 2.5vw, 12px);
+          font-weight: 600;
+          color: #8899a6;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         @media (min-width: 480px) {
