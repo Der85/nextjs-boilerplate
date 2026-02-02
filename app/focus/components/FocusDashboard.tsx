@@ -97,6 +97,10 @@ export default function FocusDashboard({
   const [showStuckModal, setShowStuckModal] = useState(false)
   const [stuckTaskName, setStuckTaskName] = useState('')
 
+  // Quick Capture (Parking Lot)
+  const [captureText, setCaptureText] = useState('')
+  const [showCaptureToast, setShowCaptureToast] = useState(false)
+
   // Editing state
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [editingTaskName, setEditingTaskName] = useState('')
@@ -130,6 +134,9 @@ export default function FocusDashboard({
   // Zen Mode
   const [isZenMode, setIsZenMode] = useState(false)
   const [zenPlanId, setZenPlanId] = useState<string | null>(null)
+
+  // Village Presence (Body Doubling)
+  const [showBoostBurst, setShowBoostBurst] = useState(false)
 
   // Implicit Overwhelm Detection
   const [showOverwhelmToast, setShowOverwhelmToast] = useState(false)
@@ -672,37 +679,80 @@ export default function FocusDashboard({
     setEditingStepText('')
   }
 
-  return (
-    <div className="focus-page">
-      <AppHeader
-        onlineCount={onlineCount}
-        notificationBar={{
-          text: 'Break down tasks into manageable steps',
-          color: '#1D9BF0',
-          icon: '⏱️',
-        }}
-      />
+  const handleQuickCapture = async () => {
+    const text = captureText.trim()
+    if (!text || !user) return
 
-      <main className="main">
-        <div className="page-header-title">
-          <h1>⏱️ Focus Mode</h1>
-          {sortedPlans.length > 0 && (
+    // Optimistic: clear input and show toast immediately
+    setCaptureText('')
+    setShowCaptureToast(true)
+    setTimeout(() => setShowCaptureToast(false), 2000)
+
+    // Background: save as a low-energy backlog plan
+    await supabase.from('focus_plans').insert({
+      user_id: user.id,
+      task_name: text,
+      steps: [],
+      steps_completed: 0,
+      total_steps: 0,
+      is_completed: false,
+      due_date: 'no_rush',
+      energy_required: 'low',
+    })
+
+    onPlansUpdate()
+  }
+
+  const handleVillageBoost = () => {
+    setShowBoostBurst(true)
+    setTimeout(() => setShowBoostBurst(false), 2500)
+  }
+
+  return (
+    <div className={`focus-page ${isZenMode ? 'zen-page' : ''}`}>
+      {!isZenMode && (
+        <AppHeader
+          onlineCount={onlineCount}
+          notificationBar={{
+            text: 'Break down tasks into manageable steps',
+            color: '#1D9BF0',
+            icon: '⏱️',
+          }}
+        />
+      )}
+
+      {/* Zen Mode dimmed backdrop */}
+      {isZenMode && <div className="zen-backdrop" />}
+
+      <main className={`main ${isZenMode ? 'main-zen' : ''}`}>
+        {isZenMode ? (
+          <div className="zen-header">
             <button
-              className={`zen-toggle ${isZenMode ? 'active' : ''}`}
+              className="zen-toggle active"
               onClick={() => {
-                if (isZenMode) {
-                  setIsZenMode(false)
-                  setZenPlanId(null)
-                } else {
-                  setIsZenMode(true)
-                  setZenPlanId(sortedPlans[0]?.id || null)
-                }
+                setIsZenMode(false)
+                setZenPlanId(null)
               }}
             >
-              {isZenMode ? '📋 Show All' : '👁️ Zen Mode'}
+              📋 Show All
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="page-header-title">
+            <h1>⏱️ Focus Mode</h1>
+            {sortedPlans.length > 0 && (
+              <button
+                className="zen-toggle"
+                onClick={() => {
+                  setIsZenMode(true)
+                  setZenPlanId(sortedPlans[0]?.id || null)
+                }}
+              >
+                👁️ Zen Mode
+              </button>
+            )}
+          </div>
+        )}
 
         {!isZenMode && (
           <button onClick={onNewBrainDump} className="new-dump-btn">
@@ -734,43 +784,47 @@ export default function FocusDashboard({
 
             return (
               <div key={plan.id} className={`card task-card ${isZenMode ? 'zen-active' : ''}`}>
-                <div className="task-top-row">
-                  <div className="task-badges">
-                    {linkedGoalTitle && (
-                      <span className="linked-goal-badge">🎯 {linkedGoalTitle}</span>
-                    )}
-                    {dueDateLabel && (
-                      <span className="due-badge">{dueDateLabel}</span>
-                    )}
-                  </div>
-                  <div className="task-actions-wrapper">
-                    <button
-                      className="task-menu-btn"
-                      onClick={() => setTaskMenuId(isMenuOpen ? null : plan.id)}
-                      type="button"
-                    >
-                      ⋯
-                    </button>
-                    {isMenuOpen && (
-                      <div className="task-action-menu">
-                        <button className="action-item" onClick={() => startEditTask(plan)}>
-                          ✏️ Edit name
-                        </button>
-                        {canDeprioritize && (
-                          <button className="action-item" onClick={() => deprioritizePlan(plan.id)}>
-                            🌊 Deprioritize
-                          </button>
+                {!isZenMode && (
+                  <>
+                    <div className="task-top-row">
+                      <div className="task-badges">
+                        {linkedGoalTitle && (
+                          <span className="linked-goal-badge">🎯 {linkedGoalTitle}</span>
                         )}
-                        <button className="action-item danger" onClick={() => deletePlan(plan.id)}>
-                          🗑️ Delete task
-                        </button>
+                        {dueDateLabel && (
+                          <span className="due-badge">{dueDateLabel}</span>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                      <div className="task-actions-wrapper">
+                        <button
+                          className="task-menu-btn"
+                          onClick={() => setTaskMenuId(isMenuOpen ? null : plan.id)}
+                          type="button"
+                        >
+                          ⋯
+                        </button>
+                        {isMenuOpen && (
+                          <div className="task-action-menu">
+                            <button className="action-item" onClick={() => startEditTask(plan)}>
+                              ✏️ Edit name
+                            </button>
+                            {canDeprioritize && (
+                              <button className="action-item" onClick={() => deprioritizePlan(plan.id)}>
+                                🌊 Deprioritize
+                              </button>
+                            )}
+                            <button className="action-item danger" onClick={() => deletePlan(plan.id)}>
+                              🗑️ Delete task
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                {isMenuOpen && (
-                  <div className="action-menu-overlay" onClick={() => setTaskMenuId(null)} />
+                    {isMenuOpen && (
+                      <div className="action-menu-overlay" onClick={() => setTaskMenuId(null)} />
+                    )}
+                  </>
                 )}
 
                 <div className="task-header">
@@ -801,6 +855,23 @@ export default function FocusDashboard({
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
+
+                {/* Village Presence (Body Doubling) */}
+                {onlineCount > 0 && (
+                  <div className="village-presence">
+                    <div className="village-dots">
+                      {Array.from({ length: Math.min(onlineCount, 5) }).map((_, i) => (
+                        <span key={i} className="village-dot" style={{ animationDelay: `${i * 0.3}s` }} />
+                      ))}
+                    </div>
+                    <span className="village-text">
+                      {onlineCount} other{onlineCount !== 1 ? 's' : ''} focusing with you
+                    </span>
+                    <button className="village-boost-btn" onClick={handleVillageBoost} type="button">
+                      👋 Boost
+                    </button>
+                  </div>
+                )}
 
                 {/* Micro-Start: 5-Minute Dash */}
                 {!microTimerPlanId && pct < 100 && (
@@ -923,7 +994,9 @@ export default function FocusDashboard({
               <div className="modal-icon">🎉</div>
               <h2 className="modal-title">Great work!</h2>
               <p className="modal-text">
-                You completed your focus session.
+                {onlineCount > 0
+                  ? <>You and {onlineCount} other{onlineCount !== 1 ? 's' : ''} crushed it just now.</>
+                  : <>You completed your focus session.</>}
                 <br />
                 <strong>Did this complete the step in your Goal?</strong>
               </p>
@@ -1112,6 +1185,51 @@ export default function FocusDashboard({
         </div>
       )}
 
+      {/* Quick Capture (Parking Lot) — always visible, even during timer */}
+      <div className={`quick-capture-bar ${microTimerPlanId ? 'above-timer' : ''}`}>
+        <span className="quick-capture-icon">📥</span>
+        <input
+          type="text"
+          className="quick-capture-input"
+          placeholder="Capture a stray thought..."
+          value={captureText}
+          onChange={(e) => setCaptureText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCapture() }}
+          maxLength={200}
+        />
+        <button
+          className="quick-capture-add"
+          onClick={handleQuickCapture}
+          disabled={captureText.trim().length === 0}
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Quick Capture Toast */}
+      {showCaptureToast && (
+        <div className="capture-toast">📥 Saved for later. Back to flow.</div>
+      )}
+
+      {/* Village Boost Burst */}
+      {showBoostBurst && (
+        <div className="boost-burst">
+          <div className="boost-confetti">
+            {[...Array(12)].map((_, i) => (
+              <span key={i} className="boost-piece" style={{
+                left: `${10 + Math.random() * 80}%`,
+                animationDelay: `${Math.random() * 0.5}s`,
+                backgroundColor: ['#1D9BF0', '#00ba7c', '#ffad1f', '#805ad5', '#f4212e', '#ff6b6b'][i % 6],
+              }} />
+            ))}
+          </div>
+          <div className="boost-msg">
+            <span className="boost-msg-icon">👋</span>
+            <span className="boost-msg-text">Village boosted! Keep going.</span>
+          </div>
+        </div>
+      )}
+
       {/* Celebration */}
       {showCelebration && (
         <div className="celebration-overlay">
@@ -1151,7 +1269,7 @@ export default function FocusDashboard({
 
         .main {
           padding: clamp(12px, 4vw, 20px);
-          padding-bottom: clamp(16px, 4vw, 24px);
+          padding-bottom: clamp(70px, 18vw, 90px);
           max-width: 600px;
           margin: 0 auto;
         }
@@ -1170,6 +1288,60 @@ export default function FocusDashboard({
         }
 
         /* ===== ZEN MODE ===== */
+        .zen-page {
+          position: relative;
+        }
+
+        .zen-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 20, 25, 0.6);
+          z-index: 50;
+          animation: zenFadeIn 0.3s ease;
+        }
+
+        @keyframes zenFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .main-zen {
+          position: relative;
+          z-index: 60;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: calc(100vh - 20px);
+          min-height: calc(100dvh - 20px);
+          padding-top: clamp(20px, 6vw, 40px);
+        }
+
+        .zen-header {
+          display: flex;
+          justify-content: center;
+          margin-bottom: clamp(16px, 4vw, 24px);
+          width: 100%;
+          max-width: 600px;
+        }
+
+        .main-zen .task-card.zen-active {
+          border: 2px solid rgba(99, 102, 241, 0.35);
+          box-shadow: 0 8px 40px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1);
+          max-width: 600px;
+          width: 100%;
+          transform: scale(1.02);
+          animation: zenCardIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes zenCardIn {
+          from { opacity: 0; transform: scale(0.95) translateY(10px); }
+          to { opacity: 1; transform: scale(1.02) translateY(0); }
+        }
+
         .zen-toggle {
           padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px);
           background: white;
@@ -1199,11 +1371,6 @@ export default function FocusDashboard({
 
         .zen-toggle.active:hover {
           background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-        }
-
-        .task-card.zen-active {
-          border: 2px solid rgba(99, 102, 241, 0.25);
-          box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
         }
 
         .new-dump-btn {
@@ -1343,6 +1510,157 @@ export default function FocusDashboard({
           background: var(--success);
           border-radius: 100px;
           transition: width 0.3s ease;
+        }
+
+        /* ===== VILLAGE PRESENCE (BODY DOUBLING) ===== */
+        .village-presence {
+          display: flex;
+          align-items: center;
+          gap: clamp(8px, 2vw, 12px);
+          padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 14px);
+          background: rgba(29, 155, 240, 0.05);
+          border: 1px solid rgba(29, 155, 240, 0.12);
+          border-radius: clamp(10px, 2.5vw, 14px);
+          margin-bottom: clamp(10px, 2.5vw, 14px);
+        }
+
+        .village-dots {
+          display: flex;
+          gap: 3px;
+          flex-shrink: 0;
+        }
+
+        .village-dot {
+          width: clamp(8px, 2vw, 10px);
+          height: clamp(8px, 2vw, 10px);
+          border-radius: 50%;
+          background: #00ba7c;
+          animation: villagePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes villagePulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .village-text {
+          flex: 1;
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 500;
+          color: var(--dark-gray);
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .village-boost-btn {
+          padding: clamp(4px, 1vw, 6px) clamp(10px, 2.5vw, 14px);
+          background: white;
+          border: 1.5px solid rgba(29, 155, 240, 0.25);
+          border-radius: 100px;
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 600;
+          color: var(--primary);
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          white-space: nowrap;
+        }
+
+        .village-boost-btn:hover {
+          background: rgba(29, 155, 240, 0.08);
+          border-color: var(--primary);
+        }
+
+        .village-boost-btn:active {
+          transform: scale(0.95);
+        }
+
+        /* Village Boost Burst */
+        .boost-burst {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 990;
+          pointer-events: none;
+          animation: boostFadeOut 2.5s ease forwards;
+        }
+
+        @keyframes boostFadeOut {
+          0% { opacity: 1; }
+          70% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        .boost-confetti {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          overflow: hidden;
+        }
+
+        .boost-piece {
+          position: absolute;
+          width: clamp(6px, 1.5vw, 10px);
+          height: clamp(6px, 1.5vw, 10px);
+          border-radius: 50%;
+          top: 50%;
+          animation: boostExplode 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        @keyframes boostExplode {
+          0% { transform: translate(0, 0) scale(1); opacity: 1; }
+          100% { transform: translate(var(--tx, 0), var(--ty, -200px)) scale(0.3); opacity: 0; }
+        }
+
+        .boost-piece:nth-child(1) { --tx: -60px; --ty: -180px; }
+        .boost-piece:nth-child(2) { --tx: 80px; --ty: -200px; }
+        .boost-piece:nth-child(3) { --tx: -120px; --ty: -100px; }
+        .boost-piece:nth-child(4) { --tx: 100px; --ty: -140px; }
+        .boost-piece:nth-child(5) { --tx: -30px; --ty: -220px; }
+        .boost-piece:nth-child(6) { --tx: 50px; --ty: -90px; }
+        .boost-piece:nth-child(7) { --tx: -90px; --ty: -160px; }
+        .boost-piece:nth-child(8) { --tx: 130px; --ty: -120px; }
+        .boost-piece:nth-child(9) { --tx: -50px; --ty: -240px; }
+        .boost-piece:nth-child(10) { --tx: 70px; --ty: -170px; }
+        .boost-piece:nth-child(11) { --tx: -110px; --ty: -130px; }
+        .boost-piece:nth-child(12) { --tx: 40px; --ty: -210px; }
+
+        .boost-msg {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          display: flex;
+          align-items: center;
+          gap: clamp(8px, 2vw, 12px);
+          background: white;
+          padding: clamp(12px, 3vw, 16px) clamp(18px, 5vw, 28px);
+          border-radius: clamp(14px, 4vw, 20px);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          animation: boostMsgPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes boostMsgPop {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .boost-msg-icon {
+          font-size: clamp(24px, 7vw, 32px);
+        }
+
+        .boost-msg-text {
+          font-size: clamp(14px, 3.8vw, 17px);
+          font-weight: 700;
+          color: var(--dark-gray);
+          white-space: nowrap;
         }
 
         .stuck-btn {
@@ -2182,6 +2500,98 @@ export default function FocusDashboard({
 
         .drift-btn.subtract:hover {
           background: rgba(249, 115, 22, 0.2);
+        }
+
+        /* ===== QUICK CAPTURE (PARKING LOT) ===== */
+        .quick-capture-bar {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          display: flex;
+          align-items: center;
+          transition: bottom 0.3s ease;
+          gap: clamp(8px, 2vw, 12px);
+          padding: clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 18px);
+          background: white;
+          border-top: 1px solid var(--extra-light-gray);
+          box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+          z-index: 940;
+        }
+
+        .quick-capture-icon {
+          font-size: clamp(18px, 5vw, 22px);
+          flex-shrink: 0;
+          opacity: 0.7;
+        }
+
+        .quick-capture-input {
+          flex: 1;
+          padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 14px);
+          border: 1.5px solid var(--extra-light-gray);
+          border-radius: clamp(8px, 2vw, 12px);
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: var(--bg-gray);
+          color: #0f1419;
+          min-width: 0;
+          transition: border-color 0.15s ease;
+        }
+
+        .quick-capture-input:focus {
+          outline: none;
+          border-color: var(--light-gray);
+          background: white;
+        }
+
+        .quick-capture-input::placeholder {
+          color: var(--light-gray);
+          font-style: italic;
+        }
+
+        .quick-capture-add {
+          padding: clamp(8px, 2vw, 10px) clamp(14px, 3.5vw, 18px);
+          background: var(--extra-light-gray);
+          border: none;
+          border-radius: clamp(8px, 2vw, 12px);
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 600;
+          color: var(--dark-gray);
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .quick-capture-add:hover:not(:disabled) {
+          background: var(--primary);
+          color: white;
+        }
+
+        .quick-capture-add:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .quick-capture-bar.above-timer {
+          bottom: clamp(48px, 12vw, 60px);
+        }
+
+        .capture-toast {
+          position: fixed;
+          bottom: clamp(70px, 18vw, 90px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: #1f2937;
+          color: white;
+          padding: clamp(8px, 2vw, 12px) clamp(16px, 4vw, 24px);
+          border-radius: 100px;
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 600;
+          z-index: 950;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+          animation: xpPop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          white-space: nowrap;
         }
 
         @media (min-width: 768px) {
