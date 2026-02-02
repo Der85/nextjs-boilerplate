@@ -59,7 +59,7 @@ const getEnergyParam = (score: number | null): 'low' | 'medium' | 'high' => {
 const getPulseLabel = (): string => {
   const hour = new Date().getHours()
   if (hour >= 5 && hour < 11) return '🌅 Morning Check-in: How did you sleep?'
-  if (hour >= 11 && hour < 18) return '☀️ Daily Pulse: How is your energy?'
+  if (hour >= 11 && hour < 18) return '⚡ Daily Pulse: How is your energy?'
   return '🌙 Evening Wind Down: Carrying any tension?'
 }
 
@@ -396,7 +396,7 @@ function DashboardContent() {
     }
     pulseTimerRef.current = setTimeout(() => {
       handlePulseSaveRef.current()
-    }, 1500)
+    }, 1000)
   }
 
   // Ref to always call latest handlePulseSave (avoids stale closure in timer)
@@ -670,7 +670,7 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Maintenance Mode: 2x2 action grid */}
+        {/* Maintenance Mode: Goal-aware actions */}
         {!isRecoveryView && !isGrowthView && (() => {
           const energy = getEnergyParam(moodScore)
           const focusUrl = energy === 'low'
@@ -678,13 +678,35 @@ function DashboardContent() {
             : energy === 'high'
               ? '/focus?mode=sprint&energy=high'
               : `/focus?energy=${energy}`
-          return (
+          return activeGoal ? (
+            <>
+              <button
+                onClick={() => router.push(
+                  `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}`
+                )}
+                className="maintenance-primary-cta"
+              >
+                🌿 Water your plant: {activeGoal.title}
+              </button>
+              <div className="maintenance-tools-grid">
+                <button onClick={() => router.push(`/goals?energy=${energy}`)} className="maintenance-action-btn secondary">
+                  🎯 Goals
+                </button>
+                <button onClick={() => router.push(`/ally?energy=${energy}`)} className="maintenance-action-btn secondary">
+                  💜 I&apos;m Stuck
+                </button>
+                <button onClick={() => router.push(`/history?energy=${energy}`)} className="maintenance-action-btn secondary">
+                  📊 History
+                </button>
+              </div>
+            </>
+          ) : (
             <div className="maintenance-actions-grid">
-              <button onClick={() => router.push(focusUrl)} className="maintenance-action-btn primary">
+              <button onClick={() => router.push(focusUrl)} className="maintenance-action-btn primary full-width">
                 ⏱️ Focus Mode
               </button>
               <button onClick={() => router.push(`/goals?energy=${energy}`)} className="maintenance-action-btn secondary">
-                🎯 Goals{activeGoal && <span className="maintenance-badge">1 active</span>}
+                🎯 Goals
               </button>
               <button onClick={() => router.push(`/ally?energy=${energy}`)} className="maintenance-action-btn secondary">
                 💜 I&apos;m Stuck
@@ -969,12 +991,51 @@ const styles = `
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   }
 
-  /* ===== MAINTENANCE MODE: 2x2 ACTION GRID ===== */
+  /* ===== MAINTENANCE MODE: GOAL-AWARE ACTIONS ===== */
+  .maintenance-primary-cta {
+    width: 100%;
+    padding: clamp(16px, 4.5vw, 22px);
+    margin-bottom: clamp(10px, 3vw, 14px);
+    background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: clamp(14px, 4vw, 22px);
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 186, 124, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .maintenance-primary-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0, 186, 124, 0.3);
+  }
+
+  .maintenance-primary-cta:active {
+    transform: translateY(0);
+  }
+
+  .maintenance-tools-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: clamp(10px, 3vw, 16px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
   .maintenance-actions-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(10px, 3vw, 16px);
     margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  .maintenance-action-btn.full-width {
+    grid-column: 1 / -1;
   }
 
   .maintenance-action-btn {
