@@ -23,9 +23,49 @@ function isTaskTooBig(text: string): boolean {
   return BIG_TASK_KEYWORDS.some(kw => lower.includes(kw))
 }
 
+// Heuristic time estimate based on task text (no real data at triage stage)
+const QUICK_KEYWORDS = ['email', 'reply', 'text', 'call', 'message', 'send', 'check', 'look up', 'google', 'quick']
+
+function estimateTaskMinutes(text: string): number {
+  const lower = text.toLowerCase()
+  const wordCount = text.trim().split(/\s+/).length
+
+  const isQuick = QUICK_KEYWORDS.some(kw => lower.includes(kw))
+  const isBig = BIG_TASK_KEYWORDS.some(kw => lower.includes(kw))
+
+  if (isBig || wordCount > 12) return 40
+  if (isQuick || wordCount <= 4) return 10
+  return 20
+}
+
+function getCapacityMinutes(): { minutes: number; isNightSession: boolean } {
+  const now = new Date()
+  const endOfDay = new Date()
+  endOfDay.setHours(17, 0, 0, 0) // 5 PM default
+
+  const minutesLeft = Math.floor((endOfDay.getTime() - now.getTime()) / 60000)
+
+  if (minutesLeft <= 0) {
+    return { minutes: 120, isNightSession: true }
+  }
+
+  return { minutes: minutesLeft, isNightSession: false }
+}
+
 export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, onBack }: TriageScreenProps) {
   const [confirmedTasks, setConfirmedTasks] = useState<ParsedTask[]>(tasks)
   const [energyWarning, setEnergyWarning] = useState<{ task: ParsedTask; visible: boolean }>({ task: { id: '', text: '' }, visible: false })
+
+  // Reality Check: time-blindness safety net
+  const totalLoadMinutes = confirmedTasks.reduce((sum, t) => sum + estimateTaskMinutes(t.text), 0)
+  const capacity = getCapacityMinutes()
+  const isOvercapacity = totalLoadMinutes > capacity.minutes
+  const loadRatio = capacity.minutes > 0 ? totalLoadMinutes / capacity.minutes : 1
+  const overflowMinutes = Math.max(0, totalLoadMinutes - capacity.minutes)
+
+  const deferLastItem = () => {
+    setConfirmedTasks(prev => prev.slice(0, -1))
+  }
 
   // Sync with incoming tasks when they arrive
   if (!loading && tasks.length > 0 && confirmedTasks.length === 0) {
@@ -87,6 +127,7 @@ export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, o
             <div key={task.id} className="task-card">
               <span className="task-check">✓</span>
               <span className="task-text">{task.text}</span>
+              <span className="task-estimate">~{estimateTaskMinutes(task.text)}m</span>
               <button
                 onClick={() => removeTask(task.id)}
                 className="task-remove"
@@ -98,6 +139,31 @@ export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, o
           ))}
         </div>
 
+        {/* Reality Check: Time Load Bar */}
+        {confirmedTasks.length > 0 && (
+          <div className="load-bar-section">
+            <div className="load-bar-header">
+              <span className="load-bar-label">
+                {capacity.isNightSession ? '🌙 Night Session' : '⏱️ Time Check'}
+              </span>
+              <span className={`load-bar-value ${isOvercapacity ? 'over' : ''}`}>
+                {totalLoadMinutes} min / {capacity.minutes} min available
+              </span>
+            </div>
+            <div className="load-bar-track">
+              <div
+                className={`load-bar-fill ${isOvercapacity ? 'over' : loadRatio > 0.8 ? 'warning' : 'ok'}`}
+                style={{ width: `${Math.min(loadRatio * 100, 100)}%` }}
+              />
+            </div>
+            {isOvercapacity && (
+              <p className="load-bar-warning">
+                +{overflowMinutes} min over capacity
+              </p>
+            )}
+          </div>
+        )}
+
         {confirmedTasks.length === 0 && (
           <div className="empty-state">
             <p>No tasks left. Go back and try again?</p>
@@ -108,10 +174,19 @@ export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, o
           <button
             onClick={handleConfirm}
             disabled={confirmedTasks.length === 0}
-            className="submit-btn"
+            className={`submit-btn ${isOvercapacity ? 'overcapacity' : ''}`}
           >
-            Continue with {confirmedTasks.length} task{confirmedTasks.length !== 1 ? 's' : ''} →
+            {isOvercapacity ? (
+              <>⚠️ Heavy Load — Continue anyway →</>
+            ) : (
+              <>Continue with {confirmedTasks.length} task{confirmedTasks.length !== 1 ? 's' : ''} →</>
+            )}
           </button>
+          {isOvercapacity && confirmedTasks.length > 1 && (
+            <button onClick={deferLastItem} className="defer-btn" type="button">
+              Defer last item for later
+            </button>
+          )}
           <button onClick={onBack} className="skip-btn">
             ← Back to Brain Dump
           </button>
@@ -418,5 +493,106 @@ const styles = `
 
   .energy-toast-btn.secondary:hover {
     background: #eff3f4;
+  }
+
+  /* ===== REALITY CHECK: LOAD BAR ===== */
+  .load-bar-section {
+    margin-top: clamp(16px, 4vw, 24px);
+    padding: clamp(12px, 3vw, 16px);
+    background: white;
+    border-radius: clamp(12px, 3vw, 16px);
+    border: 2px solid #e5e7eb;
+  }
+
+  .load-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .load-bar-label {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    color: #0f1419;
+  }
+
+  .load-bar-value {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: #536471;
+    font-weight: 500;
+  }
+
+  .load-bar-value.over {
+    color: #f4212e;
+    font-weight: 600;
+  }
+
+  .load-bar-track {
+    height: clamp(8px, 2vw, 10px);
+    background: #eff3f4;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .load-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease, background 0.3s ease;
+  }
+
+  .load-bar-fill.ok {
+    background: linear-gradient(90deg, #1D9BF0, #00ba7c);
+  }
+
+  .load-bar-fill.warning {
+    background: linear-gradient(90deg, #ffad1f, #f59e0b);
+  }
+
+  .load-bar-fill.over {
+    background: linear-gradient(90deg, #f97316, #f4212e);
+  }
+
+  .load-bar-warning {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: #f4212e;
+    font-weight: 600;
+    margin: clamp(6px, 1.5vw, 8px) 0 0 0;
+    text-align: center;
+  }
+
+  .task-estimate {
+    font-size: clamp(11px, 3vw, 13px);
+    color: #8899a6;
+    font-weight: 500;
+    flex-shrink: 0;
+    background: #f7f9fa;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .submit-btn.overcapacity {
+    background: linear-gradient(135deg, #f97316 0%, #f4212e 100%);
+  }
+
+  .submit-btn.overcapacity:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+  }
+
+  .defer-btn {
+    background: white;
+    color: #f97316;
+    border: 2px solid #f97316;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(12px, 3.5vw, 16px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .defer-btn:hover {
+    background: #fff7ed;
   }
 `
