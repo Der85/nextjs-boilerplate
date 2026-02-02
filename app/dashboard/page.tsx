@@ -544,8 +544,10 @@ function DashboardContent() {
       />
 
       <main className="main">
-        {/* Fresh Start Card — overdue task cleanup (shown before 2 PM) */}
-        {overduePlans.length > 0 && !freshStartDismissed && new Date().getHours() < 14 && (
+        {/* ===== SINGLE FOCUS HERO SLOT =====
+            Show only ONE hero card at a time to reduce visual noise.
+            Priority: Fresh Start (overdue tasks) > Pinned Context/Greeting */}
+        {overduePlans.length > 0 && !freshStartDismissed && new Date().getHours() < 14 ? (
           <div className="card fresh-start-card">
             <div className="fresh-start-header">
               <span className="fresh-start-icon">🌅</span>
@@ -594,11 +596,8 @@ function DashboardContent() {
               Decide later
             </button>
           </div>
-        )}
-
-        {/* Pinned Context Card - Dynamic based on userMode */}
-        {isRecoveryView ? (
-          // RECOVERY MODE CARD
+        ) : isRecoveryView ? (
+          /* Pinned Context: RECOVERY MODE CARD (shown when no overdue tasks) */
           <div className="card pinned-card recovery">
             <ModeIndicator mode={userMode} position="absolute" />
             <div className="pinned-header">
@@ -628,7 +627,7 @@ function DashboardContent() {
             </button>
           </div>
         ) : isGrowthView ? (
-          // GROWTH MODE CARD
+          /* Pinned Context: GROWTH MODE CARD */
           <div className="card pinned-card growth">
             <ModeIndicator mode={userMode} position="absolute" />
             <div className="pinned-header">
@@ -683,7 +682,7 @@ function DashboardContent() {
             )}
           </div>
         ) : (
-          // MAINTENANCE MODE CARD
+          /* Pinned Context: MAINTENANCE MODE CARD */
           <div className="card main-card">
             <ModeIndicator mode={userMode} position="absolute" />
             <div className="greeting">
@@ -959,13 +958,13 @@ const styles = `
     position: relative;
     padding: clamp(16px, 5vw, 28px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   /* ===== FRESH START (OVERDUE TASK CLEANUP) ===== */
   .fresh-start-card {
     padding: clamp(18px, 5vw, 26px);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
     border: 2px solid rgba(249, 115, 22, 0.25);
     background: linear-gradient(135deg, rgba(249, 115, 22, 0.06) 0%, rgba(255, 255, 255, 1) 100%);
     box-shadow: 0 2px 12px rgba(249, 115, 22, 0.1);
@@ -1112,7 +1111,7 @@ const styles = `
     position: relative;
     padding: clamp(20px, 5.5vw, 32px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
     border: 1px solid;
   }
 
@@ -1252,7 +1251,7 @@ const styles = `
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(10px, 3vw, 16px);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   .recovery-action-btn {
@@ -1298,14 +1297,14 @@ const styles = `
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: clamp(10px, 3vw, 16px);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   .maintenance-actions-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(10px, 3vw, 16px);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   .maintenance-action-btn.full-width {
@@ -1364,7 +1363,7 @@ const styles = `
 
   /* ===== GROWTH MODE: CTA WRAPPER ===== */
   .growth-cta {
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   /* ===== MINI GARDEN (Dopamine Garden Widget) ===== */
@@ -1453,7 +1452,7 @@ const styles = `
   /* ===== DAILY PULSE CARD ===== */
   .pulse-card {
     padding: clamp(16px, 4.5vw, 24px);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   .pulse-header {
@@ -1504,7 +1503,7 @@ const styles = `
     display: block;
     width: 100%;
     padding: clamp(16px, 4.5vw, 22px);
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
     border: 1.5px solid rgba(255, 173, 31, 0.3);
     background: linear-gradient(135deg, white 0%, rgba(255, 215, 0, 0.04) 100%);
     cursor: pointer;
@@ -1607,7 +1606,7 @@ const styles = `
   /* ===== TODAY'S WINS ===== */
   .wins-card {
     padding: 0;
-    margin-bottom: clamp(12px, 4vw, 18px);
+    margin-bottom: clamp(20px, 5vw, 32px);
   }
 
   .wins-toggle {

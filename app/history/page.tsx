@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
 import AppHeader from '@/components/AppHeader'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
+import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
 
 interface MoodEntry {
   id: string
@@ -112,6 +113,10 @@ export default function HistoryPage() {
 
   // Online count for AppHeader
   const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
+
+  // XP bar (relocated from header for less visual noise)
+  const { userStats, loading: statsLoading } = useUserStats()
+  const levelProgress = userStats ? getLevelProgress(userStats) : null
 
   useEffect(() => {
     const init = async () => {
@@ -289,6 +294,17 @@ export default function HistoryPage() {
             </button>
           )}
         </div>
+
+        {/* XP Progress (relocated from header) */}
+        {!statsLoading && userStats && levelProgress && (
+          <div className="xp-card">
+            <span className="xp-card-badge">Lv {userStats.current_level}</span>
+            <div className="xp-card-track">
+              <div className="xp-card-fill" style={{ width: `${levelProgress.progress}%` }} />
+            </div>
+            <span className="xp-card-text">{levelProgress.xpInLevel} / {levelProgress.xpNeeded} XP</span>
+          </div>
+        )}
 
         {/* Phase 2: Weekly Narrative Card (replaces stats-grid) */}
         {stats.total > 0 && (
@@ -693,6 +709,52 @@ const styles = `
     background: white;
     border-radius: clamp(12px, 3vw, 18px);
     overflow: hidden;
+  }
+
+  /* ===== XP PROGRESS CARD (relocated from header) ===== */
+  .xp-card {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+    background: white;
+    border-radius: clamp(12px, 3vw, 16px);
+    padding: clamp(12px, 3.5vw, 16px) clamp(16px, 4.5vw, 22px);
+    margin-bottom: clamp(14px, 4vw, 20px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  .xp-card-badge {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+    padding: clamp(2px, 0.5vw, 4px) clamp(8px, 2vw, 12px);
+    border-radius: 100px;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .xp-card-track {
+    flex: 1;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .xp-card-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ba7c 0%, #22c55e 100%);
+    border-radius: 100px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .xp-card-text {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 600;
+    color: var(--light-gray);
+    white-space: nowrap;
   }
 
   /* ===== PHASE 2: NARRATIVE CARD ===== */

@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
+// XP bar moved to History/You tab to reduce header visual noise
+// import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
 
 interface NotificationBar {
   text: string
@@ -29,9 +30,6 @@ export default function AppHeader({
   const router = useRouter()
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
-  const { userStats, loading: statsLoading } = useUserStats()
-
-  const levelProgress = userStats ? getLevelProgress(userStats) : null
 
   const isActive = (item: typeof navItems[0]) => {
     return item.matchPaths.some(p => pathname.startsWith(p))
@@ -43,21 +41,6 @@ export default function AppHeader({
         <button onClick={() => router.push('/dashboard')} className="logo">
           ADHDer.io
         </button>
-
-        {statsLoading ? (
-          <div className="xp-inline skeleton">
-            <span className="xp-inline-badge-skeleton" />
-            <span className="xp-inline-track-skeleton" />
-          </div>
-        ) : userStats && levelProgress ? (
-          <div className="xp-inline">
-            <span className="xp-inline-badge">Lv {userStats.current_level}</span>
-            <div className="xp-inline-track">
-              <div className="xp-inline-fill" style={{ width: `${levelProgress.progress}%` }} />
-            </div>
-            <span className="xp-inline-xp">{levelProgress.xpInLevel}/{levelProgress.xpNeeded}</span>
-          </div>
-        ) : null}
 
         <nav className="header-nav">
           {navItems.map((item) => (
@@ -304,80 +287,6 @@ export default function AppHeader({
 
         .notif-text {
           line-height: 1.3;
-        }
-
-        /* ===== INLINE XP BAR (inside header) ===== */
-        .xp-inline {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          flex-shrink: 0;
-          min-width: 0;
-        }
-
-        .xp-inline-badge {
-          font-size: 10px;
-          font-weight: 700;
-          color: white;
-          background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
-          padding: 1px 5px;
-          border-radius: 100px;
-          white-space: nowrap;
-          letter-spacing: 0.3px;
-          text-transform: uppercase;
-          line-height: 1.4;
-        }
-
-        .xp-inline-track {
-          width: clamp(48px, 14vw, 100px);
-          height: 5px;
-          background: #e5e7eb;
-          border-radius: 100px;
-          overflow: hidden;
-          flex-shrink: 0;
-        }
-
-        .xp-inline-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #00ba7c 0%, #22c55e 100%);
-          border-radius: 100px;
-          transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .xp-inline-xp {
-          font-size: 9px;
-          font-weight: 600;
-          color: #8899a6;
-          white-space: nowrap;
-        }
-
-        /* Skeleton loading state */
-        .xp-inline.skeleton {
-          gap: 4px;
-        }
-
-        .xp-inline-badge-skeleton {
-          display: inline-block;
-          width: 28px;
-          height: 14px;
-          background: #e5e7eb;
-          border-radius: 100px;
-          animation: shimmer 1.5s ease-in-out infinite;
-        }
-
-        .xp-inline-track-skeleton {
-          display: inline-block;
-          width: clamp(48px, 14vw, 100px);
-          height: 5px;
-          background: #e5e7eb;
-          border-radius: 100px;
-          animation: shimmer 1.5s ease-in-out infinite;
-          animation-delay: 0.15s;
-        }
-
-        @keyframes shimmer {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
         }
 
         @media (min-width: 480px) {
