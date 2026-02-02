@@ -130,7 +130,7 @@ function FocusPageContent() {
       setUser(session.user)
 
       const fetchedPlans = await fetchPlans(session.user.id)
-      await fetchGoals(session.user.id)
+      const fetchedGoals = await fetchGoals(session.user.id)
 
       // Handle URL params from Goals handoff
       const createParam = searchParams.get('create')
@@ -182,6 +182,17 @@ function FocusPageContent() {
       } else if (fetchedPlans.length > 0) {
         // Has existing plans: go to dashboard
         setStep('dashboard')
+      } else if (fetchedGoals.length > 0) {
+        // Goal-aware skip: user has active goals, skip brain-dump/triage
+        // and land on ContextScreen with the top goal pre-selected
+        const topGoal = fetchedGoals[0]
+        const goalTask: ParsedTask = {
+          id: `goal_${topGoal.id}`,
+          text: topGoal.title,
+        }
+        setParsedTasks([goalTask])
+        setHandoffGoalId(topGoal.id)
+        setStep('context')
       }
       // Otherwise: starts at brain-dump (default)
 
@@ -209,7 +220,7 @@ function FocusPageContent() {
     return fetched
   }
 
-  const fetchGoals = async (userId: string) => {
+  const fetchGoals = async (userId: string): Promise<Goal[]> => {
     const { data } = await supabase
       .from('goals')
       .select('id, title, micro_steps')
@@ -218,10 +229,12 @@ function FocusPageContent() {
       .order('created_at', { ascending: false })
       .limit(20)
 
-    if (data) setGoals(data.map(g => ({
+    const fetched = (data || []).map(g => ({
       ...g,
       micro_steps: g.micro_steps || [],
-    })))
+    }))
+    setGoals(fetched)
+    return fetched
   }
 
   const getAuthToken = async (): Promise<string | null> => {
