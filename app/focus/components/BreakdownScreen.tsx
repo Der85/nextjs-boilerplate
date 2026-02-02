@@ -32,6 +32,8 @@ const STATUS_MESSAGES = [
   'Almost there...',
 ]
 
+const VISIBLE_STEPS = 3
+
 export default function BreakdownScreen({
   breakdowns,
   loading,
@@ -39,6 +41,7 @@ export default function BreakdownScreen({
   onBack,
 }: BreakdownScreenProps) {
   const [statusIndex, setStatusIndex] = useState(0)
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
     if (!loading) return
@@ -82,7 +85,7 @@ export default function BreakdownScreen({
                 </span>
               </div>
               <div className="steps-list">
-                {breakdown.steps.map((step, j) => (
+                {(expandedCards[i] ? breakdown.steps : breakdown.steps.slice(0, VISIBLE_STEPS)).map((step, j) => (
                   <div key={step.id} className="step-row">
                     <span className="step-number">{j + 1}</span>
                     <div className="step-info">
@@ -93,6 +96,22 @@ export default function BreakdownScreen({
                     </div>
                   </div>
                 ))}
+                {breakdown.steps.length > VISIBLE_STEPS && !expandedCards[i] && (
+                  <button
+                    className="show-full-path-btn"
+                    onClick={() => setExpandedCards(prev => ({ ...prev, [i]: true }))}
+                  >
+                    Show full path ({breakdown.steps.length - VISIBLE_STEPS} more steps)
+                  </button>
+                )}
+                {breakdown.steps.length > VISIBLE_STEPS && expandedCards[i] && (
+                  <button
+                    className="show-full-path-btn"
+                    onClick={() => setExpandedCards(prev => ({ ...prev, [i]: false }))}
+                  >
+                    Show less
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -271,6 +290,27 @@ const styles = `
   .step-meta {
     font-size: clamp(11px, 3vw, 13px);
     color: #8899a6;
+  }
+
+  .show-full-path-btn {
+    background: none;
+    border: 1px dashed #d1d5db;
+    border-radius: clamp(8px, 2vw, 10px);
+    padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px);
+    font-size: clamp(13px, 3.5vw, 14px);
+    font-weight: 500;
+    color: #1D9BF0;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin-top: clamp(4px, 1vw, 6px);
+  }
+
+  .show-full-path-btn:hover {
+    background: rgba(29, 155, 240, 0.05);
+    border-color: #1D9BF0;
   }
 
   .action-buttons {

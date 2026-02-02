@@ -557,9 +557,11 @@ function DashboardContent() {
   // Computed view flags for mode-specific rendering
   const isRecoveryView = userMode === 'recovery'
   const isGrowthView = userMode === 'growth'
+  const brakeVariant: 'urgent' | 'neutral' =
+    userMode === 'recovery' || insights?.trend === 'down' ? 'urgent' : 'neutral'
 
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed' : ''}`}>
       <AppHeader
         onlineCount={onlineCount}
         notificationBar={{
@@ -567,6 +569,7 @@ function DashboardContent() {
           color: modeConfig.color,
           icon: modeConfig.icon,
         }}
+        brakeVariant={brakeVariant}
       />
 
       <main className="main">
@@ -837,7 +840,7 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Maintenance Mode: Goal-aware actions */}
+        {/* Maintenance Mode: "Just 1 Thing" + Goal-aware actions */}
         {!isRecoveryView && !isGrowthView && (() => {
           const energy = getEnergyParam(moodScore)
           const focusUrl = energy === 'low'
@@ -845,17 +848,47 @@ function DashboardContent() {
             : energy === 'high'
               ? '/focus?mode=sprint&energy=high'
               : `/focus?energy=${energy}`
-          return activeGoal ? (
+
+          // "Just 1 Thing" — pick the most relevant task to reduce choice paralysis
+          const just1 = overduePlans.length > 0
+            ? { label: overduePlans[0].task_name, url: `/focus?create=true&taskName=${encodeURIComponent(overduePlans[0].task_name)}&energy=${energy}` }
+            : activeGoal
+              ? { label: activeGoal.title, url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}` }
+              : null
+
+          return (
             <>
-              <button
-                onClick={() => router.push(
-                  `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}`
-                )}
-                className="maintenance-primary-cta"
-              >
-                🌿 Water your plant: {activeGoal.title}
-              </button>
+              {just1 ? (
+                <button
+                  onClick={() => router.push(just1.url)}
+                  className="just1-btn"
+                >
+                  <span className="just1-label">Just 1 Thing</span>
+                  <span className="just1-task">{just1.label}</span>
+                  <span className="just1-hint">Start here →</span>
+                </button>
+              ) : (
+                <button onClick={() => router.push(focusUrl)} className="just1-btn">
+                  <span className="just1-label">Just 1 Thing</span>
+                  <span className="just1-task">Pick something small</span>
+                  <span className="just1-hint">Start here →</span>
+                </button>
+              )}
+
+              {activeGoal && (
+                <button
+                  onClick={() => router.push(
+                    `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}`
+                  )}
+                  className="maintenance-primary-cta"
+                >
+                  🌿 Water your plant: {activeGoal.title}
+                </button>
+              )}
               <div className="maintenance-tools-grid">
+                <button onClick={() => router.push(focusUrl)} className="maintenance-action-btn secondary">
+                  ⏱️ Focus
+                </button>
                 <button onClick={() => router.push(`/goals?energy=${energy}`)} className="maintenance-action-btn secondary">
                   🎯 Goals
                 </button>
@@ -867,21 +900,6 @@ function DashboardContent() {
                 </button>
               </div>
             </>
-          ) : (
-            <div className="maintenance-actions-grid">
-              <button onClick={() => router.push(focusUrl)} className="maintenance-action-btn primary full-width">
-                ⏱️ Focus Mode
-              </button>
-              <button onClick={() => router.push(`/goals?energy=${energy}`)} className="maintenance-action-btn secondary">
-                🎯 Goals
-              </button>
-              <button onClick={() => router.push(`/ally?energy=${energy}`)} className="maintenance-action-btn secondary">
-                💜 I&apos;m Stuck
-              </button>
-              <button onClick={() => router.push(`/history?energy=${energy}`)} className="maintenance-action-btn secondary">
-                📊 History
-              </button>
-            </div>
           )
         })()}
 
@@ -938,6 +956,11 @@ const styles = `
     min-height: 100vh;
     min-height: 100dvh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: filter 0.5s ease;
+  }
+
+  .dashboard.recovery-dimmed {
+    filter: saturate(0.45) brightness(1.02);
   }
 
   /* ===== LOADING ===== */
@@ -1295,6 +1318,60 @@ const styles = `
     cursor: pointer;
   }
 
+  /* ===== "JUST 1 THING" CTA ===== */
+  .just1-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: clamp(22px, 6vw, 32px) clamp(16px, 4.5vw, 24px);
+    background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+    color: white;
+    border: none;
+    border-radius: clamp(14px, 4vw, 22px);
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin-bottom: clamp(14px, 4vw, 20px);
+    box-shadow: 0 4px 20px rgba(29, 155, 240, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-align: center;
+  }
+
+  .just1-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(29, 155, 240, 0.45);
+  }
+
+  .just1-btn:active {
+    transform: translateY(0);
+  }
+
+  .just1-label {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.85;
+    margin-bottom: clamp(4px, 1vw, 6px);
+  }
+
+  .just1-task {
+    font-size: clamp(17px, 4.8vw, 21px);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: clamp(4px, 1vw, 8px);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .just1-hint {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 500;
+    opacity: 0.75;
+  }
+
   /* ===== RECOVERY MODE: 2-COLUMN ACTION GRID ===== */
   .recovery-actions-grid {
     display: grid;
@@ -1344,7 +1421,7 @@ const styles = `
 
   .maintenance-tools-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: clamp(10px, 3vw, 16px);
     margin-bottom: clamp(20px, 5vw, 32px);
   }

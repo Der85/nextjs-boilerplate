@@ -15,6 +15,7 @@ interface NotificationBar {
 interface AppHeaderProps {
   onlineCount?: number
   notificationBar?: NotificationBar | null
+  brakeVariant?: 'urgent' | 'neutral'
 }
 
 const navItems = [
@@ -26,6 +27,7 @@ const navItems = [
 export default function AppHeader({
   onlineCount = 0,
   notificationBar,
+  brakeVariant = 'neutral',
 }: AppHeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -56,8 +58,12 @@ export default function AppHeader({
         </nav>
 
         <div className="header-actions">
-          <button onClick={() => router.push('/brake')} className="icon-btn red" title="BREAK">
-            🛑
+          <button
+            onClick={() => router.push('/brake')}
+            className={`icon-btn ${brakeVariant === 'urgent' ? 'brake-urgent' : 'brake-neutral'}`}
+            title={brakeVariant === 'urgent' ? 'BREAK - Reset Now' : 'Quick Breathe'}
+          >
+            {brakeVariant === 'urgent' ? '🛑' : '🫁'}
           </button>
           <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
             ☰
@@ -211,8 +217,12 @@ export default function AppHeader({
           transform: scale(1.05);
         }
 
-        .icon-btn.red {
+        .icon-btn.brake-urgent {
           background: rgba(239, 68, 68, 0.1);
+        }
+
+        .icon-btn.brake-neutral {
+          background: rgba(148, 163, 184, 0.1);
         }
 
         .icon-btn.menu {

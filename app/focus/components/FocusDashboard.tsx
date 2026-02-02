@@ -79,6 +79,7 @@ export default function FocusDashboard({
   const router = useRouter()
   const { awardXP } = useUserStats()
   const [xpToast, setXpToast] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false })
+  const [pulseStepId, setPulseStepId] = useState<string | null>(null)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [completedPlan, setCompletedPlan] = useState<Plan | null>(null)
   const [syncingGoal, setSyncingGoal] = useState(false)
@@ -134,6 +135,9 @@ export default function FocusDashboard({
   // Zen Mode
   const [isZenMode, setIsZenMode] = useState(false)
   const [zenPlanId, setZenPlanId] = useState<string | null>(null)
+
+  // Lock-In Mode: auto-hides navigation to protect hyperfocus state
+  const [lockedIn, setLockedIn] = useState(userMode === 'growth')
 
   // Village Presence (Body Doubling)
   const [showBoostBurst, setShowBoostBurst] = useState(false)
@@ -261,6 +265,13 @@ export default function FocusDashboard({
     if (!microTimerPlanId && isIdleRef.current && originalTitleRef.current) {
       document.title = originalTitleRef.current
       originalTitleRef.current = ''
+    }
+  }, [microTimerPlanId])
+
+  // Auto-lock when micro-timer starts
+  useEffect(() => {
+    if (microTimerPlanId) {
+      setLockedIn(true)
     }
   }, [microTimerPlanId])
 
@@ -448,6 +459,10 @@ export default function FocusDashboard({
 
     // Award XP when a step is checked (not unchecked)
     if (!wasCompleted) {
+      // Dopamine pulse on the checkbox
+      setPulseStepId(stepId)
+      setTimeout(() => setPulseStepId(null), 600)
+
       let xpGained = XP_VALUES.focus_step
       await awardXP('focus_step')
       if (isNowComplete) {
@@ -709,8 +724,8 @@ export default function FocusDashboard({
   }
 
   return (
-    <div className={`focus-page ${isZenMode ? 'zen-page' : ''}`}>
-      {!isZenMode && (
+    <div className={`focus-page ${isZenMode ? 'zen-page' : ''} ${lockedIn && !isZenMode ? 'locked-in-page' : ''} ${userMode === 'recovery' ? 'recovery-dimmed' : ''}`}>
+      {!isZenMode && !lockedIn && (
         <AppHeader
           onlineCount={onlineCount}
           notificationBar={{
@@ -718,7 +733,19 @@ export default function FocusDashboard({
             color: '#1D9BF0',
             icon: '⏱️',
           }}
+          brakeVariant={userMode === 'recovery' ? 'urgent' : 'neutral'}
         />
+      )}
+
+      {/* Lock-In bar: minimal header that replaces AppHeader during focus */}
+      {lockedIn && !isZenMode && (
+        <div className="lockin-bar">
+          <span className="lockin-icon">🔒</span>
+          <span className="lockin-label">Focus Lock</span>
+          <button className="lockin-unlock" onClick={() => setLockedIn(false)}>
+            Unlock
+          </button>
+        </div>
       )}
 
       {/* Zen Mode dimmed backdrop */}
@@ -740,21 +767,31 @@ export default function FocusDashboard({
         ) : (
           <div className="page-header-title">
             <h1>⏱️ Focus Mode</h1>
-            {sortedPlans.length > 0 && (
-              <button
-                className="zen-toggle"
-                onClick={() => {
-                  setIsZenMode(true)
-                  setZenPlanId(sortedPlans[0]?.id || null)
-                }}
-              >
-                👁️ Zen Mode
-              </button>
-            )}
+            <div className="page-header-actions">
+              {!lockedIn && sortedPlans.length > 0 && (
+                <button
+                  className="zen-toggle"
+                  onClick={() => {
+                    setIsZenMode(true)
+                    setZenPlanId(sortedPlans[0]?.id || null)
+                  }}
+                >
+                  👁️ Zen Mode
+                </button>
+              )}
+              {!lockedIn && (
+                <button
+                  className="zen-toggle"
+                  onClick={() => setLockedIn(true)}
+                >
+                  🔒 Lock In
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {!isZenMode && (
+        {!isZenMode && !lockedIn && (
           <button onClick={onNewBrainDump} className="new-dump-btn">
             🧠 New Brain Dump
           </button>
@@ -907,7 +944,7 @@ export default function FocusDashboard({
                   return (
                     <div key={step.id} className="step-item">
                       <div
-                        className={`checkbox ${step.completed ? 'checked' : ''}`}
+                        className={`checkbox ${step.completed ? 'checked' : ''} ${pulseStepId === step.id ? 'step-pulse' : ''}`}
                         onClick={() => toggleStep(plan.id, step.id)}
                       >
                         {step.completed && '✓'}
@@ -1265,6 +1302,11 @@ export default function FocusDashboard({
           min-height: 100vh;
           min-height: 100dvh;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          transition: filter 0.5s ease;
+        }
+
+        .focus-page.recovery-dimmed {
+          filter: saturate(0.45) brightness(1.02);
         }
 
         .main {
@@ -1285,6 +1327,55 @@ export default function FocusDashboard({
           font-size: clamp(22px, 6vw, 28px);
           font-weight: 700;
           margin: 0;
+        }
+
+        .page-header-actions {
+          display: flex;
+          gap: clamp(6px, 1.5vw, 8px);
+        }
+
+        /* ===== LOCK-IN MODE ===== */
+        .lockin-bar {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: clamp(8px, 2vw, 12px);
+          padding: clamp(10px, 2.5vw, 14px) clamp(16px, 4vw, 24px);
+          background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+          color: white;
+        }
+
+        .lockin-icon {
+          font-size: clamp(14px, 3.5vw, 16px);
+        }
+
+        .lockin-label {
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+
+        .lockin-unlock {
+          margin-left: auto;
+          padding: clamp(4px, 1vw, 6px) clamp(10px, 2.5vw, 14px);
+          background: rgba(255, 255, 255, 0.12);
+          color: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 100px;
+          font-size: clamp(11px, 3vw, 13px);
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .lockin-unlock:hover {
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
         }
 
         /* ===== ZEN MODE ===== */
@@ -1700,6 +1791,7 @@ export default function FocusDashboard({
         .step-item:last-child { border-bottom: none; }
 
         .checkbox {
+          position: relative;
           width: clamp(20px, 5.5vw, 26px);
           height: clamp(20px, 5.5vw, 26px);
           border-radius: 50%;
@@ -1718,6 +1810,35 @@ export default function FocusDashboard({
         .checkbox.checked {
           border: none;
           background: var(--success);
+        }
+
+        .checkbox.step-pulse {
+          animation: checkPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .checkbox.step-pulse::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          border: 2px solid var(--success);
+          transform: translate(-50%, -50%) scale(1);
+          animation: ringPulse 0.5s ease-out forwards;
+          pointer-events: none;
+        }
+
+        @keyframes checkPop {
+          0% { transform: scale(1); }
+          40% { transform: scale(1.35); }
+          100% { transform: scale(1); }
+        }
+
+        @keyframes ringPulse {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+          100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
         }
 
         .step-content {

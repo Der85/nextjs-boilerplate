@@ -160,6 +160,7 @@ export default function ToolsPage() {
           color: userMode === 'recovery' ? '#f4212e' : userMode === 'growth' ? '#00ba7c' : '#1D9BF0',
           icon: modeInfo.icon || '🧰',
         }}
+        brakeVariant={userMode === 'recovery' ? 'urgent' : 'neutral'}
       />
 
       <main className="main">
