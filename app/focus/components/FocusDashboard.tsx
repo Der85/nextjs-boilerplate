@@ -104,6 +104,13 @@ export default function FocusDashboard({
     timer: ReturnType<typeof setTimeout>
   } | null>(null)
 
+  // Micro-Start (5-Minute Dash) state
+  const [microTimerPlanId, setMicroTimerPlanId] = useState<string | null>(null)
+  const [microSecondsLeft, setMicroSecondsLeft] = useState(300)
+  const microIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [showMomentumModal, setShowMomentumModal] = useState(false)
+  const [momentumPlanId, setMomentumPlanId] = useState<string | null>(null)
+
   // Implicit Overwhelm Detection
   const [showOverwhelmToast, setShowOverwhelmToast] = useState(false)
   const overwhelmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -145,6 +152,127 @@ export default function FocusDashboard({
 
   const dismissOverwhelmToast = () => {
     setShowOverwhelmToast(false)
+  }
+
+  // Micro-Start: gentle chime via Web Audio API
+  const playChime = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      const notes = [523.25, 659.25] // C5, E5
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.frequency.value = freq
+        osc.type = 'sine'
+        const start = ctx.currentTime + i * 0.2
+        gain.gain.setValueAtTime(0.3, start)
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 1)
+        osc.start(start)
+        osc.stop(start + 1)
+      })
+    } catch {
+      // Audio not supported — silent fallback
+    }
+  }
+
+  // Micro-Start timer countdown
+  useEffect(() => {
+    if (!microTimerPlanId) return
+
+    microIntervalRef.current = setInterval(() => {
+      setMicroSecondsLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(microIntervalRef.current!)
+          microIntervalRef.current = null
+          playChime()
+          setMomentumPlanId(microTimerPlanId)
+          setMicroTimerPlanId(null)
+          setShowMomentumModal(true)
+          return 300
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (microIntervalRef.current) {
+        clearInterval(microIntervalRef.current)
+        microIntervalRef.current = null
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [microTimerPlanId])
+
+  const formatMicroTime = (seconds: number): string => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  const startMicroTimer = (planId: string) => {
+    setMicroSecondsLeft(300)
+    setMicroTimerPlanId(planId)
+  }
+
+  const stopMicroTimer = () => {
+    if (microIntervalRef.current) {
+      clearInterval(microIntervalRef.current)
+      microIntervalRef.current = null
+    }
+    setMicroTimerPlanId(null)
+    setMicroSecondsLeft(300)
+  }
+
+  const handleMomentumKeepGoing = () => {
+    setShowMomentumModal(false)
+    setMomentumPlanId(null)
+  }
+
+  const handleMomentumBreak = () => {
+    setShowMomentumModal(false)
+    setMomentumPlanId(null)
+  }
+
+  const handleMomentumDone = async () => {
+    if (!momentumPlanId || !user) {
+      setShowMomentumModal(false)
+      setMomentumPlanId(null)
+      return
+    }
+
+    const plan = plans.find(p => p.id === momentumPlanId)
+    if (!plan) {
+      setShowMomentumModal(false)
+      setMomentumPlanId(null)
+      return
+    }
+
+    const allCompleted = plan.steps.map(s => ({ ...s, completed: true }))
+    await supabase.from('focus_plans').update({
+      steps: allCompleted,
+      steps_completed: allCompleted.length,
+      is_completed: true,
+    }).eq('id', momentumPlanId).eq('user_id', user.id)
+
+    const uncompletedCount = plan.steps.filter(s => !s.completed).length
+    if (uncompletedCount > 0) {
+      const xpGained = uncompletedCount * XP_VALUES.focus_step + XP_VALUES.focus_plan_complete
+      for (let i = 0; i < uncompletedCount; i++) {
+        await awardXP('focus_step')
+      }
+      await awardXP('focus_plan_complete')
+      showXpToast(xpGained)
+    }
+
+    setShowMomentumModal(false)
+    setMomentumPlanId(null)
+    setShowFocusSurvey(true)
+    if (plan.related_goal_id && plan.related_step_id) {
+      setCompletedPlan({ ...plan, steps: allCompleted })
+    }
+    onPlansUpdate()
   }
 
   const sortedPlans = [...plans]
@@ -510,6 +638,21 @@ export default function FocusDashboard({
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
 
+                {/* Micro-Start: 5-Minute Dash */}
+                {!microTimerPlanId && pct < 100 && (
+                  <button
+                    className="micro-start-btn"
+                    onClick={() => startMicroTimer(plan.id)}
+                  >
+                    ⚡ Just 5 Minutes
+                  </button>
+                )}
+                {microTimerPlanId === plan.id && (
+                  <div className="micro-active-badge">
+                    ⚡ {formatMicroTime(microSecondsLeft)} remaining
+                  </div>
+                )}
+
                 <button
                   className="stuck-btn"
                   onClick={() => {
@@ -725,6 +868,45 @@ export default function FocusDashboard({
             </button>
           </div>
           <button className="overwhelm-dismiss" onClick={dismissOverwhelmToast}>×</button>
+        </div>
+      )}
+
+      {/* Micro-Start Timer Bar */}
+      {microTimerPlanId && (
+        <div className="micro-timer-bar">
+          <div className="micro-timer-info">
+            <span className="micro-timer-icon">⚡</span>
+            <span className="micro-timer-msg">You can stop after this.</span>
+          </div>
+          <span className="micro-timer-time">{formatMicroTime(microSecondsLeft)}</span>
+          <button className="micro-timer-stop" onClick={stopMicroTimer}>Stop</button>
+        </div>
+      )}
+
+      {/* Momentum Check Modal */}
+      {showMomentumModal && (
+        <div className="modal-overlay">
+          <div className="modal-card momentum-modal">
+            <div className="modal-icon">⏰</div>
+            <h2 className="modal-title">Momentum Check</h2>
+            <p className="modal-text">
+              Your 5 minutes are up! How are you feeling?
+            </p>
+            <div className="momentum-options">
+              <button className="momentum-btn rolling" onClick={handleMomentumKeepGoing}>
+                <span className="momentum-btn-icon">🔥</span>
+                <span className="momentum-btn-label">I&apos;m rolling! Keep going.</span>
+              </button>
+              <button className="momentum-btn pause" onClick={handleMomentumBreak}>
+                <span className="momentum-btn-icon">☕</span>
+                <span className="momentum-btn-label">I need a break.</span>
+              </button>
+              <button className="momentum-btn done" onClick={handleMomentumDone}>
+                <span className="momentum-btn-icon">✅</span>
+                <span className="momentum-btn-label">Task is done!</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1453,6 +1635,185 @@ export default function FocusDashboard({
 
         .overwhelm-dismiss:hover {
           background: var(--extra-light-gray);
+          color: var(--dark-gray);
+        }
+
+        /* ===== MICRO-START: 5-MINUTE DASH ===== */
+        .micro-start-btn {
+          width: 100%;
+          padding: clamp(10px, 2.5vw, 14px);
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(249, 115, 22, 0.08) 100%);
+          border: 2px dashed rgba(139, 92, 246, 0.35);
+          border-radius: clamp(10px, 2.5vw, 14px);
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-weight: 700;
+          color: #7c3aed;
+          cursor: pointer;
+          margin-bottom: clamp(8px, 2vw, 12px);
+          transition: all 0.2s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .micro-start-btn:hover {
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.14) 0%, rgba(249, 115, 22, 0.14) 100%);
+          border-color: rgba(139, 92, 246, 0.5);
+          transform: translateY(-1px);
+        }
+
+        .micro-start-btn:active {
+          transform: scale(0.98);
+        }
+
+        .micro-active-badge {
+          width: 100%;
+          padding: clamp(10px, 2.5vw, 14px);
+          background: linear-gradient(135deg, #7c3aed 0%, #f97316 100%);
+          border: none;
+          border-radius: clamp(10px, 2.5vw, 14px);
+          font-size: clamp(15px, 4vw, 18px);
+          font-weight: 700;
+          color: white;
+          text-align: center;
+          margin-bottom: clamp(8px, 2vw, 12px);
+          animation: microPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes microPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.3); }
+          50% { box-shadow: 0 0 0 8px rgba(124, 58, 237, 0); }
+        }
+
+        .micro-timer-bar {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: linear-gradient(135deg, #7c3aed 0%, #f97316 100%);
+          color: white;
+          padding: clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px);
+          display: flex;
+          align-items: center;
+          gap: clamp(10px, 2.5vw, 14px);
+          z-index: 980;
+          box-shadow: 0 -4px 20px rgba(124, 58, 237, 0.3);
+          animation: slideUpBar 0.3s ease;
+        }
+
+        @keyframes slideUpBar {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+
+        .micro-timer-info {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: clamp(6px, 1.5vw, 10px);
+        }
+
+        .micro-timer-icon {
+          font-size: clamp(18px, 5vw, 24px);
+        }
+
+        .micro-timer-msg {
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 500;
+          opacity: 0.9;
+        }
+
+        .micro-timer-time {
+          font-size: clamp(24px, 7vw, 32px);
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 1px;
+        }
+
+        .micro-timer-stop {
+          padding: clamp(6px, 1.5vw, 10px) clamp(14px, 3.5vw, 20px);
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+          border: 1.5px solid rgba(255, 255, 255, 0.4);
+          border-radius: clamp(8px, 2vw, 12px);
+          font-size: clamp(13px, 3.5vw, 15px);
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .micro-timer-stop:hover {
+          background: rgba(255, 255, 255, 0.35);
+        }
+
+        /* Momentum Check Modal */
+        .momentum-modal {
+          border-top: 4px solid #7c3aed;
+        }
+
+        .momentum-options {
+          display: flex;
+          flex-direction: column;
+          gap: clamp(8px, 2vw, 12px);
+        }
+
+        .momentum-btn {
+          display: flex;
+          align-items: center;
+          gap: clamp(10px, 2.5vw, 14px);
+          width: 100%;
+          padding: clamp(14px, 3.5vw, 18px);
+          background: white;
+          border: 2px solid var(--extra-light-gray);
+          border-radius: clamp(12px, 3vw, 16px);
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .momentum-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+        }
+
+        .momentum-btn.rolling {
+          border-color: rgba(249, 115, 22, 0.3);
+          background: rgba(249, 115, 22, 0.04);
+        }
+
+        .momentum-btn.rolling:hover {
+          border-color: #f97316;
+          background: rgba(249, 115, 22, 0.08);
+        }
+
+        .momentum-btn.pause {
+          border-color: rgba(29, 155, 240, 0.3);
+          background: rgba(29, 155, 240, 0.04);
+        }
+
+        .momentum-btn.pause:hover {
+          border-color: var(--primary);
+          background: rgba(29, 155, 240, 0.08);
+        }
+
+        .momentum-btn.done {
+          border-color: rgba(0, 186, 124, 0.3);
+          background: rgba(0, 186, 124, 0.04);
+        }
+
+        .momentum-btn.done:hover {
+          border-color: var(--success);
+          background: rgba(0, 186, 124, 0.08);
+        }
+
+        .momentum-btn-icon {
+          font-size: clamp(22px, 6vw, 28px);
+          flex-shrink: 0;
+        }
+
+        .momentum-btn-label {
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-weight: 600;
           color: var(--dark-gray);
         }
 
