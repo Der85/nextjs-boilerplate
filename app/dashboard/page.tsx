@@ -141,6 +141,7 @@ function DashboardContent() {
   const [overduePlans, setOverduePlans] = useState<OverduePlan[]>([])
   const [freshStartDismissed, setFreshStartDismissed] = useState(false)
   const [freshStartProcessing, setFreshStartProcessing] = useState(false)
+  const [freshStartReminded, setFreshStartReminded] = useState(false)
 
   // "Today's Wins" section
   const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
@@ -160,6 +161,16 @@ function DashboardContent() {
 
   // Mode override from URL (e.g., Brake tool re-entry)
   const [showOverrideToast, setShowOverrideToast] = useState(false)
+
+  // Check if a "Remind me at 4 PM" reminder has triggered
+  useEffect(() => {
+    const remindAt = localStorage.getItem('fresh-start-remind-at')
+    if (remindAt && Date.now() >= Number(remindAt)) {
+      localStorage.removeItem('fresh-start-remind-at')
+      setFreshStartDismissed(false)
+      setFreshStartReminded(true)
+    }
+  }, [])
 
   useEffect(() => {
     const init = async () => {
@@ -484,6 +495,17 @@ function DashboardContent() {
     setFreshStartProcessing(false)
   }
 
+  const handleFreshStartRemind4PM = () => {
+    const now = new Date()
+    const fourPM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0)
+    // If it's already past 4 PM, set for tomorrow
+    if (now >= fourPM) {
+      fourPM.setDate(fourPM.getDate() + 1)
+    }
+    localStorage.setItem('fresh-start-remind-at', String(fourPM.getTime()))
+    setFreshStartDismissed(true)
+  }
+
   // Phase 1: Get mode-specific styling and content
   const getModeConfig = () => {
     switch (userMode) {
@@ -551,7 +573,7 @@ function DashboardContent() {
         {/* ===== SINGLE FOCUS HERO SLOT =====
             Show only ONE hero card at a time to reduce visual noise.
             Priority: Fresh Start (overdue tasks) > Pinned Context/Greeting */}
-        {overduePlans.length > 0 && !freshStartDismissed && new Date().getHours() < 14 ? (
+        {overduePlans.length > 0 && !freshStartDismissed && (new Date().getHours() < 14 || freshStartReminded) ? (
           <div className="card fresh-start-card">
             <div className="fresh-start-header">
               <span className="fresh-start-icon">🌅</span>
@@ -577,6 +599,13 @@ function DashboardContent() {
                 disabled={freshStartProcessing}
               >
                 📋 Move to Today
+              </button>
+              <button
+                className="fresh-start-btn remind"
+                onClick={handleFreshStartRemind4PM}
+                disabled={freshStartProcessing}
+              >
+                🕓 Remind at 4 PM
               </button>
               <button
                 className="fresh-start-btn secondary"
@@ -1047,7 +1076,7 @@ const styles = `
 
   .fresh-start-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: clamp(6px, 1.5vw, 10px);
     margin-bottom: clamp(8px, 2vw, 12px);
   }
@@ -1078,6 +1107,15 @@ const styles = `
   .fresh-start-btn.primary:hover:not(:disabled) {
     background: #ea580c;
     transform: translateY(-1px);
+  }
+
+  .fresh-start-btn.remind {
+    background: rgba(245, 158, 11, 0.08);
+    color: #d97706;
+  }
+
+  .fresh-start-btn.remind:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.15);
   }
 
   .fresh-start-btn.secondary {

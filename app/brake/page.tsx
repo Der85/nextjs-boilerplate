@@ -132,6 +132,12 @@ export default function BreakOnboardingPage() {
     router.push('/dashboard?refresh=true&mode=maintenance')
   }
 
+  const handleSnooze = () => {
+    const snoozeUntil = Date.now() + 2 * 60 * 60 * 1000 // 2 hours from now
+    localStorage.setItem('brake-snooze-until', String(snoozeUntil))
+    router.push('/dashboard?refresh=true&mode=maintenance')
+  }
+
   const handleStillStruggling = () => {
     router.push('/dashboard?mode=recovery')
   }
@@ -316,6 +322,12 @@ export default function BreakOnboardingPage() {
               <span className="reentry-icon">🌤️</span>
               <span className="reentry-label">{saving ? 'Saving...' : 'Better / Ready'}</span>
               <span className="reentry-hint">Back to dashboard</span>
+            </button>
+
+            <button onClick={handleSnooze} className="reentry-btn snooze">
+              <span className="reentry-icon">😴</span>
+              <span className="reentry-label">Snooze 2 hours</span>
+              <span className="reentry-hint">Pause all reminders</span>
             </button>
 
             <button onClick={handleStillStruggling} className="reentry-btn struggling">
@@ -743,6 +755,16 @@ const styles = `
   .reentry-btn.struggling:hover {
     border-color: var(--primary);
     background: rgba(29, 155, 240, 0.08);
+  }
+
+  .reentry-btn.snooze {
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.04);
+  }
+
+  .reentry-btn.snooze:hover {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
   }
 
   .reentry-btn.help {
