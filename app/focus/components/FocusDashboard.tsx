@@ -111,6 +111,14 @@ export default function FocusDashboard({
   const [showMomentumModal, setShowMomentumModal] = useState(false)
   const [momentumPlanId, setMomentumPlanId] = useState<string | null>(null)
 
+  // Drift Detector state
+  const DRIFT_THRESHOLD_MS = 3 * 60 * 1000 // 3 minutes
+  const [showDriftModal, setShowDriftModal] = useState(false)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isIdleRef = useRef(false)
+  const originalTitleRef = useRef('')
+  const microTimerActiveRef = useRef(false)
+
   // Implicit Overwhelm Detection
   const [showOverwhelmToast, setShowOverwhelmToast] = useState(false)
   const overwhelmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -205,6 +213,89 @@ export default function FocusDashboard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [microTimerPlanId])
 
+  // Drift Detector: soft ping (lighter than the chime — single A5 note)
+  const playPing = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880 // A5
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.15, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.6)
+    } catch {
+      // Audio not supported — silent fallback
+    }
+  }
+
+  // Keep microTimerActiveRef in sync
+  useEffect(() => {
+    microTimerActiveRef.current = microTimerPlanId !== null
+  }, [microTimerPlanId])
+
+  // Restore title if micro-timer expires while user is idle
+  useEffect(() => {
+    if (!microTimerPlanId && isIdleRef.current && originalTitleRef.current) {
+      document.title = originalTitleRef.current
+      originalTitleRef.current = ''
+    }
+  }, [microTimerPlanId])
+
+  // Drift Detector: idle detection via mouse/keyboard/touch events
+  useEffect(() => {
+    const onActivity = () => {
+      // Returning from idle — handle welcome-back
+      if (isIdleRef.current) {
+        isIdleRef.current = false
+        if (originalTitleRef.current) {
+          document.title = originalTitleRef.current
+          originalTitleRef.current = ''
+        }
+        // Only show drift modal if micro-timer is still running
+        if (microTimerActiveRef.current) {
+          setShowDriftModal(true)
+        }
+      }
+
+      // Reset idle countdown
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = setTimeout(() => {
+        isIdleRef.current = true
+        if (microTimerActiveRef.current) {
+          originalTitleRef.current = document.title
+          document.title = 'Still focusing? \u{1F440}'
+          playPing()
+        }
+      }, DRIFT_THRESHOLD_MS)
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+    events.forEach(e => window.addEventListener(e, onActivity, { passive: true }))
+
+    // Start initial idle countdown
+    idleTimerRef.current = setTimeout(() => {
+      isIdleRef.current = true
+      if (microTimerActiveRef.current) {
+        originalTitleRef.current = document.title
+        document.title = 'Still focusing? \u{1F440}'
+        playPing()
+      }
+    }, DRIFT_THRESHOLD_MS)
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, onActivity))
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      if (originalTitleRef.current) {
+        document.title = originalTitleRef.current
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const formatMicroTime = (seconds: number): string => {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
@@ -273,6 +364,17 @@ export default function FocusDashboard({
       setCompletedPlan({ ...plan, steps: allCompleted })
     }
     onPlansUpdate()
+  }
+
+  // Drift Detector: modal handlers
+  const handleDriftKeepRolling = () => {
+    setShowDriftModal(false)
+  }
+
+  const handleDriftSubtract = () => {
+    // Reset micro-timer to a fresh 5:00 — the drift time "doesn't count"
+    setMicroSecondsLeft(300)
+    setShowDriftModal(false)
   }
 
   const sortedPlans = [...plans]
@@ -906,6 +1008,27 @@ export default function FocusDashboard({
                 <span className="momentum-btn-label">Task is done!</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drift Detector — non-blocking welcome-back card */}
+      {showDriftModal && (
+        <div className="drift-card">
+          <span className="drift-icon">👀</span>
+          <div className="drift-content">
+            <p className="drift-title">You drifted away</p>
+            <p className="drift-text">Subtract that time or keep rolling?</p>
+          </div>
+          <div className="drift-actions">
+            <button className="drift-btn keep" onClick={handleDriftKeepRolling}>
+              Keep rolling
+            </button>
+            {microTimerPlanId && (
+              <button className="drift-btn subtract" onClick={handleDriftSubtract}>
+                + 5m
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1815,6 +1938,90 @@ export default function FocusDashboard({
           font-size: clamp(14px, 3.8vw, 16px);
           font-weight: 600;
           color: var(--dark-gray);
+        }
+
+        /* ===== DRIFT DETECTOR ===== */
+        .drift-card {
+          position: fixed;
+          top: clamp(16px, 4vw, 24px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: white;
+          border-radius: clamp(12px, 3vw, 16px);
+          padding: clamp(12px, 3vw, 16px) clamp(16px, 4vw, 20px);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+          border-top: 3px solid #f97316;
+          display: flex;
+          align-items: center;
+          gap: clamp(10px, 2.5vw, 14px);
+          z-index: 970;
+          max-width: clamp(320px, 85vw, 420px);
+          width: calc(100% - 32px);
+          animation: driftSlideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes driftSlideDown {
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .drift-icon {
+          font-size: clamp(24px, 7vw, 32px);
+          flex-shrink: 0;
+        }
+
+        .drift-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .drift-title {
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-weight: 700;
+          color: #0f1419;
+          margin: 0 0 2px 0;
+        }
+
+        .drift-text {
+          font-size: clamp(12px, 3.2vw, 14px);
+          color: var(--light-gray);
+          margin: 0;
+        }
+
+        .drift-actions {
+          display: flex;
+          gap: clamp(6px, 1.5vw, 8px);
+          flex-shrink: 0;
+        }
+
+        .drift-btn {
+          padding: clamp(6px, 1.5vw, 8px) clamp(10px, 2.5vw, 14px);
+          border: none;
+          border-radius: clamp(8px, 2vw, 10px);
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          white-space: nowrap;
+        }
+
+        .drift-btn.keep {
+          background: var(--bg-gray);
+          color: var(--dark-gray);
+        }
+
+        .drift-btn.keep:hover {
+          background: var(--extra-light-gray);
+        }
+
+        .drift-btn.subtract {
+          background: rgba(249, 115, 22, 0.1);
+          color: #f97316;
+        }
+
+        .drift-btn.subtract:hover {
+          background: rgba(249, 115, 22, 0.2);
         }
 
         @media (min-width: 768px) {
