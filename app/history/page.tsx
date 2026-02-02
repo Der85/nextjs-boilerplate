@@ -15,6 +15,76 @@ interface MoodEntry {
   created_at: string
 }
 
+interface CompletedPlan {
+  id: string
+  task_name: string
+  created_at: string
+  related_goal_id: string | null
+  steps: Array<{ id: string; text: string; completed: boolean }>
+}
+
+interface GoalInfo {
+  id: string
+  title: string
+}
+
+interface DateGroup {
+  label: string
+  goalGroups: Array<{
+    goalId: string | null
+    goalTitle: string
+    items: CompletedPlan[]
+  }>
+}
+
+function groupPlansByDateAndGoal(plans: CompletedPlan[], goals: GoalInfo[]): DateGroup[] {
+  const today = new Date().toDateString()
+  const yesterday = new Date(Date.now() - 86400000).toDateString()
+
+  const dateMap = new Map<string, CompletedPlan[]>()
+  for (const plan of plans) {
+    const dateStr = new Date(plan.created_at).toDateString()
+    if (!dateMap.has(dateStr)) dateMap.set(dateStr, [])
+    dateMap.get(dateStr)!.push(plan)
+  }
+
+  const result: DateGroup[] = []
+  for (const [dateStr, items] of dateMap) {
+    let label: string
+    if (dateStr === today) label = 'Today'
+    else if (dateStr === yesterday) label = 'Yesterday'
+    else {
+      label = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    }
+
+    const goalMap = new Map<string, CompletedPlan[]>()
+    for (const item of items) {
+      const key = item.related_goal_id || '__orphan__'
+      if (!goalMap.has(key)) goalMap.set(key, [])
+      goalMap.get(key)!.push(item)
+    }
+
+    const goalGroups = Array.from(goalMap.entries()).map(([key, groupPlans]) => {
+      const goal = key !== '__orphan__' ? goals.find(g => g.id === key) : null
+      return {
+        goalId: key === '__orphan__' ? null : key,
+        goalTitle: goal?.title || 'Maintenance / Chores',
+        items: groupPlans,
+      }
+    })
+
+    goalGroups.sort((a, b) => {
+      if (a.goalId && !b.goalId) return -1
+      if (!a.goalId && b.goalId) return 1
+      return 0
+    })
+
+    result.push({ label, goalGroups })
+  }
+
+  return result
+}
+
 const getMoodEmoji = (score: number): string => {
   if (score <= 2) return '😢'
   if (score <= 4) return '😔'
@@ -35,6 +105,10 @@ export default function HistoryPage() {
     weeklyAvg: 0,
     monthlyAvg: 0
   })
+
+  // Growth Feed state
+  const [completedPlans, setCompletedPlans] = useState<CompletedPlan[]>([])
+  const [goalInfos, setGoalInfos] = useState<GoalInfo[]>([])
 
   // Online count for AppHeader
   const [onlineCount] = useState(() => Math.floor(Math.random() * 51)) // 0-50
