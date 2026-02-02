@@ -46,6 +46,14 @@ interface FocusDashboardProps {
   onPlansUpdate: () => void
 }
 
+const getPlantEmoji = (p: number): string => {
+  if (p >= 100) return '🌸'
+  if (p >= 75) return '🌷'
+  if (p >= 50) return '🪴'
+  if (p >= 25) return '🌿'
+  return '🌱'
+}
+
 const DUE_DATE_ORDER: Record<string, number> = {
   today: 0,
   tomorrow: 1,
@@ -519,6 +527,32 @@ export default function FocusDashboard({
     onPlansUpdate()
   }
 
+  const handleRecoveryBetter = async () => {
+    setShowModeModal(false)
+    if (user) {
+      await supabase.from('mood_entries').insert({
+        user_id: user.id,
+        mood_score: 6,
+        note: 'Recovery win',
+        coach_advice: null,
+      })
+    }
+    // After completing a task on low battery and feeling better → maintenance
+    if (completedPlan) {
+      setShowCompletionModal(true)
+    } else {
+      router.push('/dashboard?mode=maintenance')
+    }
+  }
+
+  const getGoalProgress = (goalId: string | null): number => {
+    if (!goalId) return 0
+    const goal = goals.find(g => g.id === goalId)
+    if (!goal || goal.micro_steps.length === 0) return 0
+    const done = goal.micro_steps.filter(s => s.completed).length
+    return Math.round((done / goal.micro_steps.length) * 100)
+  }
+
   // ============================================
   // Task Actions
   // ============================================
@@ -850,62 +884,79 @@ export default function FocusDashboard({
       />
 
       {/* Goal Sync Modal */}
-      {showCompletionModal && completedPlan && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <div className="modal-icon">🎉</div>
-            <h2 className="modal-title">Great work!</h2>
-            <p className="modal-text">
-              You completed your focus session.
-              <br />
-              <strong>Did this complete the step in your Goal?</strong>
-            </p>
-            {completedPlan.related_goal_id && (
-              <div className="modal-goal-badge">
-                🎯 {getGoalTitle(completedPlan.related_goal_id)}
+      {showCompletionModal && completedPlan && (() => {
+        const goalProgress = getGoalProgress(completedPlan.related_goal_id || null)
+        const plantEmoji = getPlantEmoji(goalProgress)
+        const plantScale = 1 + (goalProgress / 100) * 1.5
+
+        return (
+          <div className="modal-overlay">
+            <div className="modal-card">
+              <div className="modal-icon">🎉</div>
+              <h2 className="modal-title">Great work!</h2>
+              <p className="modal-text">
+                You completed your focus session.
+                <br />
+                <strong>Did this complete the step in your Goal?</strong>
+              </p>
+              {completedPlan.related_goal_id && (
+                <>
+                  <div className="modal-goal-badge">
+                    🎯 {getGoalTitle(completedPlan.related_goal_id)}
+                  </div>
+                  <div className="modal-plant-viz">
+                    <div className="modal-plant-emoji" style={{ fontSize: `${plantScale}rem` }}>
+                      {plantEmoji}
+                    </div>
+                    <div className="modal-plant-bar">
+                      <div className="modal-plant-fill" style={{ width: `${goalProgress}%` }} />
+                    </div>
+                    <span className="modal-plant-label">{goalProgress}% grown</span>
+                  </div>
+                </>
+              )}
+              <div className="modal-actions">
+                <button
+                  className="modal-btn secondary"
+                  onClick={() => handleGoalSync(false)}
+                  disabled={syncingGoal}
+                >
+                  Not yet
+                </button>
+                <button
+                  className="modal-btn primary"
+                  onClick={() => handleGoalSync(true)}
+                  disabled={syncingGoal}
+                >
+                  {syncingGoal ? 'Syncing...' : 'Yes, mark complete!'}
+                </button>
               </div>
-            )}
-            <div className="modal-actions">
-              <button
-                className="modal-btn secondary"
-                onClick={() => handleGoalSync(false)}
-                disabled={syncingGoal}
-              >
-                Not yet
-              </button>
-              <button
-                className="modal-btn primary"
-                onClick={() => handleGoalSync(true)}
-                disabled={syncingGoal}
-              >
-                {syncingGoal ? 'Syncing...' : 'Yes, mark complete!'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Mode-Specific Completion Modal */}
       {showModeModal && userMode === 'recovery' && (
         <div className="modal-overlay">
           <div className="modal-card mode-modal recovery">
             <div className="modal-icon">🌿</div>
-            <h2 className="modal-title">You did it, even on low battery.</h2>
+            <h2 className="modal-title">You did it! Energy check:</h2>
             <p className="modal-text">
-              That took real strength. You showed up when it was hard — that counts more than you think.
+              How do you feel now?
             </p>
             <div className="modal-actions">
               <button
                 className="modal-btn secondary"
-                onClick={() => { setShowModeModal(false); router.push('/dashboard') }}
+                onClick={() => { setShowModeModal(false); router.push('/dashboard?mode=recovery') }}
               >
-                I'm done for now
+                Still Tired
               </button>
               <button
                 className="modal-btn primary recovery-btn"
-                onClick={() => setShowModeModal(false)}
+                onClick={handleRecoveryBetter}
               >
-                I have a bit more energy
+                Better / Warmed Up
               </button>
             </div>
           </div>
@@ -1545,6 +1596,47 @@ export default function FocusDashboard({
 
         .mode-modal.growth .modal-title {
           color: #059669;
+        }
+
+        /* Plant Visualization in Goal Sync Modal */
+        .modal-plant-viz {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: clamp(6px, 1.5vw, 10px);
+          margin-bottom: clamp(18px, 5vw, 26px);
+        }
+
+        .modal-plant-emoji {
+          transition: font-size 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          animation: plantGrow 0.8s ease;
+        }
+
+        @keyframes plantGrow {
+          0% { transform: scale(0.6); opacity: 0; }
+          60% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-plant-bar {
+          width: clamp(120px, 40vw, 180px);
+          height: 8px;
+          background: var(--extra-light-gray);
+          border-radius: 100px;
+          overflow: hidden;
+        }
+
+        .modal-plant-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #00ba7c 0%, #059669 100%);
+          border-radius: 100px;
+          transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-plant-label {
+          font-size: clamp(11px, 3vw, 13px);
+          color: var(--light-gray);
+          font-weight: 500;
         }
 
         .recovery-btn {
