@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
@@ -78,7 +78,37 @@ const getPlantEmoji = (p: number): string => {
 }
 
 export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f7f9fa',
+        color: '#8899a6',
+      }}>
+        <div style={{
+          width: 32,
+          height: 32,
+          border: '3px solid #1D9BF0',
+          borderTopColor: 'transparent',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: 16,
+        }} />
+        <p>Loading...</p>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+
+function DashboardContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -113,6 +143,9 @@ export default function Dashboard() {
   const [pulseSaved, setPulseSaved] = useState(false)
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Mode override from URL (e.g., Brake tool re-entry)
+  const [showOverrideToast, setShowOverrideToast] = useState(false)
+
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -136,6 +169,18 @@ export default function Dashboard() {
         setAiInsight(insightRows[0].message)
       }
 
+      // Prioritize URL mode param over calculated mode (e.g., from Brake tool)
+      const modeParam = searchParams.get('mode') as UserMode | null
+      if (modeParam && ['recovery', 'maintenance', 'growth'].includes(modeParam)) {
+        setUserMode(modeParam)
+        // Set slider to a safe default for the overridden mode
+        if (modeParam === 'maintenance') setMoodScore(5)
+        else if (modeParam === 'growth') setMoodScore(8)
+        else if (modeParam === 'recovery') setMoodScore(3)
+        setShowOverrideToast(true)
+        setTimeout(() => setShowOverrideToast(false), 4000)
+      }
+
       setLoading(false)
 
       // Load "Do This Next" recommendation (non-blocking)
@@ -145,7 +190,7 @@ export default function Dashboard() {
     return () => {
       if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current)
     }
-  }, [router])
+  }, [router, searchParams])
 
   const loadRecommendation = async (token: string) => {
     try {
@@ -633,6 +678,14 @@ export default function Dashboard() {
         )}
 
       </main>
+
+      {/* Mode Override Toast (from Brake tool re-entry) */}
+      {showOverrideToast && (
+        <div className="override-toast">
+          <span className="override-toast-icon">🌿</span>
+          <span className="override-toast-text">State updated from Breathing Session</span>
+        </div>
+      )}
 
       <style jsx>{styles}</style>
     </div>
@@ -1192,6 +1245,39 @@ const styles = `
     font-size: clamp(13px, 3.5vw, 15px);
     color: var(--dark-gray);
     line-height: 1.3;
+  }
+
+  /* ===== MODE OVERRIDE TOAST ===== */
+  .override-toast {
+    position: fixed;
+    bottom: clamp(16px, 4vw, 24px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 10px);
+    background: linear-gradient(135deg, #059669 0%, #00ba7c 100%);
+    color: white;
+    padding: clamp(10px, 2.5vw, 14px) clamp(16px, 4vw, 22px);
+    border-radius: 100px;
+    box-shadow: 0 4px 16px rgba(0, 186, 124, 0.35);
+    z-index: 950;
+    animation: toastSlideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+  }
+
+  .override-toast-icon {
+    font-size: clamp(16px, 4.5vw, 20px);
+  }
+
+  .override-toast-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+  }
+
+  @keyframes toastSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */

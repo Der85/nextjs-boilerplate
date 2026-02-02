@@ -163,6 +163,29 @@ export default function HistoryPage() {
         })
       }
     }
+
+    // Fetch completed focus plans for Growth Feed
+    const { data: planData } = await supabase
+      .from('focus_plans')
+      .select('id, task_name, created_at, related_goal_id, steps')
+      .eq('user_id', userId)
+      .eq('is_completed', true)
+      .gte('created_at', ninetyDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
+
+    if (planData) {
+      setCompletedPlans(planData as CompletedPlan[])
+
+      // Fetch goal details for any plans linked to goals
+      const goalIds = [...new Set(planData.map(p => p.related_goal_id).filter(Boolean))] as string[]
+      if (goalIds.length > 0) {
+        const { data: goalData } = await supabase
+          .from('goals')
+          .select('id, title')
+          .in('id', goalIds)
+        if (goalData) setGoalInfos(goalData as GoalInfo[])
+      }
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -325,6 +348,69 @@ export default function HistoryPage() {
                   <span className="mini-value">{stats.total}</span>
                 </div>
               </div>
+            </div>
+          </ProgressiveCard>
+        )}
+
+        {/* Impact Metric */}
+        {(() => {
+          const oneWeekAgo = new Date()
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+          const weekPlans = completedPlans.filter(p => new Date(p.created_at) >= oneWeekAgo)
+          const uniqueGoalIds = new Set(weekPlans.map(p => p.related_goal_id).filter(Boolean))
+          const goalCount = uniqueGoalIds.size
+          const taskCount = weekPlans.length
+          if (taskCount === 0) return null
+          return (
+            <div className="impact-card">
+              <div className="impact-icon">🌱</div>
+              <div className="impact-text">
+                {goalCount > 0
+                  ? <>You nurtured <strong>{goalCount} Goal{goalCount !== 1 ? 's' : ''}</strong> this week across <strong>{taskCount}</strong> completed task{taskCount !== 1 ? 's' : ''}</>
+                  : <>You completed <strong>{taskCount}</strong> task{taskCount !== 1 ? 's' : ''} this week</>}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Growth Feed */}
+        {completedPlans.length > 0 && (
+          <ProgressiveCard
+            id="growth-feed"
+            title="Growth Feed"
+            icon="🌿"
+            preview={`${completedPlans.length} completed task${completedPlans.length !== 1 ? 's' : ''}`}
+            defaultExpanded={true}
+          >
+            <div className="growth-feed">
+              {groupPlansByDateAndGoal(completedPlans, goalInfos).map((dateGroup) => (
+                <div key={dateGroup.label} className="gf-date-group">
+                  <div className="gf-date-label">{dateGroup.label}</div>
+                  {dateGroup.goalGroups.map((goalGroup) => (
+                    <div
+                      key={goalGroup.goalId || '__orphan__'}
+                      className={`gf-goal-card ${goalGroup.goalId ? 'linked' : 'orphan'}`}
+                    >
+                      <div className="gf-goal-header">
+                        <span className="gf-goal-icon">{goalGroup.goalId ? '🎯' : '🔧'}</span>
+                        <span className="gf-goal-title">{goalGroup.goalTitle}</span>
+                        <span className="gf-goal-count">{goalGroup.items.length}</span>
+                      </div>
+                      <div className="gf-items">
+                        {goalGroup.items.map((plan) => (
+                          <div key={plan.id} className="gf-item">
+                            <span className="gf-item-check">✓</span>
+                            <span className="gf-item-name">{plan.task_name}</span>
+                            <span className="gf-item-steps">
+                              {plan.steps.length} step{plan.steps.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           </ProgressiveCard>
         )}
@@ -882,6 +968,144 @@ const styles = `
     margin: 0;
   }
 
+
+  /* ===== IMPACT CARD ===== */
+  .impact-card {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 3vw, 14px);
+    background: linear-gradient(135deg, rgba(0, 186, 124, 0.08) 0%, rgba(0, 186, 124, 0.03) 100%);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: clamp(12px, 3vw, 16px);
+    padding: clamp(14px, 4vw, 18px);
+    margin-bottom: clamp(14px, 4vw, 20px);
+  }
+
+  .impact-icon {
+    font-size: clamp(24px, 7vw, 32px);
+    flex-shrink: 0;
+  }
+
+  .impact-text {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: #536471;
+    line-height: 1.5;
+  }
+
+  .impact-text strong {
+    color: #059669;
+    font-weight: 700;
+  }
+
+  /* ===== GROWTH FEED ===== */
+  .growth-feed {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 4.5vw, 22px);
+  }
+
+  .gf-date-group {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 2.5vw, 12px);
+  }
+
+  .gf-date-label {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 700;
+    color: #8899a6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-left: clamp(2px, 0.5vw, 4px);
+  }
+
+  .gf-goal-card {
+    background: white;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+
+  .gf-goal-card.linked {
+    border-left: 3px solid #00ba7c;
+  }
+
+  .gf-goal-card.orphan {
+    border-left: 3px solid #8899a6;
+  }
+
+  .gf-goal-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2vw, 10px);
+    padding: clamp(10px, 3vw, 14px) clamp(12px, 3.5vw, 16px);
+    background: rgba(0, 0, 0, 0.015);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  }
+
+  .gf-goal-icon {
+    font-size: clamp(14px, 3.8vw, 18px);
+  }
+
+  .gf-goal-title {
+    flex: 1;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    color: #0f1419;
+  }
+
+  .gf-goal-count {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 600;
+    color: #8899a6;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 100px;
+    padding: 2px 8px;
+  }
+
+  .gf-items {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .gf-item {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2.5vw, 12px);
+    padding: clamp(10px, 3vw, 13px) clamp(12px, 3.5vw, 16px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  }
+
+  .gf-item:last-child {
+    border-bottom: none;
+  }
+
+  .gf-item-check {
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 700;
+    color: #00ba7c;
+    flex-shrink: 0;
+    width: clamp(20px, 5.5vw, 24px);
+    height: clamp(20px, 5.5vw, 24px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 186, 124, 0.1);
+    border-radius: 50%;
+  }
+
+  .gf-item-name {
+    flex: 1;
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: #536471;
+    line-height: 1.3;
+  }
+
+  .gf-item-steps {
+    font-size: clamp(10px, 2.8vw, 12px);
+    color: #8899a6;
+    white-space: nowrap;
+  }
 
   /* ===== TABLET/DESKTOP ===== */
   @media (min-width: 768px) {
