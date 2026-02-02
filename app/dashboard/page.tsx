@@ -22,6 +22,13 @@ interface ActiveGoal {
   plant_type: string | null
 }
 
+interface OverduePlan {
+  id: string
+  task_name: string
+  due_date: string | null
+  created_at: string
+}
+
 interface UserInsights {
   totalCheckIns: number
   currentStreak: { type: string; days: number } | null
@@ -128,6 +135,11 @@ function DashboardContent() {
   // Real-time presence - isFocusing: false because Dashboard is for overview
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
+
+  // Fresh Start (overdue task cleanup)
+  const [overduePlans, setOverduePlans] = useState<OverduePlan[]>([])
+  const [freshStartDismissed, setFreshStartDismissed] = useState(false)
+  const [freshStartProcessing, setFreshStartProcessing] = useState(false)
 
   // "Today's Wins" section
   const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
@@ -320,6 +332,28 @@ function DashboardContent() {
       }
     }
     setTodaysWins(wins)
+
+    // Fetch overdue focus plans (incomplete plans from previous days with urgent due_dates)
+    const todayDateStr = new Date().toISOString().split('T')[0]
+    const { data: overdueCandidates } = await supabase
+      .from('focus_plans')
+      .select('id, task_name, due_date, created_at')
+      .eq('user_id', userId)
+      .eq('is_completed', false)
+      .in('due_date', ['today', 'tomorrow'])
+
+    if (overdueCandidates) {
+      const overdue = overdueCandidates.filter(p => {
+        const createdDate = new Date(p.created_at).toISOString().split('T')[0]
+        if (p.due_date === 'today' && createdDate < todayDateStr) return true
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yesterdayStr = yesterday.toISOString().split('T')[0]
+        if (p.due_date === 'tomorrow' && createdDate < yesterdayStr) return true
+        return false
+      })
+      setOverduePlans(overdue as OverduePlan[])
+    }
   }
 
   // Phase 1: User Mode calculation logic
@@ -403,6 +437,49 @@ function DashboardContent() {
   const handlePulseSaveRef = useRef(handlePulseSave)
   handlePulseSaveRef.current = handlePulseSave
 
+  // Fresh Start batch actions
+  const handleFreshStartMoveToday = async () => {
+    if (!user || overduePlans.length === 0) return
+    setFreshStartProcessing(true)
+    const ids = overduePlans.map(p => p.id)
+    await supabase
+      .from('focus_plans')
+      .update({ due_date: 'today' })
+      .in('id', ids)
+      .eq('user_id', user.id)
+    setOverduePlans([])
+    setFreshStartDismissed(true)
+    setFreshStartProcessing(false)
+  }
+
+  const handleFreshStartBacklog = async () => {
+    if (!user || overduePlans.length === 0) return
+    setFreshStartProcessing(true)
+    const ids = overduePlans.map(p => p.id)
+    await supabase
+      .from('focus_plans')
+      .update({ due_date: 'no_rush' })
+      .in('id', ids)
+      .eq('user_id', user.id)
+    setOverduePlans([])
+    setFreshStartDismissed(true)
+    setFreshStartProcessing(false)
+  }
+
+  const handleFreshStartDelete = async () => {
+    if (!user || overduePlans.length === 0) return
+    setFreshStartProcessing(true)
+    const ids = overduePlans.map(p => p.id)
+    await supabase
+      .from('focus_plans')
+      .delete()
+      .in('id', ids)
+      .eq('user_id', user.id)
+    setOverduePlans([])
+    setFreshStartDismissed(true)
+    setFreshStartProcessing(false)
+  }
+
   // Phase 1: Get mode-specific styling and content
   const getModeConfig = () => {
     switch (userMode) {
@@ -467,6 +544,58 @@ function DashboardContent() {
       />
 
       <main className="main">
+        {/* Fresh Start Card — overdue task cleanup (shown before 2 PM) */}
+        {overduePlans.length > 0 && !freshStartDismissed && new Date().getHours() < 14 && (
+          <div className="card fresh-start-card">
+            <div className="fresh-start-header">
+              <span className="fresh-start-icon">🌅</span>
+              <div className="fresh-start-titles">
+                <h2 className="fresh-start-title">Fresh Start</h2>
+                <p className="fresh-start-subtitle">
+                  It&apos;s a new day. You have {overduePlans.length} item{overduePlans.length !== 1 ? 's' : ''} left from yesterday.
+                </p>
+              </div>
+            </div>
+            <div className="fresh-start-items">
+              {overduePlans.map(p => (
+                <div key={p.id} className="fresh-start-item">
+                  <span className="fresh-start-item-dot" />
+                  <span className="fresh-start-item-text">{p.task_name}</span>
+                </div>
+              ))}
+            </div>
+            <div className="fresh-start-actions">
+              <button
+                className="fresh-start-btn primary"
+                onClick={handleFreshStartMoveToday}
+                disabled={freshStartProcessing}
+              >
+                📋 Move to Today
+              </button>
+              <button
+                className="fresh-start-btn secondary"
+                onClick={handleFreshStartBacklog}
+                disabled={freshStartProcessing}
+              >
+                🌊 Backlog All
+              </button>
+              <button
+                className="fresh-start-btn danger"
+                onClick={handleFreshStartDelete}
+                disabled={freshStartProcessing}
+              >
+                🗑️ Clear All
+              </button>
+            </div>
+            <button
+              className="fresh-start-dismiss"
+              onClick={() => setFreshStartDismissed(true)}
+            >
+              Decide later
+            </button>
+          </div>
+        )}
+
         {/* Pinned Context Card - Dynamic based on userMode */}
         {isRecoveryView ? (
           // RECOVERY MODE CARD
@@ -831,6 +960,151 @@ const styles = `
     padding: clamp(16px, 5vw, 28px);
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     margin-bottom: clamp(12px, 4vw, 18px);
+  }
+
+  /* ===== FRESH START (OVERDUE TASK CLEANUP) ===== */
+  .fresh-start-card {
+    padding: clamp(18px, 5vw, 26px);
+    margin-bottom: clamp(12px, 4vw, 18px);
+    border: 2px solid rgba(249, 115, 22, 0.25);
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.06) 0%, rgba(255, 255, 255, 1) 100%);
+    box-shadow: 0 2px 12px rgba(249, 115, 22, 0.1);
+  }
+
+  .fresh-start-header {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(10px, 3vw, 14px);
+    margin-bottom: clamp(12px, 3vw, 16px);
+  }
+
+  .fresh-start-icon {
+    font-size: clamp(28px, 8vw, 36px);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .fresh-start-titles {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .fresh-start-title {
+    font-size: clamp(18px, 5vw, 22px);
+    font-weight: 700;
+    color: #0f1419;
+    margin: 0 0 clamp(2px, 0.5vw, 4px) 0;
+  }
+
+  .fresh-start-subtitle {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .fresh-start-items {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.5vw, 8px);
+    margin-bottom: clamp(14px, 4vw, 18px);
+    padding: clamp(10px, 2.5vw, 14px);
+    background: rgba(249, 115, 22, 0.04);
+    border-radius: clamp(10px, 2.5vw, 14px);
+  }
+
+  .fresh-start-item {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 10px);
+  }
+
+  .fresh-start-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f97316;
+    flex-shrink: 0;
+  }
+
+  .fresh-start-item-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--dark-gray);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .fresh-start-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: clamp(6px, 1.5vw, 10px);
+    margin-bottom: clamp(8px, 2vw, 12px);
+  }
+
+  .fresh-start-btn {
+    padding: clamp(10px, 2.5vw, 14px) clamp(6px, 1.5vw, 10px);
+    border: none;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(12px, 3.2vw, 14px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-align: center;
+  }
+
+  .fresh-start-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fresh-start-btn.primary {
+    background: #f97316;
+    color: white;
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+  }
+
+  .fresh-start-btn.primary:hover:not(:disabled) {
+    background: #ea580c;
+    transform: translateY(-1px);
+  }
+
+  .fresh-start-btn.secondary {
+    background: rgba(29, 155, 240, 0.08);
+    color: var(--primary);
+  }
+
+  .fresh-start-btn.secondary:hover:not(:disabled) {
+    background: rgba(29, 155, 240, 0.15);
+  }
+
+  .fresh-start-btn.danger {
+    background: rgba(244, 33, 46, 0.08);
+    color: var(--danger);
+  }
+
+  .fresh-start-btn.danger:hover:not(:disabled) {
+    background: rgba(244, 33, 46, 0.15);
+  }
+
+  .fresh-start-dismiss {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--light-gray);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    cursor: pointer;
+    padding: clamp(6px, 1.5vw, 8px);
+    transition: color 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-align: center;
+  }
+
+  .fresh-start-dismiss:hover {
+    color: var(--dark-gray);
   }
 
   /* ===== PHASE 3: PINNED CONTEXT CARDS ===== */
