@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
+import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
 
 interface MoodEntry {
@@ -143,7 +144,7 @@ function DashboardContent() {
 
   // "Today's Wins" section
   const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
-  const [showWins, setShowWins] = useState(false)
+
 
   // "Do This Next" recommendation
   const [recommendation, setRecommendation] = useState<{
@@ -154,6 +155,7 @@ function DashboardContent() {
   } | null>(null)
 
   const [pulseSaved, setPulseSaved] = useState(false)
+  const [pulseSaving, setPulseSaving] = useState(false)
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Mode override from URL (e.g., Brake tool re-entry)
@@ -410,6 +412,7 @@ function DashboardContent() {
     })
     await fetchData(user.id)
     setSaving(false)
+    setPulseSaving(false)
     setPulseSaved(true)
     setTimeout(() => setPulseSaved(false), 2000)
   }
@@ -417,6 +420,7 @@ function DashboardContent() {
   const handlePulseChange = (value: number) => {
     setMoodScore(value)
     setPulseSaved(false)
+    setPulseSaving(true)
     if (value <= 3) {
       setUserMode('recovery')
     } else if (value >= 8 && insights?.currentStreak && insights.currentStreak.days > 2) {
@@ -430,7 +434,7 @@ function DashboardContent() {
     }
     pulseTimerRef.current = setTimeout(() => {
       handlePulseSaveRef.current()
-    }, 1000)
+    }, 3000)
   }
 
   // Ref to always call latest handlePulseSave (avoids stale closure in timer)
@@ -753,6 +757,12 @@ function DashboardContent() {
               <span>High</span>
             </div>
           </div>
+          {pulseSaving && !pulseSaved && (
+            <div className="pulse-saving-toast">
+              <span className="pulse-saving-dot" />
+              Saving...
+            </div>
+          )}
           {pulseSaved && (
             <div className="pulse-saved-toast">✓ Saved</div>
           )}
@@ -846,24 +856,25 @@ function DashboardContent() {
           )
         })()}
 
-        {/* Today's Wins */}
+        {/* Today's Wins — collapsed by default to reduce visual noise */}
         {todaysWins.length > 0 && (
-          <div className="card wins-card">
-            <button onClick={() => setShowWins(!showWins)} className="wins-toggle">
-              <span>🏆 Today&apos;s Wins ({todaysWins.length})</span>
-              <span className={`wins-chevron ${showWins ? 'open' : ''}`}>▾</span>
-            </button>
-            {showWins && (
-              <div className="wins-list">
-                {todaysWins.map((win, i) => (
-                  <div key={i} className="win-item">
-                    <span className="win-icon">{win.icon}</span>
-                    <span className="win-text">{win.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ProgressiveCard
+            id="todays-wins"
+            title={`Today's Wins (${todaysWins.length})`}
+            icon="🏆"
+            preview={`${todaysWins.length} item${todaysWins.length !== 1 ? 's' : ''}`}
+            defaultExpanded={false}
+            autoCollapseDelay={0}
+          >
+            <div className="wins-list">
+              {todaysWins.map((win, i) => (
+                <div key={i} className="win-item">
+                  <span className="win-icon">{win.icon}</span>
+                  <span className="win-text">{win.text}</span>
+                </div>
+              ))}
+            </div>
+          </ProgressiveCard>
         )}
 
       </main>
@@ -1486,6 +1497,35 @@ const styles = `
     font-size: clamp(20px, 5.5vw, 26px);
   }
 
+  .pulse-saving-toast {
+    width: 100%;
+    padding: clamp(10px, 2.5vw, 14px);
+    text-align: center;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    color: var(--light-gray);
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    animation: fadeIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 1.5vw, 8px);
+  }
+
+  .pulse-saving-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--light-gray);
+    animation: savingPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes savingPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
   .pulse-saved-toast {
     width: 100%;
     padding: clamp(10px, 2.5vw, 14px);
@@ -1603,36 +1643,7 @@ const styles = `
     color: var(--primary);
   }
 
-  /* ===== TODAY'S WINS ===== */
-  .wins-card {
-    padding: 0;
-    margin-bottom: clamp(20px, 5vw, 32px);
-  }
-
-  .wins-toggle {
-    width: 100%;
-    padding: clamp(14px, 4vw, 18px) clamp(16px, 4.5vw, 22px);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 600;
-    color: var(--dark-gray);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .wins-chevron {
-    font-size: clamp(16px, 4.5vw, 20px);
-    transition: transform 0.2s ease;
-    color: var(--light-gray);
-  }
-
-  .wins-chevron.open {
-    transform: rotate(180deg);
-  }
+  /* ===== TODAY'S WINS (inside ProgressiveCard) ===== */
 
   .wins-list {
     padding: 0 clamp(16px, 4.5vw, 22px) clamp(14px, 4vw, 18px);
