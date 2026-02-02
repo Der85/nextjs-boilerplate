@@ -19,6 +19,7 @@ interface ActiveGoal {
   id: string
   title: string
   progress_percent: number
+  plant_type: string | null
 }
 
 interface UserInsights {
@@ -276,7 +277,7 @@ function DashboardContent() {
     // Fetch most recent active goal
     const { data: goalData } = await supabase
       .from('goals')
-      .select('id, title, progress_percent')
+      .select('id, title, progress_percent, plant_type')
       .eq('user_id', userId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -523,9 +524,34 @@ function DashboardContent() {
                 )}
               </div>
             )}
-            <button onClick={() => router.push('/focus')} className="btn-action growth">
-              ⏱️ Start Focus Session
-            </button>
+            {activeGoal && (
+              <button
+                onClick={() => router.push(
+                  `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=high`
+                )}
+                className="mini-garden growth-garden"
+              >
+                <div
+                  className="mini-garden-plant"
+                  style={{ fontSize: `${1 + (activeGoal.progress_percent / 100) * 2}rem` }}
+                >
+                  {activeGoal.plant_type || getPlantEmoji(activeGoal.progress_percent)}
+                </div>
+                <div className="mini-garden-bar growth-bar">
+                  <div
+                    className="mini-garden-fill growth-fill"
+                    style={{ width: `${activeGoal.progress_percent}%` }}
+                  />
+                </div>
+                <span className="mini-garden-title">{activeGoal.title}</span>
+                <span className="mini-garden-label">Water this plant (Focus)</span>
+              </button>
+            )}
+            {!activeGoal && (
+              <button onClick={() => router.push('/focus')} className="btn-action growth">
+                ⏱️ Start Focus Session
+              </button>
+            )}
           </div>
         ) : (
           // MAINTENANCE MODE CARD
@@ -551,12 +577,25 @@ function DashboardContent() {
 
             {activeGoal && (
               <button
-                onClick={() => router.push('/goals')}
-                className="active-goal-badge"
+                onClick={() => router.push(
+                  `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}`
+                )}
+                className="mini-garden"
               >
-                <span className="goal-plant">{getPlantEmoji(activeGoal.progress_percent)}</span>
-                <span className="goal-badge-text">{activeGoal.title}</span>
-                <span className="goal-badge-percent">{activeGoal.progress_percent}%</span>
+                <div
+                  className="mini-garden-plant"
+                  style={{ fontSize: `${1 + (activeGoal.progress_percent / 100) * 2}rem` }}
+                >
+                  {activeGoal.plant_type || getPlantEmoji(activeGoal.progress_percent)}
+                </div>
+                <div className="mini-garden-bar">
+                  <div
+                    className="mini-garden-fill"
+                    style={{ width: `${activeGoal.progress_percent}%` }}
+                  />
+                </div>
+                <span className="mini-garden-title">{activeGoal.title}</span>
+                <span className="mini-garden-label">Water this plant (Focus)</span>
               </button>
             )}
           </div>
@@ -993,47 +1032,87 @@ const styles = `
     margin-bottom: clamp(12px, 4vw, 18px);
   }
 
-  /* ===== ACTIVE GOAL BADGE (Maintenance Mode) ===== */
-  .active-goal-badge {
+  /* ===== MINI GARDEN (Dopamine Garden Widget) ===== */
+  .mini-garden {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: clamp(8px, 2vw, 12px);
+    gap: clamp(6px, 1.5vw, 10px);
     width: 100%;
-    padding: clamp(12px, 3vw, 16px);
+    padding: clamp(16px, 4.5vw, 22px) clamp(12px, 3vw, 16px);
     margin-top: clamp(14px, 4vw, 18px);
-    background: rgba(0, 186, 124, 0.06);
-    border: 1px solid rgba(0, 186, 124, 0.15);
-    border-radius: clamp(10px, 2.5vw, 14px);
+    background: linear-gradient(180deg, rgba(0, 186, 124, 0.06) 0%, rgba(0, 186, 124, 0.02) 100%);
+    border: 1.5px solid rgba(0, 186, 124, 0.18);
+    border-radius: clamp(14px, 4vw, 20px);
     cursor: pointer;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    transition: background 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   }
 
-  .active-goal-badge:hover {
-    background: rgba(0, 186, 124, 0.1);
+  .mini-garden:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 186, 124, 0.15);
+    background: linear-gradient(180deg, rgba(0, 186, 124, 0.1) 0%, rgba(0, 186, 124, 0.04) 100%);
   }
 
-  .goal-plant {
-    font-size: clamp(20px, 5.5vw, 26px);
-    flex-shrink: 0;
+  .mini-garden:active {
+    transform: translateY(0);
   }
 
-  .goal-badge-text {
-    flex: 1;
+  .mini-garden.growth-garden {
+    margin-top: 0;
+    margin-bottom: clamp(12px, 3vw, 16px);
+    background: linear-gradient(180deg, rgba(0, 186, 124, 0.08) 0%, rgba(0, 186, 124, 0.02) 100%);
+    border-color: rgba(0, 186, 124, 0.25);
+  }
+
+  .mini-garden-plant {
+    line-height: 1;
+    transition: font-size 0.3s ease;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+
+  .mini-garden-bar {
+    width: 80%;
+    max-width: 180px;
+    height: 6px;
+    background: rgba(0, 186, 124, 0.12);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .mini-garden-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ba7c 0%, #059669 100%);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+  }
+
+  .mini-garden-bar.growth-bar {
+    background: rgba(0, 186, 124, 0.18);
+  }
+
+  .mini-garden-fill.growth-fill {
+    background: linear-gradient(90deg, #059669 0%, #00ba7c 100%);
+  }
+
+  .mini-garden-title {
     font-size: clamp(13px, 3.5vw, 15px);
     font-weight: 600;
     color: var(--dark-gray);
-    text-align: left;
+    text-align: center;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 100%;
   }
 
-  .goal-badge-percent {
-    font-size: clamp(13px, 3.5vw, 15px);
-    font-weight: 700;
+  .mini-garden-label {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 600;
     color: var(--success);
-    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
   }
 
   /* ===== DAILY PULSE CARD ===== */
