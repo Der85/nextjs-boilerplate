@@ -116,11 +116,28 @@ export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, o
     )
   }
 
+  const isSprint = energyLevel === 'high'
+
   return (
     <div className="triage-screen">
       <div className="triage-content">
-        <h2 className="triage-title">Here&apos;s what I found</h2>
-        <p className="triage-subtitle">Remove anything that doesn&apos;t feel like a task right now</p>
+        {isSprint && (
+          <div className="sprint-badge">🚀 Sprint Mode</div>
+        )}
+        <h2 className="triage-title">
+          {isSprint ? 'Pick Your Top 3' : 'Here\u0027s what I found'}
+        </h2>
+        <p className="triage-subtitle">
+          {isSprint
+            ? 'Energy is high — choose your 3 most impactful tasks and go.'
+            : 'Remove anything that doesn\u0027t feel like a task right now'}
+        </p>
+
+        {isSprint && confirmedTasks.length > 3 && (
+          <div className="sprint-hint">
+            ⚡ You have {confirmedTasks.length} tasks — trim to 3 for maximum focus
+          </div>
+        )}
 
         <div className="task-list">
           {confirmedTasks.map((task) => (
@@ -174,10 +191,12 @@ export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, o
           <button
             onClick={handleConfirm}
             disabled={confirmedTasks.length === 0}
-            className={`submit-btn ${isOvercapacity ? 'overcapacity' : ''}`}
+            className={`submit-btn ${isOvercapacity ? 'overcapacity' : isSprint ? 'sprint' : ''}`}
           >
             {isOvercapacity ? (
               <>⚠️ Heavy Load — Continue anyway →</>
+            ) : isSprint ? (
+              <>🚀 Lock in {confirmedTasks.length} task{confirmedTasks.length !== 1 ? 's' : ''} →</>
             ) : (
               <>Continue with {confirmedTasks.length} task{confirmedTasks.length !== 1 ? 's' : ''} →</>
             )}
@@ -594,5 +613,40 @@ const styles = `
 
   .defer-btn:hover {
     background: #fff7ed;
+  }
+
+  /* ===== SPRINT MODE ===== */
+  .sprint-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+    color: white;
+    padding: clamp(6px, 1.5vw, 8px) clamp(14px, 3.5vw, 20px);
+    border-radius: 100px;
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin-bottom: clamp(12px, 3vw, 16px);
+    box-shadow: 0 2px 10px rgba(0, 186, 124, 0.3);
+  }
+
+  .sprint-hint {
+    background: rgba(0, 186, 124, 0.08);
+    border: 1px solid rgba(0, 186, 124, 0.2);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    color: #059669;
+    margin-bottom: clamp(16px, 4vw, 24px);
+    text-align: center;
+  }
+
+  .submit-btn.sprint {
+    background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+    box-shadow: 0 4px 14px rgba(0, 186, 124, 0.3);
+  }
+
+  .submit-btn.sprint:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
   }
 `
