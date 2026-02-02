@@ -127,6 +127,10 @@ export default function FocusDashboard({
   const originalTitleRef = useRef('')
   const microTimerActiveRef = useRef(false)
 
+  // Zen Mode
+  const [isZenMode, setIsZenMode] = useState(false)
+  const [zenPlanId, setZenPlanId] = useState<string | null>(null)
+
   // Implicit Overwhelm Detection
   const [showOverwhelmToast, setShowOverwhelmToast] = useState(false)
   const overwhelmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -313,6 +317,9 @@ export default function FocusDashboard({
   const startMicroTimer = (planId: string) => {
     setMicroSecondsLeft(300)
     setMicroTimerPlanId(planId)
+    // Auto-enter zen mode for this task
+    setIsZenMode(true)
+    setZenPlanId(planId)
   }
 
   const stopMicroTimer = () => {
@@ -679,11 +686,29 @@ export default function FocusDashboard({
       <main className="main">
         <div className="page-header-title">
           <h1>⏱️ Focus Mode</h1>
+          {sortedPlans.length > 0 && (
+            <button
+              className={`zen-toggle ${isZenMode ? 'active' : ''}`}
+              onClick={() => {
+                if (isZenMode) {
+                  setIsZenMode(false)
+                  setZenPlanId(null)
+                } else {
+                  setIsZenMode(true)
+                  setZenPlanId(sortedPlans[0]?.id || null)
+                }
+              }}
+            >
+              {isZenMode ? '📋 Show All' : '👁️ Zen Mode'}
+            </button>
+          )}
         </div>
 
-        <button onClick={onNewBrainDump} className="new-dump-btn">
-          🧠 New Brain Dump
-        </button>
+        {!isZenMode && (
+          <button onClick={onNewBrainDump} className="new-dump-btn">
+            🧠 New Brain Dump
+          </button>
+        )}
 
         {sortedPlans.length === 0 ? (
           <div className="card empty-state">
@@ -695,7 +720,10 @@ export default function FocusDashboard({
             </button>
           </div>
         ) : (
-          sortedPlans.map((plan) => {
+          (isZenMode
+            ? sortedPlans.filter(p => zenPlanId ? p.id === zenPlanId : false).slice(0, 1)
+            : sortedPlans
+          ).map((plan) => {
             const done = plan.steps.filter(s => s.completed).length
             const total = plan.steps.length
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
@@ -705,7 +733,7 @@ export default function FocusDashboard({
             const isMenuOpen = taskMenuId === plan.id
 
             return (
-              <div key={plan.id} className="card task-card">
+              <div key={plan.id} className={`card task-card ${isZenMode ? 'zen-active' : ''}`}>
                 <div className="task-top-row">
                   <div className="task-badges">
                     {linkedGoalTitle && (
@@ -1129,6 +1157,9 @@ export default function FocusDashboard({
         }
 
         .page-header-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
           margin-bottom: clamp(14px, 4vw, 20px);
         }
 
@@ -1136,6 +1167,43 @@ export default function FocusDashboard({
           font-size: clamp(22px, 6vw, 28px);
           font-weight: 700;
           margin: 0;
+        }
+
+        /* ===== ZEN MODE ===== */
+        .zen-toggle {
+          padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px);
+          background: white;
+          border: 1.5px solid var(--extra-light-gray);
+          border-radius: 100px;
+          font-size: clamp(12px, 3.2vw, 14px);
+          font-weight: 600;
+          color: var(--dark-gray);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .zen-toggle:hover {
+          background: var(--bg-gray);
+          border-color: var(--light-gray);
+        }
+
+        .zen-toggle.active {
+          background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+          color: white;
+          border-color: transparent;
+          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .zen-toggle.active:hover {
+          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        }
+
+        .task-card.zen-active {
+          border: 2px solid rgba(99, 102, 241, 0.25);
+          box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
         }
 
         .new-dump-btn {
