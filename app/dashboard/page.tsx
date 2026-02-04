@@ -547,6 +547,91 @@ function DashboardContent() {
   // Atomic Dashboard: Has the user checked in today?
   const hasCheckedInToday = insights?.daysSinceLastCheckIn === 0
 
+  // ===== "ONE THING" PRINCIPLE: renderHero() =====
+  // Returns ONLY ONE hero card based on strict priority hierarchy.
+  // This eliminates choice paralysis by showing the single most important action.
+  const renderHero = () => {
+    const energy = getEnergyParam(moodScore)
+
+    // PRIORITY 1: Recovery Mode — absolute simplicity
+    if (isRecoveryView) {
+      return (
+        <div className="card hero-card recovery-hero">
+          <div className="hero-icon">🫂</div>
+          <h2 className="hero-title">Low Battery</h2>
+          <p className="hero-subtitle">One thing only: rest and regulate.</p>
+          <button onClick={() => router.push('/brake')} className="hero-btn recovery">
+            🛑 Press the Brake (10s)
+          </button>
+        </div>
+      )
+    }
+
+    // PRIORITY 2: Fresh Start — simplified (only 2 options to reduce decision fatigue)
+    if (overduePlans.length > 0 && !freshStartDismissed) {
+      return (
+        <div className="card hero-card fresh-start-hero">
+          <div className="hero-icon">🌅</div>
+          <h2 className="hero-title">Fresh Start</h2>
+          <p className="hero-subtitle">
+            {overduePlans.length} item{overduePlans.length !== 1 ? 's' : ''} from yesterday
+          </p>
+          <div className="fresh-start-items">
+            {overduePlans.slice(0, 2).map(p => (
+              <div key={p.id} className="fresh-start-item">
+                <span className="fresh-start-item-dot" />
+                <span className="fresh-start-item-text">{p.task_name}</span>
+              </div>
+            ))}
+            {overduePlans.length > 2 && (
+              <p className="fresh-start-more">+{overduePlans.length - 2} more</p>
+            )}
+          </div>
+          <div className="fresh-start-actions-simple">
+            <button
+              className="hero-btn primary"
+              onClick={handleFreshStartMoveToday}
+              disabled={freshStartProcessing}
+            >
+              📋 Move to Today
+            </button>
+            <button
+              className="hero-btn secondary"
+              onClick={handleFreshStartBacklog}
+              disabled={freshStartProcessing}
+            >
+              🌊 Backlog
+            </button>
+          </div>
+          <button className="hero-dismiss" onClick={() => setFreshStartDismissed(true)}>
+            Decide later
+          </button>
+        </div>
+      )
+    }
+
+    // PRIORITY 3: Just One Thing (recommendation or fallback)
+    const just1 = recommendation
+      ? { label: recommendation.suggestion, url: recommendation.url }
+      : activeGoal
+        ? { label: activeGoal.title, url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}` }
+        : { label: 'Pick something small', url: `/focus?energy=${energy}` }
+
+    return (
+      <div className="card hero-card just1-hero">
+        <div className="hero-greeting">
+          <h1>{getGreeting()} 👋</h1>
+          {getContextMessage() && <p className="hero-context">{getContextMessage()}</p>}
+        </div>
+        <button onClick={() => router.push(just1.url)} className="hero-btn primary large">
+          <span className="hero-btn-label">Just 1 Thing</span>
+          <span className="hero-btn-task">{just1.label}</span>
+          <span className="hero-btn-arrow">→</span>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed zen-mode' : ''}`}>
       <AppHeader
@@ -561,247 +646,63 @@ function DashboardContent() {
       />
 
       <main className="main">
-        {/* ===== ATOMIC DASHBOARD: SINGLE PRIMARY TASK =====
-            Strict hierarchy: 1. Overdue → 2. Recovery → 3. Recommendation → 4. Greeting
-            Only ONE hero element shown to eliminate choice paralysis */}
-
-        {/* PRIORITY 1: Fresh Start (overdue tasks) */}
-        {overduePlans.length > 0 && !freshStartDismissed && (new Date().getHours() < 14 || freshStartReminded) ? (
-          <div className="card fresh-start-card">
-            <div className="fresh-start-header">
-              <span className="fresh-start-icon">🌅</span>
-              <div className="fresh-start-titles">
-                <h2 className="fresh-start-title">Fresh Start</h2>
-                <p className="fresh-start-subtitle">
-                  You have {overduePlans.length} item{overduePlans.length !== 1 ? 's' : ''} from yesterday.
-                </p>
-              </div>
-            </div>
-            <div className="fresh-start-items">
-              {overduePlans.slice(0, 3).map(p => (
-                <div key={p.id} className="fresh-start-item">
-                  <span className="fresh-start-item-dot" />
-                  <span className="fresh-start-item-text">{p.task_name}</span>
-                </div>
-              ))}
-              {overduePlans.length > 3 && (
-                <p className="fresh-start-more">+{overduePlans.length - 3} more</p>
-              )}
-            </div>
-            <div className="fresh-start-actions">
-              <button
-                className="fresh-start-btn primary"
-                onClick={handleFreshStartMoveToday}
-                disabled={freshStartProcessing}
-              >
-                📋 Move to Today
-              </button>
-              <button
-                className="fresh-start-btn remind"
-                onClick={handleFreshStartRemind4PM}
-                disabled={freshStartProcessing}
-              >
-                🕓 Remind at 4 PM
-              </button>
-              <button
-                className="fresh-start-btn secondary"
-                onClick={handleFreshStartBacklog}
-                disabled={freshStartProcessing}
-              >
-                🌊 Backlog All
-              </button>
-              <button
-                className="fresh-start-btn danger"
-                onClick={handleFreshStartDelete}
-                disabled={freshStartProcessing}
-              >
-                🗑️ Clear All
-              </button>
-            </div>
-            <button
-              className="fresh-start-dismiss"
-              onClick={() => setFreshStartDismissed(true)}
-            >
-              Decide later
-            </button>
-          </div>
-
-        /* PRIORITY 2: Recovery Mode — simplified, hide distractions */
-        ) : isRecoveryView ? (
-          <div className="card pinned-card recovery">
-            <ModeIndicator mode={userMode} position="absolute" />
-            <div className="pinned-header">
-              <span className="pinned-icon">🫂</span>
-              <div className="pinned-titles">
-                <h2 className="pinned-title">Low Battery</h2>
-                <p className="pinned-subtitle">One thing only.</p>
-              </div>
-            </div>
-            <p className="pinned-message">
-              Skip the big tasks. Rest and regulate.
-            </p>
-            <button onClick={() => router.push('/brake')} className="btn-action recovery">
-              🛑 Start 10s Reset
-            </button>
-            <button onClick={() => router.push('/ally')} className="btn-secondary recovery-secondary">
-              💜 I&apos;m Stuck
-            </button>
-          </div>
-
-        /* PRIORITY 3: Recommendation (growth/maintenance with suggestion) */
-        ) : recommendation ? (
-          <div className="card atomic-hero">
-            <ModeIndicator mode={userMode} position="absolute" />
-            <div className="atomic-greeting">
-              <h1>{getGreeting()} 👋</h1>
-            </div>
-            <button onClick={() => router.push(recommendation.url)} className="atomic-rec-btn">
-              <span className="atomic-rec-icon">💡</span>
-              <div className="atomic-rec-content">
-                <span className="atomic-rec-title">Do This Next</span>
-                <span className="atomic-rec-suggestion">{recommendation.suggestion}</span>
-              </div>
-              <span className="atomic-rec-arrow">→</span>
-            </button>
-          </div>
-
-        /* PRIORITY 4: Default Greeting with Just 1 Thing */
-        ) : (
-          <div className="card atomic-hero">
-            <ModeIndicator mode={userMode} position="absolute" />
-            <div className="atomic-greeting">
-              <h1>{getGreeting()} 👋</h1>
-              {getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
-            </div>
-            {(() => {
-              const energy = getEnergyParam(moodScore)
-              const just1 = overduePlans.length > 0
-                ? { label: overduePlans[0].task_name, url: `/focus?create=true&taskName=${encodeURIComponent(overduePlans[0].task_name)}&energy=${energy}` }
-                : activeGoal
-                  ? { label: activeGoal.title, url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}` }
-                  : { label: 'Pick something small', url: `/focus?energy=${energy}` }
-              return (
-                <button onClick={() => router.push(just1.url)} className="atomic-just1">
-                  <span className="atomic-just1-label">Just 1 Thing</span>
-                  <span className="atomic-just1-task">{just1.label}</span>
-                  <span className="atomic-just1-hint">→</span>
-                </button>
-              )
-            })()}
-          </div>
-        )}
-
-        {/* DailyPulse — collapsed after first check-in to save space */}
-        <ProgressiveCard
-          id="daily-pulse"
-          title={getPulseLabel()}
-          icon={moodScore !== null ? getMoodEmoji(moodScore) : '📊'}
-          preview={moodScore !== null ? `${moodScore}/10` : 'Log your energy'}
-          defaultExpanded={!hasCheckedInToday}
-          autoCollapseDelay={0}
-        >
-          <div className="pulse-inner">
-            <div className="slider-container">
-              <input
-                type="range" min="1" max="10"
-                value={moodScore ?? 5}
-                onChange={(e) => handlePulseChange(Number(e.target.value))}
-                className="intercept-slider"
-              />
-              <div className="slider-labels">
-                <span>Low</span>
-                <span className="slider-value">{moodScore ?? 5}/10</span>
-                <span>High</span>
-              </div>
-            </div>
-            {pulseSaving && !pulseSaved && (
-              <div className="pulse-saving-toast">
-                <span className="pulse-saving-dot" />
-                Saving...
-              </div>
-            )}
-            {pulseSaved && (
-              <div className="pulse-saved-toast">✓ Saved</div>
-            )}
-          </div>
-        </ProgressiveCard>
-
-        {/* Dopamine Garden — hidden in recovery mode */}
-        {!isRecoveryView && activeGoal && (
-          <button
-            onClick={() => router.push(
-              `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${getEnergyParam(moodScore)}`
-            )}
-            className="mini-garden"
-          >
-            <div
-              className="mini-garden-plant"
-              style={{ fontSize: `${1 + (activeGoal.progress_percent / 100) * 2}rem` }}
-            >
-              {activeGoal.plant_type || getPlantEmoji(activeGoal.progress_percent)}
-            </div>
-            <div className="mini-garden-bar">
-              <div
-                className="mini-garden-fill"
-                style={{ width: `${activeGoal.progress_percent}%` }}
-              />
-            </div>
-            <span className="mini-garden-title">{activeGoal.title}</span>
-            <span className="mini-garden-label">Water this plant</span>
-          </button>
-        )}
-
-        {/* Today's Wins — collapsed by default */}
-        {!isRecoveryView && todaysWins.length > 0 && (
-          <ProgressiveCard
-            id="todays-wins"
-            title={`Today's Wins (${todaysWins.length})`}
-            icon="🏆"
-            preview={`${todaysWins.length} item${todaysWins.length !== 1 ? 's' : ''}`}
-            defaultExpanded={false}
-            autoCollapseDelay={0}
-          >
-            <div className="wins-list">
-              {todaysWins.map((win, i) => (
-                <div key={i} className="win-item">
-                  <span className="win-icon">{win.icon}</span>
-                  <span className="win-text">{win.text}</span>
-                </div>
-              ))}
-            </div>
-          </ProgressiveCard>
-        )}
-
-        {/* Collapsible Toolbox — hidden by default, keeps main view clean */}
-        {!isRecoveryView && (
-          <div className="toolbox-section">
-            <button
-              className="toolbox-toggle"
-              onClick={() => setToolboxExpanded(!toolboxExpanded)}
-            >
-              <span className="toolbox-toggle-icon">{toolboxExpanded ? '−' : '+'}</span>
-              <span className="toolbox-toggle-label">{toolboxExpanded ? 'Hide Tools' : 'View All Tools'}</span>
-            </button>
-            {toolboxExpanded && (
-              <div className="toolbox-grid">
-                <button onClick={() => router.push(`/focus?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
-                  ⏱️ Focus
-                </button>
-                <button onClick={() => router.push(`/goals?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
-                  🎯 Goals
-                </button>
-                <button onClick={() => router.push(`/ally?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
-                  💜 Stuck
-                </button>
-                <button onClick={() => router.push(`/history?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
-                  📊 History
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
+        {/* ===== "ONE THING" DASHBOARD =====
+            Aggressive progressive disclosure: only ONE hero element at a time.
+            Strict hierarchy: 1. Recovery → 2. Fresh Start → 3. Just One Thing */}
+        {renderHero()}
       </main>
+
+      {/* ===== FLOATING ACTION BUTTON (FAB) for Toolbox ===== */}
+      {!isRecoveryView && (
+        <>
+          <button
+            className="toolbox-fab"
+            onClick={() => setToolboxExpanded(!toolboxExpanded)}
+            aria-label="Open toolbox"
+          >
+            🧰
+          </button>
+
+          {/* Toolbox Modal Overlay */}
+          {toolboxExpanded && (
+            <>
+              <div className="fab-overlay" onClick={() => setToolboxExpanded(false)} />
+              <div className="fab-modal">
+                <div className="fab-modal-header">
+                  <span className="fab-modal-title">Quick Tools</span>
+                  <button className="fab-modal-close" onClick={() => setToolboxExpanded(false)}>×</button>
+                </div>
+                <div className="fab-modal-grid">
+                  <button onClick={() => { router.push(`/focus?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">⏱️</span>
+                    <span className="fab-tool-label">Focus</span>
+                  </button>
+                  <button onClick={() => { router.push(`/goals?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">🎯</span>
+                    <span className="fab-tool-label">Goals</span>
+                  </button>
+                  <button onClick={() => { router.push(`/ally?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">💜</span>
+                    <span className="fab-tool-label">Stuck</span>
+                  </button>
+                  <button onClick={() => { router.push(`/history?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">📊</span>
+                    <span className="fab-tool-label">History</span>
+                  </button>
+                  <button onClick={() => { router.push('/brake'); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">🫁</span>
+                    <span className="fab-tool-label">Breathe</span>
+                  </button>
+                  <button onClick={() => { router.push('/check-in'); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">📋</span>
+                    <span className="fab-tool-label">Check-in</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
 
       {/* Mode Override Toast (from Brake tool re-entry) */}
       {showOverrideToast && (
@@ -1921,9 +1822,307 @@ const styles = `
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
+  /* ===== "ONE THING" HERO CARDS ===== */
+  .hero-card {
+    padding: clamp(24px, 6vw, 36px);
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .hero-icon {
+    font-size: clamp(48px, 12vw, 64px);
+    margin-bottom: clamp(12px, 3vw, 18px);
+    line-height: 1;
+  }
+
+  .hero-title {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 700;
+    color: #0f1419;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    margin: 0 0 clamp(20px, 5vw, 28px) 0;
+    line-height: 1.5;
+  }
+
+  .recovery-hero .hero-title {
+    color: #dc2626;
+  }
+
+  .fresh-start-hero {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.04) 0%, white 100%);
+    border: 1.5px solid rgba(249, 115, 22, 0.2);
+  }
+
+  .fresh-start-hero .hero-title {
+    color: #ea580c;
+  }
+
+  .fresh-start-actions-simple {
+    display: flex;
+    gap: clamp(10px, 2.5vw, 14px);
+    margin-bottom: clamp(12px, 3vw, 16px);
+  }
+
+  .fresh-start-actions-simple .hero-btn {
+    flex: 1;
+  }
+
+  .hero-btn {
+    padding: clamp(14px, 4vw, 18px) clamp(20px, 5vw, 28px);
+    border: none;
+    border-radius: clamp(12px, 3vw, 16px);
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    width: 100%;
+  }
+
+  .hero-btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .hero-btn:active {
+    transform: translateY(0);
+  }
+
+  .hero-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .hero-btn.recovery {
+    background: linear-gradient(135deg, #f4212e 0%, #dc2626 100%);
+    color: white;
+    box-shadow: 0 4px 16px rgba(244, 33, 46, 0.3);
+  }
+
+  .hero-btn.primary {
+    background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+    color: white;
+    box-shadow: 0 4px 16px rgba(29, 155, 240, 0.3);
+  }
+
+  .hero-btn.secondary {
+    background: white;
+    color: var(--dark-gray);
+    border: 2px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .hero-btn.secondary:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .hero-btn.large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(4px, 1vw, 8px);
+    padding: clamp(20px, 5.5vw, 28px);
+  }
+
+  .hero-btn-label {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.85;
+  }
+
+  .hero-btn-task {
+    font-size: clamp(17px, 4.8vw, 21px);
+    font-weight: 700;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hero-btn-arrow {
+    font-size: clamp(16px, 4vw, 20px);
+    opacity: 0.7;
+  }
+
+  .hero-dismiss {
+    background: none;
+    border: none;
+    color: var(--light-gray);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    cursor: pointer;
+    padding: clamp(8px, 2vw, 12px);
+    transition: color 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .hero-dismiss:hover {
+    color: var(--dark-gray);
+  }
+
+  .hero-greeting h1 {
+    font-size: clamp(24px, 6.5vw, 32px);
+    font-weight: 700;
+    color: #0f1419;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .hero-context {
+    font-size: clamp(14px, 3.8vw, 16px);
+    color: var(--dark-gray);
+    margin: 0 0 clamp(20px, 5vw, 28px) 0;
+    line-height: 1.5;
+  }
+
+  .just1-hero {
+    text-align: center;
+  }
+
+  /* ===== FLOATING ACTION BUTTON (FAB) ===== */
+  .toolbox-fab {
+    position: fixed;
+    bottom: clamp(20px, 5vw, 28px);
+    right: clamp(20px, 5vw, 28px);
+    width: clamp(56px, 14vw, 64px);
+    height: clamp(56px, 14vw, 64px);
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+    border: none;
+    cursor: pointer;
+    font-size: clamp(24px, 6vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(29, 155, 240, 0.4);
+    z-index: 900;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .toolbox-fab:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 28px rgba(29, 155, 240, 0.5);
+  }
+
+  .toolbox-fab:active {
+    transform: scale(0.95);
+  }
+
+  .fab-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 910;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .fab-modal {
+    position: fixed;
+    bottom: clamp(90px, 20vw, 110px);
+    right: clamp(20px, 5vw, 28px);
+    background: white;
+    border-radius: clamp(16px, 4vw, 22px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    z-index: 920;
+    width: clamp(260px, 70vw, 320px);
+    animation: fabModalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes fabModalSlideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .fab-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+    border-bottom: 1px solid #eff3f4;
+  }
+
+  .fab-modal-title {
+    font-size: clamp(15px, 4vw, 17px);
+    font-weight: 700;
+    color: #0f1419;
+  }
+
+  .fab-modal-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: #eff3f4;
+    color: var(--dark-gray);
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+
+  .fab-modal-close:hover {
+    background: #e5e7eb;
+  }
+
+  .fab-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: clamp(8px, 2vw, 12px);
+    padding: clamp(14px, 3.5vw, 18px);
+  }
+
+  .fab-tool-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 8px);
+    padding: clamp(14px, 3.5vw, 18px) clamp(8px, 2vw, 12px);
+    background: #f7f9fa;
+    border: 1px solid #eff3f4;
+    border-radius: clamp(12px, 3vw, 16px);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .fab-tool-btn:hover {
+    background: white;
+    border-color: var(--primary);
+  }
+
+  .fab-tool-btn:active {
+    transform: scale(0.95);
+  }
+
+  .fab-tool-icon {
+    font-size: clamp(22px, 5.5vw, 26px);
+    line-height: 1;
+  }
+
+  .fab-tool-label {
+    font-size: clamp(11px, 2.8vw, 13px);
+    font-weight: 600;
+    color: var(--dark-gray);
+  }
+
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {
     .main { padding: 24px; padding-bottom: 24px; }
+    .fab-modal { width: 340px; }
   }
 
   @media (min-width: 1024px) {

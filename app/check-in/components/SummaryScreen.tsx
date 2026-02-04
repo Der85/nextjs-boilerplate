@@ -9,7 +9,8 @@ interface SummaryScreenProps {
 }
 
 export default function SummaryScreen({
-  userMode
+  userMode,
+  moodScore,
 }: SummaryScreenProps) {
   const router = useRouter()
 
@@ -41,6 +42,9 @@ export default function SummaryScreen({
 
   const action = getModeAction()
 
+  // Show breathing suggestion for low mood or recovery mode
+  const suggestBreathing = userMode === 'recovery' || (moodScore !== null && moodScore <= 4)
+
   return (
     <div className={`summary-screen ${action.bgClass}`}>
       <div className="summary-content">
@@ -56,6 +60,17 @@ export default function SummaryScreen({
         >
           {action.label}
         </button>
+
+        {/* Breathing as suggested next step (not a blocker) */}
+        {suggestBreathing && (
+          <button
+            onClick={() => router.push('/brake')}
+            className="breathe-suggestion"
+          >
+            <span className="breathe-icon">🫁</span>
+            <span className="breathe-text">Take a 10s breath first?</span>
+          </button>
+        )}
 
         {action.path !== '/dashboard' && (
           <button
@@ -196,6 +211,43 @@ export default function SummaryScreen({
 
         .skip-link:hover {
           color: #536471;
+        }
+
+        .breathe-suggestion {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: clamp(8px, 2vw, 12px);
+          width: 100%;
+          margin-top: clamp(14px, 3.5vw, 18px);
+          padding: clamp(14px, 3.5vw, 18px);
+          background: white;
+          border: 2px dashed rgba(0, 0, 0, 0.15);
+          border-radius: clamp(12px, 3vw, 16px);
+          cursor: pointer;
+          transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          animation: heroSlideUp 0.5s ease-out 0.5s backwards;
+        }
+
+        .breathe-suggestion:hover {
+          border-color: #1D9BF0;
+          background: rgba(29, 155, 240, 0.04);
+          transform: translateY(-1px);
+        }
+
+        .breathe-icon {
+          font-size: clamp(20px, 5vw, 24px);
+        }
+
+        .breathe-text {
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-weight: 600;
+          color: #536471;
+        }
+
+        .breathe-suggestion:hover .breathe-text {
+          color: #1D9BF0;
         }
       `}</style>
     </div>

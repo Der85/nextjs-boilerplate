@@ -6,16 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { calculateXP, checkAchievements, getXPForNextLevel, calculateLevel } from '@/lib/gamification'
 import type { SessionData, Badge, UserStats } from '@/lib/gamification'
 
-// Step components
-import WelcomeScreen from './components/WelcomeScreen'
-import BreathingScreen from './components/BreathingScreen'
-import HolisticSlider from './components/HolisticSlider'
-import ReflectionScreen from './components/ReflectionScreen'
+// Step components — "Snap Check-In" flow: vitals → coach → achievement → summary
+import VitalsCheck from './components/VitalsCheck'
 import CoachProcessing from './components/CoachProcessing'
 import AchievementScreen from './components/AchievementScreen'
 import SummaryScreen from './components/SummaryScreen'
 
-type Step = 'welcome' | 'breathe' | 'holistic' | 'reflect' | 'coach' | 'achievement' | 'summary'
+// Simplified flow for lower barrier to entry
+type Step = 'vitals' | 'coach' | 'achievement' | 'summary'
 type UserMode = 'recovery' | 'maintenance' | 'growth'
 
 interface CoachResponse {
@@ -26,7 +24,7 @@ export default function CheckInPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [step, setStep] = useState<Step>('welcome')
+  const [step, setStep] = useState<Step>('vitals')
 
   // Session data
   const [sessionData, setSessionData] = useState<SessionData>({
@@ -153,40 +151,19 @@ export default function CheckInPage() {
     return 'Good evening'
   }
 
-  // Step handlers
-  const handleWelcomeComplete = () => {
-    advanceStep('breathe')
-  }
-
-  const handleBreathingComplete = () => {
-    setSessionData(prev => ({ ...prev, breathingCompleted: true }))
-    advanceStep('holistic')
-  }
-
-  const handleBreathingSkip = () => {
-    setSessionData(prev => ({ ...prev, breathingCompleted: false }))
-    advanceStep('holistic')
-  }
-
-  const handleHolisticSelect = (moodScore: number, energyLevel: number) => {
-    setSessionData(prev => ({ ...prev, moodScore, energyLevel }))
-    advanceStep('reflect')
-  }
-
-  const handleReflectionSubmit = async (note: string, selectedEmotion: string | null) => {
-    setSessionData(prev => ({ ...prev, note, selectedEmotion }))
+  // "Snap Check-In" handler — combines mood, energy, and note in one step
+  const handleVitalsSubmit = async (moodScore: number, energyLevel: number, note: string) => {
+    setSessionData(prev => ({
+      ...prev,
+      moodScore,
+      energyLevel,
+      note,
+      breathingCompleted: false, // Breathing moved to suggested next step in Summary
+    }))
     advanceStep('coach')
 
     // Call AI coach API
-    await getCoachAdvice(sessionData.moodScore!, note, sessionData.energyLevel)
-  }
-
-  const handleReflectionSkip = async () => {
-    setSessionData(prev => ({ ...prev, note: '', selectedEmotion: null }))
-    advanceStep('coach')
-
-    // Call AI coach API
-    await getCoachAdvice(sessionData.moodScore!, '', sessionData.energyLevel)
+    await getCoachAdvice(moodScore, note, energyLevel)
   }
 
   const getCoachAdvice = async (moodScore: number, note: string, energyLevel: number | null) => {
@@ -338,32 +315,12 @@ export default function CheckInPage() {
 
   return (
     <>
-      {step === 'welcome' && (
-        <WelcomeScreen
-          onComplete={handleWelcomeComplete}
-          currentStreak={currentStreak}
-          lastMoodScore={lastMoodScore}
+      {/* "Snap Check-In" flow: vitals → coach → achievement → summary */}
+      {step === 'vitals' && (
+        <VitalsCheck
+          onSubmit={handleVitalsSubmit}
           greeting={getGreeting()}
-        />
-      )}
-      {step === 'breathe' && (
-        <BreathingScreen
-          onComplete={handleBreathingComplete}
-          onSkip={handleBreathingSkip}
-        />
-      )}
-      {step === 'holistic' && (
-        <HolisticSlider
-          onSelect={handleHolisticSelect}
-          yesterdayMood={yesterdayMood}
-        />
-      )}
-      {step === 'reflect' && (
-        <ReflectionScreen
-          onSubmit={handleReflectionSubmit}
-          onSkip={handleReflectionSkip}
-          energyLevel={sessionData.energyLevel}
-          moodScore={sessionData.moodScore}
+          currentStreak={currentStreak}
         />
       )}
       {step === 'coach' && (
