@@ -16,6 +16,7 @@ interface AppHeaderProps {
   onlineCount?: number
   notificationBar?: NotificationBar | null
   brakeVariant?: 'urgent' | 'neutral'
+  userMode?: 'recovery' | 'maintenance' | 'growth'
 }
 
 const navItems = [
@@ -28,6 +29,7 @@ export default function AppHeader({
   onlineCount = 0,
   notificationBar,
   brakeVariant = 'neutral',
+  userMode = 'maintenance',
 }: AppHeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -37,40 +39,59 @@ export default function AppHeader({
     return item.matchPaths.some(p => pathname.startsWith(p))
   }
 
+  const isRecovery = userMode === 'recovery'
+
   return (
     <>
-      <header className="app-header">
-        <button onClick={() => router.push('/dashboard')} className="logo">
-          ADHDer.io
+      <header className={`app-header ${isRecovery ? 'compact' : ''}`}>
+        {/* Recovery: minimal logo, non-recovery: full logo */}
+        <button onClick={() => router.push('/dashboard')} className={`logo ${isRecovery ? 'logo-compact' : ''}`}>
+          {isRecovery ? '🏠' : 'ADHDer.io'}
         </button>
 
+        {/* Recovery: only Home icon, non-recovery: full nav */}
         <nav className="header-nav">
-          {navItems.map((item) => (
+          {isRecovery ? (
+            /* Recovery mode: just Home icon, no labels */
             <button
-              key={item.path}
-              onClick={() => router.push(item.path)}
-              className={`nav-link ${isActive(item) ? 'active' : ''}`}
+              onClick={() => router.push('/dashboard')}
+              className={`nav-link ${pathname.startsWith('/dashboard') ? 'active' : ''}`}
             >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-text">{item.label}</span>
+              <span className="nav-icon">🏠</span>
             </button>
-          ))}
+          ) : (
+            /* Normal mode: full navigation */
+            navItems.map((item) => (
+              <button
+                key={item.path}
+                onClick={() => router.push(item.path)}
+                className={`nav-link ${isActive(item) ? 'active' : ''}`}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-text">{item.label}</span>
+              </button>
+            ))
+          )}
         </nav>
 
         <div className="header-actions">
+          {/* Recovery: prominent Brake button, non-recovery: normal size */}
           <button
             onClick={() => router.push('/brake')}
-            className={`icon-btn ${brakeVariant === 'urgent' ? 'brake-urgent' : 'brake-neutral'}`}
+            className={`icon-btn ${brakeVariant === 'urgent' ? 'brake-urgent' : 'brake-neutral'} ${isRecovery ? 'brake-prominent' : ''}`}
             title={brakeVariant === 'urgent' ? 'BREAK - Reset Now' : 'Quick Breathe'}
           >
             {brakeVariant === 'urgent' ? '🛑' : '🫁'}
           </button>
-          <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
-            ☰
-          </button>
+          {/* Recovery: hide menu button to reduce options */}
+          {!isRecovery && (
+            <button onClick={() => setShowMenu(!showMenu)} className="icon-btn menu">
+              ☰
+            </button>
+          )}
         </div>
 
-        {showMenu && (
+        {showMenu && !isRecovery && (
           <div className="dropdown-menu">
             <button onClick={() => { router.push('/tools'); setShowMenu(false) }} className="menu-item">
               🧰 All Tools
@@ -79,6 +100,7 @@ export default function AppHeader({
             <button onClick={() => { router.push('/ally'); setShowMenu(false) }} className="menu-item">
               💜 Get Unstuck (Ally)
             </button>
+            {/* Productivity tools always shown in menu (recovery users don't see menu) */}
             <button onClick={() => { router.push('/focus'); setShowMenu(false) }} className="menu-item">
               ⏱️ Focus Mode
             </button>
@@ -127,23 +149,34 @@ export default function AppHeader({
           top: 0;
           background: white;
           border-bottom: 1px solid #eee;
-          padding: clamp(8px, 2vw, 12px) clamp(12px, 4vw, 20px);
+          padding: clamp(6px, 1.5vw, 10px) clamp(10px, 3vw, 16px);
           display: flex;
           align-items: center;
-          gap: clamp(6px, 1.5vw, 10px);
+          gap: clamp(4px, 1vw, 8px);
           z-index: 100;
+        }
+
+        /* Compact header for recovery mode — even less visual noise */
+        .app-header.compact {
+          padding: clamp(4px, 1vw, 8px) clamp(8px, 2.5vw, 14px);
         }
 
         .logo {
           background: none;
           border: none;
           cursor: pointer;
-          font-size: clamp(15px, 3.8vw, 19px);
+          font-size: clamp(13px, 3.5vw, 17px);
           font-weight: 800;
           color: #1D9BF0;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           white-space: nowrap;
           flex-shrink: 0;
+        }
+
+        /* Recovery: logo becomes just a home icon */
+        .logo.logo-compact {
+          font-size: clamp(18px, 5vw, 24px);
+          padding: clamp(2px, 0.5vw, 4px);
         }
 
         .logo:hover {
@@ -223,6 +256,20 @@ export default function AppHeader({
 
         .icon-btn.brake-neutral {
           background: rgba(148, 163, 184, 0.1);
+        }
+
+        /* Recovery: prominent Brake button — larger, more visible */
+        .icon-btn.brake-prominent {
+          width: clamp(44px, 12vw, 56px);
+          height: clamp(44px, 12vw, 56px);
+          font-size: clamp(20px, 5.5vw, 26px);
+          background: rgba(239, 68, 68, 0.15);
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+        }
+
+        .icon-btn.brake-prominent:hover {
+          transform: scale(1.08);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
         }
 
         .icon-btn.menu {

@@ -161,6 +161,7 @@ export default function ToolsPage() {
           icon: modeInfo.icon || '🧰',
         }}
         brakeVariant={userMode === 'recovery' ? 'urgent' : 'neutral'}
+        userMode={userMode}
       />
 
       <main className="main">

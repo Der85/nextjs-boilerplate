@@ -168,4 +168,65 @@ a:hover { text-decoration: underline; }
   
   .animate-spin { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== ZEN MODE: Sensory Softening for Recovery =====
+     Increases whitespace by ~20% and shifts primary colors to low-contrast slate gray.
+     Apply this class to a container when the user is in recovery mode. */
+  .zen-mode {
+    --primary: #64748b;          /* Soft slate instead of bright blue */
+    --primary-hover: #475569;
+    --success: #6b7280;          /* Muted success green */
+  }
+
+  .zen-mode .main {
+    padding: clamp(14px, 5vw, 24px);
+    padding-bottom: clamp(20px, 5vw, 30px);
+  }
+
+  .zen-mode .card {
+    margin-bottom: clamp(18px, 5vw, 28px);
+    border-radius: clamp(16px, 4.5vw, 24px);
+  }
+
+  .zen-mode .slider-container {
+    margin-bottom: clamp(24px, 6vw, 34px);
+  }
+
+  .zen-mode .intercept-slider {
+    background: linear-gradient(to right, #94a3b8, #64748b, #475569);
+  }
+
+  .zen-mode .intercept-slider::-webkit-slider-thumb {
+    border-color: #64748b;
+  }
+
+  .zen-mode .intercept-slider::-moz-range-thumb {
+    border-color: #64748b;
+  }
+
+  .zen-mode .slider-value {
+    color: #64748b;
+  }
+
+  .zen-mode .toolbox-toggle-icon {
+    background: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+  }
+
+  .zen-mode .toolbox-toggle:hover {
+    border-color: #64748b;
+  }
+
+  .zen-mode .expand-icon {
+    background: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+  }
+
+  .zen-mode .progressive-card.expanded .expand-icon {
+    background: rgba(100, 116, 139, 0.15);
+  }
+
+  .zen-mode .card-header:hover .expand-icon {
+    background: rgba(100, 116, 139, 0.2);
+  }
 }

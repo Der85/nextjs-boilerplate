@@ -734,6 +734,7 @@ export default function FocusDashboard({
             icon: '⏱️',
           }}
           brakeVariant={userMode === 'recovery' ? 'urgent' : 'neutral'}
+          userMode={userMode}
         />
       )}
 

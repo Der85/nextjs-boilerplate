@@ -51,12 +51,6 @@ const getMoodEmoji = (score: number): string => {
   return '😄'
 }
 
-const getMoodLabel = (score: number): { text: string; dot: string } => {
-  if (score <= 3) return { text: 'Depleted (Need Rest)', dot: '🔴' }
-  if (score <= 6) return { text: 'Steady (Maintenance)', dot: '🔵' }
-  return { text: 'Charged (Ready to Go)', dot: '🟢' }
-}
-
 const getEnergyParam = (score: number | null): 'low' | 'medium' | 'high' => {
   if (score === null) return 'medium'
   if (score <= 3) return 'low'
@@ -128,7 +122,7 @@ function DashboardContent() {
   // Data state
   const [insights, setInsights] = useState<UserInsights | null>(null)
   const [activeGoal, setActiveGoal] = useState<ActiveGoal | null>(null)
-  const [aiInsight, setAiInsight] = useState<string | null>(null)
+  // aiInsight removed — atomic dashboard shows recommendation instead
   
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
@@ -162,6 +156,9 @@ function DashboardContent() {
   // Mode override from URL (e.g., Brake tool re-entry)
   const [showOverrideToast, setShowOverrideToast] = useState(false)
 
+  // Atomic Dashboard: Toolbox collapsed by default
+  const [toolboxExpanded, setToolboxExpanded] = useState(false)
+
   // Check if a "Remind me at 4 PM" reminder has triggered
   useEffect(() => {
     const remindAt = localStorage.getItem('fresh-start-remind-at')
@@ -181,19 +178,6 @@ function DashboardContent() {
       }
       setUser(session.user)
       await fetchData(session.user.id)
-
-      // Fetch latest undismissed AI insight (for inline display in PinnedCard)
-      const { data: insightRows } = await supabase
-        .from('user_insights')
-        .select('message')
-        .eq('user_id', session.user.id)
-        .eq('is_dismissed', false)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (insightRows && insightRows.length > 0) {
-        setAiInsight(insightRows[0].message)
-      }
 
       // Prioritize URL mode param over calculated mode (e.g., from Brake tool)
       const modeParam = searchParams.get('mode') as UserMode | null
@@ -556,12 +540,15 @@ function DashboardContent() {
 
   // Computed view flags for mode-specific rendering
   const isRecoveryView = userMode === 'recovery'
-  const isGrowthView = userMode === 'growth'
+  // isGrowthView removed — atomic dashboard uses unified hero flow
   const brakeVariant: 'urgent' | 'neutral' =
     userMode === 'recovery' || insights?.trend === 'down' ? 'urgent' : 'neutral'
 
+  // Atomic Dashboard: Has the user checked in today?
+  const hasCheckedInToday = insights?.daysSinceLastCheckIn === 0
+
   return (
-    <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed' : ''}`}>
+    <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed zen-mode' : ''}`}>
       <AppHeader
         onlineCount={onlineCount}
         notificationBar={{
@@ -570,12 +557,15 @@ function DashboardContent() {
           icon: modeConfig.icon,
         }}
         brakeVariant={brakeVariant}
+        userMode={userMode}
       />
 
       <main className="main">
-        {/* ===== SINGLE FOCUS HERO SLOT =====
-            Show only ONE hero card at a time to reduce visual noise.
-            Priority: Fresh Start (overdue tasks) > Pinned Context/Greeting */}
+        {/* ===== ATOMIC DASHBOARD: SINGLE PRIMARY TASK =====
+            Strict hierarchy: 1. Overdue → 2. Recovery → 3. Recommendation → 4. Greeting
+            Only ONE hero element shown to eliminate choice paralysis */}
+
+        {/* PRIORITY 1: Fresh Start (overdue tasks) */}
         {overduePlans.length > 0 && !freshStartDismissed && (new Date().getHours() < 14 || freshStartReminded) ? (
           <div className="card fresh-start-card">
             <div className="fresh-start-header">
@@ -583,17 +573,20 @@ function DashboardContent() {
               <div className="fresh-start-titles">
                 <h2 className="fresh-start-title">Fresh Start</h2>
                 <p className="fresh-start-subtitle">
-                  It&apos;s a new day. You have {overduePlans.length} item{overduePlans.length !== 1 ? 's' : ''} left from yesterday.
+                  You have {overduePlans.length} item{overduePlans.length !== 1 ? 's' : ''} from yesterday.
                 </p>
               </div>
             </div>
             <div className="fresh-start-items">
-              {overduePlans.map(p => (
+              {overduePlans.slice(0, 3).map(p => (
                 <div key={p.id} className="fresh-start-item">
                   <span className="fresh-start-item-dot" />
                   <span className="fresh-start-item-text">{p.task_name}</span>
                 </div>
               ))}
+              {overduePlans.length > 3 && (
+                <p className="fresh-start-more">+{overduePlans.length - 3} more</p>
+              )}
             </div>
             <div className="fresh-start-actions">
               <button
@@ -632,279 +625,134 @@ function DashboardContent() {
               Decide later
             </button>
           </div>
+
+        /* PRIORITY 2: Recovery Mode — simplified, hide distractions */
         ) : isRecoveryView ? (
-          /* Pinned Context: RECOVERY MODE CARD (shown when no overdue tasks) */
           <div className="card pinned-card recovery">
             <ModeIndicator mode={userMode} position="absolute" />
             <div className="pinned-header">
               <span className="pinned-icon">🫂</span>
               <div className="pinned-titles">
-                <h2 className="pinned-title">Low Battery Detected</h2>
-                <p className="pinned-subtitle">Let&apos;s simplify.</p>
+                <h2 className="pinned-title">Low Battery</h2>
+                <p className="pinned-subtitle">One thing only.</p>
               </div>
             </div>
             <p className="pinned-message">
-              Skip the big tasks. Focus on rest and regulation today.
+              Skip the big tasks. Rest and regulate.
             </p>
-            {(aiInsight || insights?.trend) && (
-              <div className="pinned-insights">
-                {insights?.trend && insights.trend !== 'stable' && (
-                  <p className="pinned-insight-item">
-                    {insights.trend === 'up' ? '📈' : '📉'} Trend: Mood trending {insights.trend}
-                  </p>
-                )}
-                {aiInsight && (
-                  <p className="pinned-insight-item">✨ Pattern: {aiInsight}</p>
-                )}
-              </div>
-            )}
             <button onClick={() => router.push('/brake')} className="btn-action recovery">
               🛑 Start 10s Reset
             </button>
+            <button onClick={() => router.push('/ally')} className="btn-secondary recovery-secondary">
+              💜 I&apos;m Stuck
+            </button>
           </div>
-        ) : isGrowthView ? (
-          /* Pinned Context: GROWTH MODE CARD */
-          <div className="card pinned-card growth">
+
+        /* PRIORITY 3: Recommendation (growth/maintenance with suggestion) */
+        ) : recommendation ? (
+          <div className="card atomic-hero">
             <ModeIndicator mode={userMode} position="absolute" />
-            <div className="pinned-header">
-              <span className="pinned-icon">🚀</span>
-              <div className="pinned-titles">
-                <h2 className="pinned-title">Momentum Detected</h2>
-                <p className="pinned-subtitle">You&apos;re charged up.</p>
-              </div>
+            <div className="atomic-greeting">
+              <h1>{getGreeting()} 👋</h1>
             </div>
-            <p className="pinned-message">
-              Channel this energy before it fades.
-            </p>
-            {(aiInsight || insights?.trend) && (
-              <div className="pinned-insights">
-                {insights?.trend && insights.trend !== 'stable' && (
-                  <p className="pinned-insight-item">
-                    {insights.trend === 'up' ? '📈' : '📉'} Trend: Mood trending {insights.trend}
-                  </p>
-                )}
-                {aiInsight && (
-                  <p className="pinned-insight-item">✨ Pattern: {aiInsight}</p>
-                )}
+            <button onClick={() => router.push(recommendation.url)} className="atomic-rec-btn">
+              <span className="atomic-rec-icon">💡</span>
+              <div className="atomic-rec-content">
+                <span className="atomic-rec-title">Do This Next</span>
+                <span className="atomic-rec-suggestion">{recommendation.suggestion}</span>
               </div>
-            )}
-            {activeGoal && (
-              <button
-                onClick={() => router.push(
-                  `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=high`
-                )}
-                className="mini-garden growth-garden"
-              >
-                <div
-                  className="mini-garden-plant"
-                  style={{ fontSize: `${1 + (activeGoal.progress_percent / 100) * 2}rem` }}
-                >
-                  {activeGoal.plant_type || getPlantEmoji(activeGoal.progress_percent)}
-                </div>
-                <div className="mini-garden-bar growth-bar">
-                  <div
-                    className="mini-garden-fill growth-fill"
-                    style={{ width: `${activeGoal.progress_percent}%` }}
-                  />
-                </div>
-                <span className="mini-garden-title">{activeGoal.title}</span>
-                <span className="mini-garden-label">Water this plant (Focus)</span>
-              </button>
-            )}
-            {!activeGoal && (
-              <button onClick={() => router.push('/focus')} className="btn-action growth">
-                ⏱️ Start Focus Session
-              </button>
-            )}
+              <span className="atomic-rec-arrow">→</span>
+            </button>
           </div>
+
+        /* PRIORITY 4: Default Greeting with Just 1 Thing */
         ) : (
-          /* Pinned Context: MAINTENANCE MODE CARD */
-          <div className="card main-card">
+          <div className="card atomic-hero">
             <ModeIndicator mode={userMode} position="absolute" />
-            <div className="greeting">
+            <div className="atomic-greeting">
               <h1>{getGreeting()} 👋</h1>
               {getContextMessage() && <p className="context-msg">{getContextMessage()}</p>}
             </div>
-
-            {(aiInsight || (insights?.trend && insights.trend !== 'stable')) && (
-              <div className="pinned-insights">
-                {insights?.trend && insights.trend !== 'stable' && (
-                  <p className="pinned-insight-item">
-                    {insights.trend === 'up' ? '📈' : '📉'} Trend: Mood trending {insights.trend}
-                  </p>
-                )}
-                {aiInsight && (
-                  <p className="pinned-insight-item">✨ Pattern: {aiInsight}</p>
-                )}
-              </div>
-            )}
-
-            {activeGoal && (
-              <button
-                onClick={() => router.push(
-                  `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}`
-                )}
-                className="mini-garden"
-              >
-                <div
-                  className="mini-garden-plant"
-                  style={{ fontSize: `${1 + (activeGoal.progress_percent / 100) * 2}rem` }}
-                >
-                  {activeGoal.plant_type || getPlantEmoji(activeGoal.progress_percent)}
-                </div>
-                <div className="mini-garden-bar">
-                  <div
-                    className="mini-garden-fill"
-                    style={{ width: `${activeGoal.progress_percent}%` }}
-                  />
-                </div>
-                <span className="mini-garden-title">{activeGoal.title}</span>
-                <span className="mini-garden-label">Water this plant (Focus)</span>
-              </button>
-            )}
+            {(() => {
+              const energy = getEnergyParam(moodScore)
+              const just1 = overduePlans.length > 0
+                ? { label: overduePlans[0].task_name, url: `/focus?create=true&taskName=${encodeURIComponent(overduePlans[0].task_name)}&energy=${energy}` }
+                : activeGoal
+                  ? { label: activeGoal.title, url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}` }
+                  : { label: 'Pick something small', url: `/focus?energy=${energy}` }
+              return (
+                <button onClick={() => router.push(just1.url)} className="atomic-just1">
+                  <span className="atomic-just1-label">Just 1 Thing</span>
+                  <span className="atomic-just1-task">{just1.label}</span>
+                  <span className="atomic-just1-hint">→</span>
+                </button>
+              )
+            })()}
           </div>
         )}
 
-        {/* DailyPulse Slider — always visible, label adapts to time of day */}
-        <div className="card pulse-card">
-          <div className="pulse-header">
-            <p className="pulse-label">
-              {getPulseLabel()} {moodScore !== null && <span className="pulse-emoji">{getMoodEmoji(moodScore)}</span>}
-            </p>
-            {moodScore !== null && (() => {
-              const label = getMoodLabel(moodScore)
-              return <span className="pulse-mood-label">{label.dot} {label.text}</span>
-            })()}
-          </div>
-          <div className="slider-container">
-            <input
-              type="range" min="1" max="10"
-              value={moodScore ?? 5}
-              onChange={(e) => handlePulseChange(Number(e.target.value))}
-              className="intercept-slider"
-            />
-            <div className="slider-labels">
-              <span>Low</span>
-              <span className="slider-value">{moodScore ?? 5}/10</span>
-              <span>High</span>
+        {/* DailyPulse — collapsed after first check-in to save space */}
+        <ProgressiveCard
+          id="daily-pulse"
+          title={getPulseLabel()}
+          icon={moodScore !== null ? getMoodEmoji(moodScore) : '📊'}
+          preview={moodScore !== null ? `${moodScore}/10` : 'Log your energy'}
+          defaultExpanded={!hasCheckedInToday}
+          autoCollapseDelay={0}
+        >
+          <div className="pulse-inner">
+            <div className="slider-container">
+              <input
+                type="range" min="1" max="10"
+                value={moodScore ?? 5}
+                onChange={(e) => handlePulseChange(Number(e.target.value))}
+                className="intercept-slider"
+              />
+              <div className="slider-labels">
+                <span>Low</span>
+                <span className="slider-value">{moodScore ?? 5}/10</span>
+                <span>High</span>
+              </div>
             </div>
+            {pulseSaving && !pulseSaved && (
+              <div className="pulse-saving-toast">
+                <span className="pulse-saving-dot" />
+                Saving...
+              </div>
+            )}
+            {pulseSaved && (
+              <div className="pulse-saved-toast">✓ Saved</div>
+            )}
           </div>
-          {pulseSaving && !pulseSaved && (
-            <div className="pulse-saving-toast">
-              <span className="pulse-saving-dot" />
-              Saving...
-            </div>
-          )}
-          {pulseSaved && (
-            <div className="pulse-saved-toast">✓ Saved</div>
-          )}
-        </div>
+        </ProgressiveCard>
 
-        {/* "Do This Next" Recommendation Card */}
-        {recommendation && !isRecoveryView && (
-          <button onClick={() => router.push(recommendation.url)} className="card rec-card">
-            <div className="rec-header">
-              <span className="rec-icon">💡</span>
-              <span className="rec-title">Do This Next</span>
+        {/* Dopamine Garden — hidden in recovery mode */}
+        {!isRecoveryView && activeGoal && (
+          <button
+            onClick={() => router.push(
+              `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${getEnergyParam(moodScore)}`
+            )}
+            className="mini-garden"
+          >
+            <div
+              className="mini-garden-plant"
+              style={{ fontSize: `${1 + (activeGoal.progress_percent / 100) * 2}rem` }}
+            >
+              {activeGoal.plant_type || getPlantEmoji(activeGoal.progress_percent)}
             </div>
-            <p className="rec-suggestion">{recommendation.suggestion}</p>
-            <p className="rec-reason">{recommendation.reason}</p>
+            <div className="mini-garden-bar">
+              <div
+                className="mini-garden-fill"
+                style={{ width: `${activeGoal.progress_percent}%` }}
+              />
+            </div>
+            <span className="mini-garden-title">{activeGoal.title}</span>
+            <span className="mini-garden-label">Water this plant</span>
           </button>
         )}
 
-        {/* Recovery Mode: 2-column action grid */}
-        {isRecoveryView && (
-          <div className="recovery-actions-grid">
-            <button onClick={() => router.push('/brake')} className="btn-secondary recovery-action-btn">
-              🛑 Brake / Reset
-            </button>
-            <button onClick={() => router.push('/ally')} className="btn-secondary recovery-action-btn">
-              💜 I'm Stuck
-            </button>
-          </div>
-        )}
-
-        {/* Growth Mode: Primary CTA */}
-        {isGrowthView && (
-          <div className="growth-cta">
-            <button
-              onClick={() => router.push(
-                activeGoal
-                  ? `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=high`
-                  : '/focus?mode=sprint&energy=high'
-              )}
-              className="btn-action growth"
-            >
-              {activeGoal ? `⚡️ Focus on: ${activeGoal.title}` : '⚡️ Start Hyperfocus Session'}
-            </button>
-          </div>
-        )}
-
-        {/* Maintenance Mode: "Just 1 Thing" + Goal-aware actions */}
-        {!isRecoveryView && !isGrowthView && (() => {
-          const energy = getEnergyParam(moodScore)
-          const focusUrl = energy === 'low'
-            ? '/focus?mode=gentle&energy=low'
-            : energy === 'high'
-              ? '/focus?mode=sprint&energy=high'
-              : `/focus?energy=${energy}`
-
-          // "Just 1 Thing" — pick the most relevant task to reduce choice paralysis
-          const just1 = overduePlans.length > 0
-            ? { label: overduePlans[0].task_name, url: `/focus?create=true&taskName=${encodeURIComponent(overduePlans[0].task_name)}&energy=${energy}` }
-            : activeGoal
-              ? { label: activeGoal.title, url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}` }
-              : null
-
-          return (
-            <>
-              {just1 ? (
-                <button
-                  onClick={() => router.push(just1.url)}
-                  className="just1-btn"
-                >
-                  <span className="just1-label">Just 1 Thing</span>
-                  <span className="just1-task">{just1.label}</span>
-                  <span className="just1-hint">Start here →</span>
-                </button>
-              ) : (
-                <button onClick={() => router.push(focusUrl)} className="just1-btn">
-                  <span className="just1-label">Just 1 Thing</span>
-                  <span className="just1-task">Pick something small</span>
-                  <span className="just1-hint">Start here →</span>
-                </button>
-              )}
-
-              {activeGoal && (
-                <button
-                  onClick={() => router.push(
-                    `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}`
-                  )}
-                  className="maintenance-primary-cta"
-                >
-                  🌿 Water your plant: {activeGoal.title}
-                </button>
-              )}
-              <div className="maintenance-tools-grid">
-                <button onClick={() => router.push(focusUrl)} className="maintenance-action-btn secondary">
-                  ⏱️ Focus
-                </button>
-                <button onClick={() => router.push(`/goals?energy=${energy}`)} className="maintenance-action-btn secondary">
-                  🎯 Goals
-                </button>
-                <button onClick={() => router.push(`/ally?energy=${energy}`)} className="maintenance-action-btn secondary">
-                  💜 I&apos;m Stuck
-                </button>
-                <button onClick={() => router.push(`/history?energy=${energy}`)} className="maintenance-action-btn secondary">
-                  📊 History
-                </button>
-              </div>
-            </>
-          )
-        })()}
-
-        {/* Today's Wins — collapsed by default to reduce visual noise */}
-        {todaysWins.length > 0 && (
+        {/* Today's Wins — collapsed by default */}
+        {!isRecoveryView && todaysWins.length > 0 && (
           <ProgressiveCard
             id="todays-wins"
             title={`Today's Wins (${todaysWins.length})`}
@@ -922,6 +770,35 @@ function DashboardContent() {
               ))}
             </div>
           </ProgressiveCard>
+        )}
+
+        {/* Collapsible Toolbox — hidden by default, keeps main view clean */}
+        {!isRecoveryView && (
+          <div className="toolbox-section">
+            <button
+              className="toolbox-toggle"
+              onClick={() => setToolboxExpanded(!toolboxExpanded)}
+            >
+              <span className="toolbox-toggle-icon">{toolboxExpanded ? '−' : '+'}</span>
+              <span className="toolbox-toggle-label">{toolboxExpanded ? 'Hide Tools' : 'View All Tools'}</span>
+            </button>
+            {toolboxExpanded && (
+              <div className="toolbox-grid">
+                <button onClick={() => router.push(`/focus?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
+                  ⏱️ Focus
+                </button>
+                <button onClick={() => router.push(`/goals?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
+                  🎯 Goals
+                </button>
+                <button onClick={() => router.push(`/ally?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
+                  💜 Stuck
+                </button>
+                <button onClick={() => router.push(`/history?energy=${getEnergyParam(moodScore)}`)} className="toolbox-btn">
+                  📊 History
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
       </main>
@@ -1370,6 +1247,231 @@ const styles = `
     font-size: clamp(12px, 3.2vw, 14px);
     font-weight: 500;
     opacity: 0.75;
+  }
+
+  /* ===== ATOMIC DASHBOARD: HERO CARD ===== */
+  .atomic-hero {
+    position: relative;
+  }
+
+  .atomic-greeting h1 {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 700;
+    color: #0f1419;
+    margin: 0 0 clamp(6px, 1.5vw, 10px) 0;
+  }
+
+  .atomic-rec-btn {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 16px);
+    width: 100%;
+    padding: clamp(14px, 4vw, 20px);
+    margin-top: clamp(16px, 4vw, 22px);
+    background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+    color: white;
+    border: none;
+    border-radius: clamp(12px, 3vw, 16px);
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 4px 16px rgba(29, 155, 240, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-align: left;
+  }
+
+  .atomic-rec-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(29, 155, 240, 0.4);
+  }
+
+  .atomic-rec-icon {
+    font-size: clamp(24px, 6vw, 32px);
+    flex-shrink: 0;
+  }
+
+  .atomic-rec-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .atomic-rec-title {
+    display: block;
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+    margin-bottom: clamp(2px, 0.5vw, 4px);
+  }
+
+  .atomic-rec-suggestion {
+    display: block;
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .atomic-rec-arrow {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .atomic-just1 {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 16px);
+    width: 100%;
+    padding: clamp(14px, 4vw, 20px);
+    margin-top: clamp(16px, 4vw, 22px);
+    background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+    color: white;
+    border: none;
+    border-radius: clamp(12px, 3vw, 16px);
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 4px 16px rgba(29, 155, 240, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-align: left;
+  }
+
+  .atomic-just1:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(29, 155, 240, 0.4);
+  }
+
+  .atomic-just1-label {
+    font-size: clamp(11px, 3vw, 13px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+
+  .atomic-just1-task {
+    flex: 1;
+    font-size: clamp(15px, 4.2vw, 18px);
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .atomic-just1-hint {
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  /* ===== RECOVERY MODE: SIMPLIFIED ===== */
+  .recovery-secondary {
+    width: 100%;
+    margin-top: clamp(10px, 2.5vw, 14px);
+    padding: clamp(12px, 3.5vw, 16px);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .recovery-secondary:hover {
+    background: #f7f9fa;
+  }
+
+  /* ===== PULSE INNER (inside ProgressiveCard) ===== */
+  .pulse-inner {
+    padding-top: clamp(4px, 1vw, 8px);
+  }
+
+  /* ===== COLLAPSIBLE TOOLBOX ===== */
+  .toolbox-section {
+    margin-top: clamp(8px, 2vw, 12px);
+  }
+
+  .toolbox-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 1.5vw, 8px);
+    width: 100%;
+    padding: clamp(12px, 3.5vw, 16px);
+    background: white;
+    border: 1px dashed #d1d5db;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    color: var(--dark-gray);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .toolbox-toggle:hover {
+    background: #f7f9fa;
+    border-color: var(--primary);
+  }
+
+  .toolbox-toggle-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(29, 155, 240, 0.1);
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toolbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(8px, 2vw, 12px);
+    margin-top: clamp(10px, 2.5vw, 14px);
+  }
+
+  .toolbox-btn {
+    padding: clamp(14px, 4vw, 18px) clamp(10px, 2.5vw, 14px);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: var(--dark-gray);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-align: center;
+  }
+
+  .toolbox-btn:hover {
+    background: #f7f9fa;
+    border-color: var(--primary);
+  }
+
+  .toolbox-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Fresh Start: +N more indicator */
+  .fresh-start-more {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--light-gray);
+    margin: clamp(4px, 1vw, 6px) 0 0 clamp(14px, 3.5vw, 18px);
+    font-style: italic;
   }
 
   /* ===== RECOVERY MODE: 2-COLUMN ACTION GRID ===== */
