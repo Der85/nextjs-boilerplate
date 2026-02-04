@@ -5,9 +5,10 @@ import { useState } from 'react'
 interface BrainDumpScreenProps {
   onSubmit: (text: string) => void
   onSkip: () => void
+  onQuickStart?: () => void
 }
 
-export default function BrainDumpScreen({ onSubmit, onSkip }: BrainDumpScreenProps) {
+export default function BrainDumpScreen({ onSubmit, onSkip, onQuickStart }: BrainDumpScreenProps) {
   const [text, setText] = useState('')
   const maxChars = 2000
   const charCount = text.length
@@ -49,6 +50,13 @@ export default function BrainDumpScreen({ onSubmit, onSkip }: BrainDumpScreenPro
             Skip →
           </button>
         </div>
+
+        {/* Express Lane: Quick Start */}
+        {onQuickStart && (
+          <button onClick={onQuickStart} className="quick-start-link">
+            ⚡ Skip planning, just start timer
+          </button>
+        )}
       </div>
 
       <style jsx>{`
@@ -169,6 +177,32 @@ export default function BrainDumpScreen({ onSubmit, onSkip }: BrainDumpScreenPro
 
         .skip-btn:hover {
           color: #536471;
+        }
+
+        .quick-start-link {
+          display: block;
+          margin-top: clamp(24px, 6vw, 32px);
+          padding: clamp(14px, 4vw, 18px);
+          background: none;
+          border: 2px dashed rgba(0, 186, 124, 0.3);
+          border-radius: clamp(10px, 2.5vw, 14px);
+          color: #00ba7c;
+          font-size: clamp(14px, 3.8vw, 16px);
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          width: 100%;
+          text-align: center;
+        }
+
+        .quick-start-link:hover {
+          background: rgba(0, 186, 124, 0.06);
+          border-color: #00ba7c;
+        }
+
+        .quick-start-link:active {
+          transform: scale(0.98);
         }
       `}</style>
     </div>

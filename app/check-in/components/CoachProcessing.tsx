@@ -16,11 +16,13 @@ const getMoodEmoji = (score: number): string => {
   return '😄'
 }
 
-const messages = [
-  "Analyzing your patterns...",
-  "Checking your streaks...",
-  "Crafting personalized advice...",
-  "Almost there..."
+// Dopamine-friendly affirmations to keep the user engaged while loading
+const AFFIRMATIONS = [
+  "You showed up today! 🌟",
+  "Analyzing your wins...",
+  "Calculating XP...",
+  "That took courage 💜",
+  "Almost there...",
 ]
 
 export default function CoachProcessing({ energyLevel, moodScore }: CoachProcessingProps) {
@@ -28,8 +30,8 @@ export default function CoachProcessing({ energyLevel, moodScore }: CoachProcess
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentMessage(prev => (prev + 1) % messages.length)
-    }, 2000)
+      setCurrentMessage(prev => (prev + 1) % AFFIRMATIONS.length)
+    }, 1500) // Cycle every 1.5s to keep engagement
 
     return () => clearInterval(interval)
   }, [])
@@ -39,7 +41,7 @@ export default function CoachProcessing({ energyLevel, moodScore }: CoachProcess
       <div className="processing-content">
         <div className="brain-icon">🧠</div>
 
-        <p className="processing-message">{messages[currentMessage]}</p>
+        <p className="processing-message">{AFFIRMATIONS[currentMessage]}</p>
 
         {/* Show what user selected */}
         <div className="selection-summary">
@@ -91,16 +93,17 @@ export default function CoachProcessing({ energyLevel, moodScore }: CoachProcess
         }
 
         .processing-message {
-          font-size: clamp(18px, 5vw, 24px);
-          font-weight: 600;
+          font-size: clamp(22px, 6vw, 28px);
+          font-weight: 700;
           color: #0f1419;
           margin: 0 0 clamp(32px, 8vw, 48px) 0;
-          animation: fadeInOut 2s ease-in-out infinite;
+          animation: fadeInOut 1.5s ease-in-out infinite;
+          line-height: 1.4;
         }
 
         @keyframes fadeInOut {
           0%, 100% {
-            opacity: 0.6;
+            opacity: 0.7;
           }
           50% {
             opacity: 1;

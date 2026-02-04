@@ -276,6 +276,34 @@ function FocusPageContent() {
     setStep('dashboard')
   }
 
+  // ===== EXPRESS LANE: Quick Start =====
+  // Bypasses triage, context, and breakdown — goes straight to dashboard with a dummy task
+  const handleQuickStart = async () => {
+    if (!user) return
+
+    // Create a "Quick Focus Session" plan directly in the database
+    const quickPlan = {
+      user_id: user.id,
+      task_name: 'Quick Focus Session',
+      steps: [
+        { id: 'quick_1', text: 'Set your intention', completed: false, dueBy: 'Now', timeEstimate: '1 min' },
+        { id: 'quick_2', text: 'Start the timer', completed: false, dueBy: 'Next', timeEstimate: '1 min' },
+        { id: 'quick_3', text: 'Focus until done', completed: false, dueBy: 'After that', timeEstimate: '25 min' },
+      ],
+      steps_completed: 0,
+      total_steps: 3,
+      is_completed: false,
+      due_date: 'Today',
+      energy_required: energyLevel || 'medium',
+    }
+
+    await supabase.from('focus_plans').insert(quickPlan)
+
+    // Refresh plans and go directly to dashboard
+    await fetchPlans(user.id)
+    setStep('dashboard')
+  }
+
   const handleTriageConfirm = (tasks: ParsedTask[]) => {
     setParsedTasks(tasks)
     setStep('context')
@@ -441,6 +469,7 @@ function FocusPageContent() {
           <BrainDumpScreen
             onSubmit={handleBrainDumpSubmit}
             onSkip={handleBrainDumpSkip}
+            onQuickStart={handleQuickStart}
           />
         </>
       )}

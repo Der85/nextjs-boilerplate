@@ -15,26 +15,23 @@ interface PrimaryActionProps {
   loading?: boolean
 }
 
+// Visual Quieting: Flat colors instead of gradients, shadows only on hover
 const colorConfig = {
   red: {
-    gradient: 'linear-gradient(135deg, #f4212e 0%, #dc2626 100%)',
-    shadow: '0 4px 14px rgba(244, 33, 46, 0.3)',
-    hoverShadow: '0 6px 20px rgba(244, 33, 46, 0.4)',
+    background: '#ef4444',
+    hoverShadow: '0 4px 14px rgba(239, 68, 68, 0.25)',
   },
   green: {
-    gradient: 'linear-gradient(135deg, #00ba7c 0%, #059669 100%)',
-    shadow: '0 4px 14px rgba(0, 186, 124, 0.3)',
-    hoverShadow: '0 6px 20px rgba(0, 186, 124, 0.4)',
+    background: '#10b981',
+    hoverShadow: '0 4px 14px rgba(16, 185, 129, 0.25)',
   },
   blue: {
-    gradient: 'linear-gradient(135deg, #1D9BF0 0%, #0c7abf 100%)',
-    shadow: '0 4px 14px rgba(29, 155, 240, 0.3)',
-    hoverShadow: '0 6px 20px rgba(29, 155, 240, 0.4)',
+    background: '#1D9BF0',
+    hoverShadow: '0 4px 14px rgba(29, 155, 240, 0.25)',
   },
   orange: {
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    shadow: '0 4px 14px rgba(245, 158, 11, 0.3)',
-    hoverShadow: '0 6px 20px rgba(245, 158, 11, 0.4)',
+    background: '#f59e0b',
+    hoverShadow: '0 4px 14px rgba(245, 158, 11, 0.25)',
   }
 }
 
@@ -111,8 +108,8 @@ export default function PrimaryAction({
           align-items: center;
           justify-content: center;
           gap: clamp(10px, 2.5vw, 14px);
-          background: ${config.gradient};
-          box-shadow: ${config.shadow};
+          background: ${config.background};
+          box-shadow: none;
           transition: all 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
@@ -124,7 +121,7 @@ export default function PrimaryAction({
 
         .primary-action-btn:active:not(:disabled) {
           transform: translateY(0);
-          box-shadow: ${config.shadow};
+          box-shadow: none;
         }
 
         .primary-action-btn:disabled {

@@ -69,9 +69,12 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
               onClick={() => handleSelect(score)}
               onMouseEnter={() => setHoverMood(score)}
               onMouseLeave={() => setHoverMood(null)}
-              className={`mood-btn ${selectedMood === score ? 'selected' : ''}`}
+              className={`mood-btn ${selectedMood === score ? 'selected' : ''} ${hoverMood === score ? 'hovered' : ''}`}
               style={{
-                background: getMoodGradient(score)
+                // Visual Quieting: Only show color when selected or hovered
+                background: (selectedMood === score || hoverMood === score)
+                  ? getMoodGradient(score)
+                  : '#f7f9fa'
               }}
             >
               <span className="mood-number">{score}</span>
@@ -154,7 +157,7 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
         .mood-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(clamp(60px, 15vw, 80px), 1fr));
-          gap: clamp(8px, 2vw, 12px);
+          gap: clamp(12px, 3vw, 18px);
           max-width: 560px;
           margin: 0 auto;
         }
@@ -162,7 +165,7 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
         .mood-btn {
           aspect-ratio: 1;
           border-radius: clamp(12px, 3vw, 16px);
-          border: 3px solid transparent;
+          border: 2px solid #e5e7eb;
           cursor: pointer;
           display: flex;
           flex-direction: column;
@@ -171,7 +174,7 @@ export default function MoodSelector({ onSelect, yesterdayMood }: MoodSelectorPr
           gap: clamp(4px, 1vw, 6px);
           transition: all 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          box-shadow: none;
         }
 
         .mood-btn:hover {
