@@ -7,6 +7,7 @@ import { usePresenceWithFallback } from '@/hooks/usePresence'
 import AppHeader from '@/components/AppHeader'
 import { useUserStats } from '@/context/UserStatsContext'
 import { XP_VALUES } from '@/lib/gamification'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 // ============================================
 // Types
@@ -156,6 +157,7 @@ function GoalsPageContent() {
   // Real-time presence - isFocusing: false because Goals page is planning, not focusing
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
   const { awardXP } = useUserStats()
+  const { prefs: gamPrefs } = useGamificationPrefsSafe()
   const [xpToast, setXpToast] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false })
 
   // ============================================
@@ -794,7 +796,7 @@ function GoalsPageContent() {
       </main>
 
       {/* XP Toast */}
-      {xpToast.visible && (
+      {gamPrefs.showXP && xpToast.visible && (
         <div className="xp-toast">+{xpToast.amount} XP</div>
       )}
 

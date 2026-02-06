@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Badge } from '@/lib/gamification'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface BadgeUnlockProps {
   badge: Badge
@@ -9,7 +10,13 @@ interface BadgeUnlockProps {
 }
 
 export default function BadgeUnlock({ badge, onClose }: BadgeUnlockProps) {
+  const { prefs } = useGamificationPrefsSafe()
   const [showConfetti, setShowConfetti] = useState(true)
+
+  // Hide if badges display is disabled
+  if (!prefs.showBadges) {
+    return null
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {

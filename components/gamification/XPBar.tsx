@@ -1,5 +1,7 @@
 'use client'
 
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
+
 interface XPBarProps {
   currentXP: number
   xpForNextLevel: number
@@ -15,6 +17,12 @@ export default function XPBar({
   xpGained = 0,
   animated = true
 }: XPBarProps) {
+  const { prefs } = useGamificationPrefsSafe()
+
+  // Hide if XP display is disabled
+  if (!prefs.showXP) {
+    return null
+  }
   // Calculate XP at current level start
   let xpAtLevelStart = 0
   if (currentLevel > 5) xpAtLevelStart = 500

@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import ProgressRing from '@/components/gamification/ProgressRing'
 import { getMoodGradient } from '@/lib/gamification'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface WelcomeScreenProps {
   onComplete: () => void
@@ -17,6 +18,8 @@ export default function WelcomeScreen({
   lastMoodScore,
   greeting
 }: WelcomeScreenProps) {
+  const { prefs } = useGamificationPrefsSafe()
+
   useEffect(() => {
     const timer = setTimeout(() => {
       onComplete()
@@ -34,7 +37,7 @@ export default function WelcomeScreen({
       <div className="welcome-content">
         <h1 className="welcome-greeting">{greeting} 👋</h1>
 
-        {currentStreak > 0 && (
+        {prefs.showStreaks && currentStreak > 0 && (
           <div className="streak-display">
             <ProgressRing
               progress={(currentStreak / 7) * 100}

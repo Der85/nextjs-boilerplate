@@ -7,6 +7,8 @@ import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
+import GamificationSettings from '@/components/GamificationSettings'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface MoodEntry {
   id: string
@@ -126,6 +128,8 @@ function DashboardContent() {
   
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
+  const [modeManuallySet, setModeManuallySet] = useState(false)
+  const [showModeSelector, setShowModeSelector] = useState(false)
 
   // Real-time presence - isFocusing: false because Dashboard is for overview
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
@@ -152,12 +156,17 @@ function DashboardContent() {
   const [pulseSaved, setPulseSaved] = useState(false)
   const [pulseSaving, setPulseSaving] = useState(false)
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [lastPulseEntryId, setLastPulseEntryId] = useState<string | null>(null)
+  const [showPulseUndo, setShowPulseUndo] = useState(false)
+  const pulseUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Mode override from URL (e.g., Brake tool re-entry)
   const [showOverrideToast, setShowOverrideToast] = useState(false)
 
   // Atomic Dashboard: Toolbox collapsed by default
   const [toolboxExpanded, setToolboxExpanded] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { prefs: gamPrefs, isMaintenanceDay } = useGamificationPrefsSafe()
 
   // Check if a "Remind me at 4 PM" reminder has triggered
   useEffect(() => {
@@ -245,14 +254,26 @@ function DashboardContent() {
         (Date.now() - new Date(lastEntry.created_at).getTime()) / (1000 * 60 * 60 * 24)
       )
 
-      // Calculate streak
+      // Calculate streak (accounting for maintenance days)
       let streak = 1
       for (let i = 1; i < data.length; i++) {
         const curr = new Date(data[i - 1].created_at)
         const prev = new Date(data[i].created_at)
         const diff = Math.floor((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24))
-        if (diff <= 1) streak++
-        else break
+        if (diff <= 1) {
+          streak++
+        } else if (diff === 2) {
+          // Check if the gap day was a maintenance day
+          const gapDay = new Date(curr)
+          gapDay.setDate(gapDay.getDate() - 1)
+          if (isMaintenanceDay(gapDay)) {
+            streak++ // Continue streak through maintenance day
+          } else {
+            break
+          }
+        } else {
+          break
+        }
       }
 
       // Calculate trend
@@ -279,8 +300,11 @@ function DashboardContent() {
       })
 
       // Phase 1: Calculate User Mode based on mood data
-      const calculatedMode = calculateUserMode(lastEntry, streak)
-      setUserMode(calculatedMode)
+      // Only auto-set mode if not manually overridden
+      if (!modeManuallySet) {
+        const calculatedMode = calculateUserMode(lastEntry, streak)
+        setUserMode(calculatedMode)
+      }
     }
 
     // Fetch most recent active goal
@@ -379,7 +403,7 @@ function DashboardContent() {
     if (insights.daysSinceLastCheckIn > 3) {
       return `Welcome back! It's been ${insights.daysSinceLastCheckIn} days.`
     }
-    if (insights.currentStreak && insights.currentStreak.days >= 3) {
+    if (gamPrefs.showStreaks && insights.currentStreak && insights.currentStreak.days >= 3) {
       return `🔥 ${insights.currentStreak.days}-day streak! Keep it going.`
     }
     if (insights.trend === 'up') {
@@ -398,18 +422,47 @@ function DashboardContent() {
       clearTimeout(pulseTimerRef.current)
       pulseTimerRef.current = null
     }
+    // Clear any pending undo timer
+    if (pulseUndoTimerRef.current) {
+      clearTimeout(pulseUndoTimerRef.current)
+    }
     setSaving(true)
-    await supabase.from('mood_entries').insert({
+    const { data: insertedEntry } = await supabase.from('mood_entries').insert({
       user_id: user.id,
       mood_score: moodScore,
       note: null,
       coach_advice: null,
-    })
+    }).select('id').single()
+
+    if (insertedEntry) {
+      setLastPulseEntryId(insertedEntry.id)
+    }
     await fetchData(user.id)
     setSaving(false)
     setPulseSaving(false)
     setPulseSaved(true)
-    setTimeout(() => setPulseSaved(false), 2000)
+    setShowPulseUndo(true)
+
+    // Hide undo option after 5 seconds
+    pulseUndoTimerRef.current = setTimeout(() => {
+      setShowPulseUndo(false)
+      setLastPulseEntryId(null)
+    }, 5000)
+  }
+
+  const handlePulseUndo = async () => {
+    if (!lastPulseEntryId || !user) return
+    // Clear undo timer
+    if (pulseUndoTimerRef.current) {
+      clearTimeout(pulseUndoTimerRef.current)
+    }
+    // Delete the entry
+    await supabase.from('mood_entries').delete().eq('id', lastPulseEntryId)
+    setLastPulseEntryId(null)
+    setShowPulseUndo(false)
+    setPulseSaved(false)
+    setMoodScore(null)
+    await fetchData(user.id)
   }
 
   const handlePulseChange = (value: number) => {
@@ -538,6 +591,26 @@ function DashboardContent() {
 
   const modeConfig = getModeConfig()
 
+  // Handle manual mode change
+  const handleModeChange = (newMode: UserMode) => {
+    setUserMode(newMode)
+    setModeManuallySet(true)
+    setShowModeSelector(false)
+  }
+
+  // Reset to auto mode
+  const handleResetAutoMode = () => {
+    setModeManuallySet(false)
+    setShowModeSelector(false)
+    // Recalculate mode based on last entry
+    if (insights && insights.lastMood !== null) {
+      const mockEntry = { mood_score: insights.lastMood } as MoodEntry
+      const streak = insights.currentStreak?.days || 0
+      const calculatedMode = calculateUserMode(mockEntry, streak)
+      setUserMode(calculatedMode)
+    }
+  }
+
   // Computed view flags for mode-specific rendering
   const isRecoveryView = userMode === 'recovery'
   // isGrowthView removed — atomic dashboard uses unified hero flow
@@ -647,6 +720,59 @@ function DashboardContent() {
             Aggressive progressive disclosure: only ONE hero element at a time.
             Strict hierarchy: 1. Recovery → 2. Fresh Start → 3. Just One Thing */}
         {renderHero()}
+
+        {/* Mode Override Selector */}
+        <div className="mode-override-section">
+          <button
+            className="mode-override-trigger"
+            onClick={() => setShowModeSelector(!showModeSelector)}
+          >
+            <span className="mode-icon">{modeConfig.icon}</span>
+            <span className="mode-label">{modeConfig.label}</span>
+            {modeManuallySet && <span className="mode-manual-badge">Manual</span>}
+            <span className="mode-chevron">{showModeSelector ? '▲' : '▼'}</span>
+          </button>
+
+          {showModeSelector && (
+            <div className="mode-selector-dropdown">
+              <button
+                className={`mode-option ${userMode === 'recovery' ? 'active' : ''}`}
+                onClick={() => handleModeChange('recovery')}
+              >
+                <span className="mode-option-icon">🫂</span>
+                <div className="mode-option-text">
+                  <span className="mode-option-label">Recovery</span>
+                  <span className="mode-option-desc">Low energy, need rest</span>
+                </div>
+              </button>
+              <button
+                className={`mode-option ${userMode === 'maintenance' ? 'active' : ''}`}
+                onClick={() => handleModeChange('maintenance')}
+              >
+                <span className="mode-option-icon">⚖️</span>
+                <div className="mode-option-text">
+                  <span className="mode-option-label">Steady</span>
+                  <span className="mode-option-desc">Consistent and sustainable</span>
+                </div>
+              </button>
+              <button
+                className={`mode-option ${userMode === 'growth' ? 'active' : ''}`}
+                onClick={() => handleModeChange('growth')}
+              >
+                <span className="mode-option-icon">🚀</span>
+                <div className="mode-option-text">
+                  <span className="mode-option-label">Growth</span>
+                  <span className="mode-option-desc">High energy, push harder</span>
+                </div>
+              </button>
+              {modeManuallySet && (
+                <button className="mode-reset-btn" onClick={handleResetAutoMode}>
+                  ↻ Reset to Auto
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </main>
 
       {/* ===== FLOATING ACTION BUTTON (FAB) for Toolbox ===== */}
@@ -694,6 +820,14 @@ function DashboardContent() {
                     <span className="fab-tool-icon">📋</span>
                     <span className="fab-tool-label">Check-in</span>
                   </button>
+                  <button onClick={() => { router.push('/wind-down'); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">🌙</span>
+                    <span className="fab-tool-label">Wind Down</span>
+                  </button>
+                  <button onClick={() => { setSettingsOpen(true); setToolboxExpanded(false) }} className="fab-tool-btn">
+                    <span className="fab-tool-icon">⚙️</span>
+                    <span className="fab-tool-label">Settings</span>
+                  </button>
                 </div>
               </div>
             </>
@@ -707,6 +841,22 @@ function DashboardContent() {
           <span className="override-toast-icon">🌿</span>
           <span className="override-toast-text">State updated from Breathing Session</span>
         </div>
+      )}
+
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <>
+          <div className="settings-overlay" onClick={() => setSettingsOpen(false)} />
+          <div className="settings-modal">
+            <div className="settings-modal-header">
+              <span className="settings-modal-title">Settings</span>
+              <button className="settings-modal-close" onClick={() => setSettingsOpen(false)}>×</button>
+            </div>
+            <div className="settings-modal-content">
+              <GamificationSettings onClose={() => setSettingsOpen(false)} />
+            </div>
+          </div>
+        </>
       )}
 
       <style jsx>{styles}</style>
@@ -1984,6 +2134,142 @@ const styles = `
     text-align: center;
   }
 
+  /* ===== MODE OVERRIDE SELECTOR ===== */
+  .mode-override-section {
+    margin-top: clamp(16px, 4vw, 24px);
+    position: relative;
+  }
+
+  .mode-override-trigger {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+    width: 100%;
+    padding: clamp(12px, 3vw, 16px);
+    background: white;
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(12px, 3vw, 16px);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .mode-override-trigger:hover {
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(29, 155, 240, 0.1);
+  }
+
+  .mode-icon {
+    font-size: clamp(20px, 5vw, 24px);
+  }
+
+  .mode-label {
+    flex: 1;
+    text-align: left;
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: #0f1419;
+  }
+
+  .mode-manual-badge {
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight: 600;
+    color: #f97316;
+    background: rgba(249, 115, 22, 0.1);
+    padding: 2px 8px;
+    border-radius: 100px;
+  }
+
+  .mode-chevron {
+    font-size: clamp(10px, 2.8vw, 12px);
+    color: var(--dark-gray);
+  }
+
+  .mode-selector-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid var(--extra-light-gray);
+    border-radius: clamp(12px, 3vw, 16px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    z-index: 50;
+    overflow: hidden;
+    animation: dropdownSlide 0.15s ease;
+  }
+
+  @keyframes dropdownSlide {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .mode-option {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 2.5vw, 14px);
+    width: 100%;
+    padding: clamp(14px, 3.5vw, 18px);
+    background: white;
+    border: none;
+    border-bottom: 1px solid var(--extra-light-gray);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-align: left;
+  }
+
+  .mode-option:last-of-type {
+    border-bottom: none;
+  }
+
+  .mode-option:hover {
+    background: var(--bg-gray);
+  }
+
+  .mode-option.active {
+    background: rgba(29, 155, 240, 0.08);
+  }
+
+  .mode-option-icon {
+    font-size: clamp(22px, 5.5vw, 26px);
+  }
+
+  .mode-option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mode-option-label {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: #0f1419;
+  }
+
+  .mode-option-desc {
+    font-size: clamp(12px, 3.2vw, 14px);
+    color: var(--dark-gray);
+  }
+
+  .mode-reset-btn {
+    width: 100%;
+    padding: clamp(12px, 3vw, 16px);
+    background: var(--bg-gray);
+    border: none;
+    border-top: 1px solid var(--extra-light-gray);
+    color: var(--primary);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .mode-reset-btn:hover {
+    background: #e5e7eb;
+  }
+
   /* ===== FLOATING ACTION BUTTON (FAB) ===== */
   .toolbox-fab {
     position: fixed;
@@ -2116,10 +2402,81 @@ const styles = `
     color: var(--dark-gray);
   }
 
+  /* ===== SETTINGS MODAL ===== */
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    animation: fade-in 0.15s ease;
+  }
+
+  .settings-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: clamp(16px, 4vw, 24px) clamp(16px, 4vw, 24px) 0 0;
+    z-index: 1000;
+    animation: slide-up 0.2s ease;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .settings-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(14px, 3.5vw, 18px);
+    border-bottom: 1px solid #eff3f4;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+  }
+
+  .settings-modal-title {
+    font-size: clamp(16px, 4.5vw, 18px);
+    font-weight: 700;
+    color: #0f1419;
+  }
+
+  .settings-modal-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: #eff3f4;
+    color: var(--dark-gray);
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+
+  .settings-modal-close:hover {
+    background: #e5e7eb;
+  }
+
+  .settings-modal-content {
+    padding: clamp(18px, 4.5vw, 24px);
+    padding-bottom: calc(clamp(18px, 4.5vw, 24px) + var(--safe-area-bottom));
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
   /* ===== TABLET/DESKTOP ADJUSTMENTS ===== */
   @media (min-width: 768px) {
     .main { padding: 24px; padding-bottom: 24px; }
     .fab-modal { width: 340px; }
+    .settings-modal { max-width: 480px; left: 50%; transform: translateX(-50%); border-radius: clamp(16px, 4vw, 24px); bottom: 50%; transform: translate(-50%, 50%); }
   }
 
   @media (min-width: 1024px) {

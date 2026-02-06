@@ -59,12 +59,12 @@ export default function HolisticSlider({ onSelect, yesterdayMood }: HolisticSlid
   const handleConfirm = () => {
     if (!position) return
     const moodScore = Math.round(position.x * 10) // 0-10
-    const energyLevel = Math.round(position.y * 4) // 0-4
+    const energyLevel = Math.round(position.y * 9) + 1 // 1-10
     onSelect(moodScore, energyLevel)
   }
 
   const moodScore = position ? Math.round(position.x * 10) : null
-  const energyLevel = position ? Math.round(position.y * 4) : null
+  const energyLevel = position ? Math.round(position.y * 9) + 1 : null // 1-10
   const quadrant = position ? getQuadrantLabel(position.x, position.y) : null
   const quadrantColor = position ? getQuadrantColor(position.x, position.y) : '#8899a6'
 
@@ -158,7 +158,7 @@ export default function HolisticSlider({ onSelect, yesterdayMood }: HolisticSlid
             <div className="value-chip">
               <span className="value-label">Energy</span>
               <span className="value-number" style={{ color: quadrantColor }}>
-                {['Depleted', 'Low', 'Moderate', 'High', 'Overflowing'][energyLevel!]}
+                {energyLevel}/10
               </span>
             </div>
           </div>

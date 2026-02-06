@@ -278,47 +278,56 @@ export function getMoodGradient(moodScore: number): string {
   return 'linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%)'
 }
 
-// Get energy level color
+// Get energy level color (1-10 scale)
 export function getEnergyColor(energyLevel: number): string {
-  const colors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e']
-  return colors[energyLevel] || colors[0]
+  if (energyLevel <= 2) return '#ef4444'  // Red - depleted
+  if (energyLevel <= 4) return '#f97316'  // Orange - low
+  if (energyLevel <= 6) return '#eab308'  // Yellow - moderate
+  if (energyLevel <= 8) return '#84cc16'  // Lime - high
+  return '#22c55e'                         // Green - overflowing
 }
 
-// Get energy level label
+// Get energy level label (1-10 scale)
 export function getEnergyLabel(energyLevel: number): string {
-  const labels = ['Depleted', 'Low', 'Moderate', 'High', 'Overflowing']
-  return labels[energyLevel] || labels[0]
+  if (energyLevel <= 2) return 'Depleted'
+  if (energyLevel <= 4) return 'Low'
+  if (energyLevel <= 6) return 'Moderate'
+  if (energyLevel <= 8) return 'High'
+  return 'Overflowing'
 }
 
-// Get energy level emoji
+// Get energy level emoji (1-10 scale)
 export function getEnergyEmoji(energyLevel: number): string {
-  const emojis = ['🪫', '💤', '⚡', '🔋', '⚡⚡']
-  return emojis[energyLevel] || emojis[0]
+  if (energyLevel <= 2) return '🪫'
+  if (energyLevel <= 4) return '💤'
+  if (energyLevel <= 6) return '⚡'
+  if (energyLevel <= 8) return '🔋'
+  return '🚀'
 }
 
-// Get smart note placeholder based on energy + mood
+// Get smart note placeholder based on energy + mood (both on 1-10 scale)
 export function getNotePlaceholder(energyLevel: number | null, moodScore: number | null): string {
   if (energyLevel === null || moodScore === null) {
     return "What's on your mind? (helps me give better advice)"
   }
 
   // Low energy + low mood
-  if (energyLevel <= 1 && moodScore <= 4) {
+  if (energyLevel <= 4 && moodScore <= 4) {
     return "What's draining you today?"
   }
 
   // Low energy + high mood
-  if (energyLevel <= 1 && moodScore >= 7) {
+  if (energyLevel <= 4 && moodScore >= 7) {
     return "You're happy but tired - what's going on?"
   }
 
   // High energy + low mood
-  if (energyLevel >= 3 && moodScore <= 4) {
+  if (energyLevel >= 7 && moodScore <= 4) {
     return "You have energy but feel down - tell me more..."
   }
 
   // High energy + high mood
-  if (energyLevel >= 3 && moodScore >= 7) {
+  if (energyLevel >= 7 && moodScore >= 7) {
     return "What's fueling you today?"
   }
 

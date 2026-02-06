@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface VitalsCheckProps {
   onSubmit: (moodScore: number, energyLevel: number, note: string) => void
@@ -10,11 +11,12 @@ interface VitalsCheckProps {
 
 type EnergyLevel = 'low' | 'medium' | 'high'
 
+// Maps 3-button toggle to 1-10 scale (3, 5, 8 represents low/mid/high points)
 const energyToNumber = (energy: EnergyLevel): number => {
   switch (energy) {
     case 'low': return 3
-    case 'medium': return 6
-    case 'high': return 9
+    case 'medium': return 5
+    case 'high': return 8
   }
 }
 
@@ -31,6 +33,7 @@ export default function VitalsCheck({
   greeting,
   currentStreak,
 }: VitalsCheckProps) {
+  const { prefs } = useGamificationPrefsSafe()
   const [moodScore, setMoodScore] = useState(5)
   const [energy, setEnergy] = useState<EnergyLevel>('medium')
   const [note, setNote] = useState('')
@@ -48,7 +51,7 @@ export default function VitalsCheck({
         {/* Header */}
         <div className="vitals-header">
           <h1 className="vitals-greeting">{greeting} 👋</h1>
-          {currentStreak >= 2 && (
+          {prefs.showStreaks && currentStreak >= 2 && (
             <p className="vitals-streak">🔥 {currentStreak}-day streak!</p>
           )}
         </div>
@@ -78,7 +81,10 @@ export default function VitalsCheck({
 
         {/* Energy Segmented Control */}
         <div className="vitals-section">
-          <span className="section-label">Energy level?</span>
+          <div className="section-header">
+            <span className="section-label">Energy level?</span>
+            <span className="energy-value">{energyToNumber(energy)}/10</span>
+          </div>
           <div className="energy-control">
             <button
               className={`energy-btn ${energy === 'low' ? 'active low' : ''}`}
@@ -195,6 +201,12 @@ export default function VitalsCheck({
 
         .section-emoji {
           font-size: clamp(28px, 7vw, 36px);
+        }
+
+        .energy-value {
+          font-size: clamp(16px, 4.5vw, 20px);
+          font-weight: 700;
+          color: #1D9BF0;
         }
 
         .optional {

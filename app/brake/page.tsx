@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
+import OverwhelmNotification from '@/components/OverwhelmNotification'
 
 type Step = 'intro' | 'hold' | 'emotion' | 'breathing' | 'complete'
 
@@ -19,8 +20,8 @@ const emotions = [
 export default function BreakOnboardingPage() {
   const router = useRouter()
 
-  // Trojan Horse: silently log overwhelm when user visits this page
-  useImplicitOverwhelmLogger()
+  // Transparent overwhelm logging - asks user for consent before logging
+  const { showNotification, handleConfirm, handleDismiss } = useImplicitOverwhelmLogger()
   const [step, setStep] = useState<Step>('intro')
   const [holdProgress, setHoldProgress] = useState(0)
   const [isHolding, setIsHolding] = useState(false)
@@ -344,6 +345,13 @@ export default function BreakOnboardingPage() {
           </div>
         </div>
       )}
+
+      {/* Transparent overwhelm logging - user chooses whether to log */}
+      <OverwhelmNotification
+        showNotification={showNotification}
+        onConfirm={handleConfirm}
+        onDismiss={handleDismiss}
+      />
 
       <style jsx>{styles}</style>
     </div>

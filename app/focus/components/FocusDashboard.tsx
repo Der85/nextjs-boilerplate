@@ -8,6 +8,7 @@ import PostFocusToast from '@/components/micro/PostFocusToast'
 import QuickAllyModal from './QuickAllyModal'
 import { useUserStats } from '@/context/UserStatsContext'
 import { XP_VALUES } from '@/lib/gamification'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 const OVERWHELM_DELAY_MS = 5 * 60 * 1000 // 5 minutes of inactivity
 
@@ -78,6 +79,7 @@ export default function FocusDashboard({
 }: FocusDashboardProps) {
   const router = useRouter()
   const { awardXP } = useUserStats()
+  const { prefs: gamPrefs } = useGamificationPrefsSafe()
   const [xpToast, setXpToast] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false })
   const [pulseStepId, setPulseStepId] = useState<string | null>(null)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
@@ -1129,7 +1131,7 @@ export default function FocusDashboard({
       )}
 
       {/* XP Toast */}
-      {xpToast.visible && (
+      {gamPrefs.showXP && xpToast.visible && (
         <div className="xp-toast">+{xpToast.amount} XP</div>
       )}
 

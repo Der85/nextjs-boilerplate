@@ -1,11 +1,14 @@
 'use client'
 
 import { UserStatsProvider } from '@/context/UserStatsContext'
+import { GamificationPrefsProvider } from '@/context/GamificationPrefsContext'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <UserStatsProvider>
-      {children}
+      <GamificationPrefsProvider>
+        {children}
+      </GamificationPrefsProvider>
     </UserStatsProvider>
   )
 }

@@ -630,12 +630,20 @@ export default function OnboardingPage() {
                 )}
                 
                 {/* Disabled next button until completed */}
-                <button 
-                  onClick={handleNext} 
+                <button
+                  onClick={handleNext}
                   className="btn-primary"
                   disabled={!breakCompleted}
                 >
                   Complete the hold first
+                </button>
+
+                {/* Skip option for user autonomy */}
+                <button
+                  onClick={handleNext}
+                  className="skip-break-link"
+                >
+                  Skip — I'll try BREAK later
                 </button>
               </>
             )}
@@ -1411,6 +1419,27 @@ const styles = `
   @keyframes fade-pulse {
     from { opacity: 0.7; }
     to { opacity: 1; }
+  }
+
+  .skip-break-link {
+    display: block;
+    margin-top: clamp(12px, 3vw, 16px);
+    background: none;
+    border: none;
+    color: var(--dark-gray);
+    font-size: clamp(13px, 3.5vw, 15px);
+    font-weight: 500;
+    cursor: pointer;
+    padding: clamp(8px, 2vw, 12px);
+    transition: color 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-align: center;
+    width: 100%;
+  }
+
+  .skip-break-link:hover {
+    color: var(--primary);
+    text-decoration: underline;
   }
 
   /* ===== PHASE 3: ENERGY BATTERY STYLES ===== */

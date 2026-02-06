@@ -135,18 +135,24 @@ export async function POST(request: NextRequest) {
 
     const sanitizedNote = sanitizeNote(note)
 
-    // Validate energy level if provided (0-4 scale)
-    const hasValidEnergy = typeof energyLevel === 'number' && energyLevel >= 0 && energyLevel <= 4
+    // Validate energy level if provided (1-10 scale)
+    const hasValidEnergy = typeof energyLevel === 'number' && energyLevel >= 1 && energyLevel <= 10
 
     // 6. If no note provided, return generic advice (save API calls)
     if (!sanitizedNote || sanitizedNote.length < 3) {
       return NextResponse.json({ advice: getGenericAdvice(moodScore) })
     }
 
-    // 7. Build prompt for Gemini
-    const energyLabels = ['Depleted', 'Low', 'Moderate', 'High', 'Overflowing']
+    // 7. Build prompt for Gemini - map 1-10 to descriptive label
+    const getEnergyLabel = (level: number): string => {
+      if (level <= 2) return 'Depleted'
+      if (level <= 4) return 'Low'
+      if (level <= 6) return 'Moderate'
+      if (level <= 8) return 'High'
+      return 'Overflowing'
+    }
     const energyContext = hasValidEnergy
-      ? `\n- Energy level: ${energyLabels[energyLevel]} (${energyLevel}/4)`
+      ? `\n- Energy level: ${getEnergyLabel(energyLevel)} (${energyLevel}/10)`
       : ''
 
     const prompt = `You are a warm, experienced ADHD coach responding to a client's daily check-in.

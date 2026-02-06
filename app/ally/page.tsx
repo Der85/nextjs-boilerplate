@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
+import OverwhelmNotification from '@/components/OverwhelmNotification'
 
 // ============================================
 // Types
@@ -116,8 +117,8 @@ export default function AllyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
 
-  // Trojan Horse: silently log overwhelm when user visits this page
-  useImplicitOverwhelmLogger()
+  // Transparent overwhelm logging - asks user for consent before logging
+  const { showNotification, handleConfirm, handleDismiss } = useImplicitOverwhelmLogger()
 
   // Flow state
   const [currentStep, setCurrentStep] = useState<Step>('loading')
@@ -580,6 +581,13 @@ export default function AllyPage() {
           </div>
         )}
       </main>
+
+      {/* Transparent overwhelm logging - user chooses whether to log */}
+      <OverwhelmNotification
+        showNotification={showNotification}
+        onConfirm={handleConfirm}
+        onDismiss={handleDismiss}
+      />
 
       <style jsx>{styles}</style>
     </div>

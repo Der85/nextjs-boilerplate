@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import BadgeUnlock from '@/components/gamification/BadgeUnlock'
 import XPBar from '@/components/gamification/XPBar'
 import type { Badge } from '@/lib/gamification'
+import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface AchievementScreenProps {
   coachAdvice: string
@@ -24,10 +25,14 @@ export default function AchievementScreen({
   currentLevel,
   onContinue
 }: AchievementScreenProps) {
+  const { prefs } = useGamificationPrefsSafe()
   const [currentBadgeIndex, setCurrentBadgeIndex] = useState(0)
 
+  // Filter badges based on preference
+  const visibleBadges = prefs.showBadges ? newBadges : []
+
   const handleBadgeClose = () => {
-    if (currentBadgeIndex < newBadges.length - 1) {
+    if (currentBadgeIndex < visibleBadges.length - 1) {
       setCurrentBadgeIndex(prev => prev + 1)
     } else {
       // All badges shown, move to next screen
@@ -35,8 +40,15 @@ export default function AchievementScreen({
     }
   }
 
-  // If there are no badges, just show the coach advice
-  if (newBadges.length === 0) {
+  // Auto-continue if both XP and badges are hidden and there's no coach advice
+  useEffect(() => {
+    if (!prefs.showXP && !prefs.showBadges && (!coachAdvice || coachAdvice.length === 0)) {
+      onContinue()
+    }
+  }, [prefs.showXP, prefs.showBadges, coachAdvice, onContinue])
+
+  // If there are no visible badges, just show the coach advice
+  if (visibleBadges.length === 0) {
     return (
       <div className="achievement-screen">
         <div className="achievement-content">
@@ -70,7 +82,7 @@ export default function AchievementScreen({
   return (
     <div className="achievement-screen">
       <BadgeUnlock
-        badge={newBadges[currentBadgeIndex]}
+        badge={visibleBadges[currentBadgeIndex]}
         onClose={handleBadgeClose}
       />
       <style jsx>{styles}</style>
