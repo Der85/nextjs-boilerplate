@@ -603,9 +603,6 @@ function DashboardContent() {
               🌊 Backlog
             </button>
           </div>
-          <button className="hero-dismiss" onClick={() => setFreshStartDismissed(true)}>
-            Decide later
-          </button>
         </div>
       )
     }

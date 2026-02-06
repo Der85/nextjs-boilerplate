@@ -68,7 +68,7 @@ export default function CoachProcessing({ energyLevel, moodScore }: CoachProcess
           align-items: center;
           justify-content: center;
           padding: clamp(20px, 5vw, 32px);
-          background: linear-gradient(135deg, #e0f2fe 0%, #ddd6fe 100%);
+          background: #f1f5f9; /* Flat slate-50 — calming, low visual noise */
         }
 
         .processing-content {
