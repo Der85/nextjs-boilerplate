@@ -1,12 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
 interface UnifiedHeaderProps {
   subtitle?: string
   showMenu?: boolean
+}
+
+type UserMode = 'recovery' | 'maintenance' | 'growth'
+
+const MODE_CONFIG: Record<UserMode, { icon: string; label: string; description: string }> = {
+  recovery: { icon: '🫂', label: 'Recovery', description: 'Low energy, need rest' },
+  maintenance: { icon: '⚖️', label: 'Steady', description: 'Consistent and sustainable' },
+  growth: { icon: '🚀', label: 'Growth', description: 'High energy, push harder' },
 }
 
 // Navigation items for the menu
@@ -25,6 +33,20 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
   const supabase = createClient()
   const [menuOpen, setMenuOpen] = useState(false)
   const [animatingOut, setAnimatingOut] = useState(false)
+  const [userMode, setUserMode] = useState<UserMode>('maintenance')
+
+  // Load mode from localStorage on mount
+  useEffect(() => {
+    const savedMode = localStorage.getItem('user-mode') as UserMode | null
+    if (savedMode && ['recovery', 'maintenance', 'growth'].includes(savedMode)) {
+      setUserMode(savedMode)
+    }
+  }, [])
+
+  const handleModeChange = (mode: UserMode) => {
+    setUserMode(mode)
+    localStorage.setItem('user-mode', mode)
+  }
 
   const handleClose = () => {
     setAnimatingOut(true)
@@ -95,6 +117,23 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
                 </button>
               ))}
             </nav>
+
+            {/* Mode Selector */}
+            <div className="mode-section">
+              <div className="mode-section-label">Current Mode</div>
+              <div className="mode-options">
+                {(Object.keys(MODE_CONFIG) as UserMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    className={`mode-option-btn ${userMode === mode ? 'active' : ''}`}
+                    onClick={() => handleModeChange(mode)}
+                  >
+                    <span className="mode-btn-icon">{MODE_CONFIG[mode].icon}</span>
+                    <span className="mode-btn-label">{MODE_CONFIG[mode].label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="menu-footer">
               <button onClick={handleLogout} className="menu-logout-btn">
@@ -295,6 +334,65 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
           font-size: clamp(15px, 4vw, 17px);
           font-weight: 600;
           color: #0f1419;
+        }
+
+        /* Mode Selector */
+        .mode-section {
+          padding: clamp(12px, 3vw, 16px);
+          border-top: 1px solid #eff3f4;
+        }
+
+        .mode-section-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: #8899a6;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 10px;
+          padding-left: 4px;
+        }
+
+        .mode-options {
+          display: flex;
+          gap: 8px;
+        }
+
+        .mode-option-btn {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 12px 8px;
+          background: #f7f9fa;
+          border: 2px solid transparent;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .mode-option-btn:hover {
+          background: #eff3f4;
+        }
+
+        .mode-option-btn.active {
+          background: rgba(29, 155, 240, 0.08);
+          border-color: #1D9BF0;
+        }
+
+        .mode-btn-icon {
+          font-size: 20px;
+        }
+
+        .mode-btn-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: #536471;
+        }
+
+        .mode-option-btn.active .mode-btn-label {
+          color: #1D9BF0;
         }
 
         .menu-footer {

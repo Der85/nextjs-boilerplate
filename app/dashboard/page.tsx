@@ -81,7 +81,6 @@ function DashboardContent() {
   // Phase 1: User Mode state for holistic dashboard
   const [userMode, setUserMode] = useState<UserMode>('maintenance')
   const [modeManuallySet, setModeManuallySet] = useState(false)
-  const [showModeSelector, setShowModeSelector] = useState(false)
 
   // Real-time presence - isFocusing: false because Dashboard is for overview
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
@@ -145,6 +144,28 @@ function DashboardContent() {
     if (dismissCount && parseInt(dismissCount) >= 3) {
       setTidyUpHidden(true)
     }
+  }, [])
+
+  // Sync user mode with localStorage (managed via UnifiedHeader menu)
+  useEffect(() => {
+    const savedMode = localStorage.getItem('user-mode') as UserMode | null
+    if (savedMode && ['recovery', 'maintenance', 'growth'].includes(savedMode)) {
+      setUserMode(savedMode)
+      setModeManuallySet(true)
+    }
+
+    // Listen for mode changes from the menu
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user-mode' && e.newValue) {
+        const newMode = e.newValue as UserMode
+        if (['recovery', 'maintenance', 'growth'].includes(newMode)) {
+          setUserMode(newMode)
+          setModeManuallySet(true)
+        }
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
   // Check for active brake snooze - suppresses recovery mode prompts
@@ -839,64 +860,8 @@ function DashboardContent() {
     setUserMode('maintenance')
   }
 
-  // Phase 1: Get mode-specific styling and content
-  const getModeConfig = () => {
-    switch (userMode) {
-      case 'recovery':
-        return {
-          color: '#f4212e',
-          bgColor: 'rgba(244, 33, 46, 0.08)',
-          borderColor: 'rgba(244, 33, 46, 0.2)',
-          icon: '🫂',
-          label: 'Recovery Mode',
-          message: "Low battery detected. Let's simplify."
-        }
-      case 'growth':
-        return {
-          color: '#00ba7c',
-          bgColor: 'rgba(0, 186, 124, 0.08)',
-          borderColor: 'rgba(0, 186, 124, 0.2)',
-          icon: '🚀',
-          label: 'Growth Mode',
-          message: "Channel this energy before it fades."
-        }
-      case 'maintenance':
-      default:
-        return {
-          color: '#1D9BF0',
-          bgColor: 'rgba(29, 155, 240, 0.08)',
-          borderColor: 'rgba(29, 155, 240, 0.2)',
-          icon: '⚖️',
-          label: 'Steady Mode',
-          message: "Consistency is key. Keep building those sustainable habits."
-        }
-    }
-  }
-
   if (loading) {
     return <DashboardSkeleton />
-  }
-
-  const modeConfig = getModeConfig()
-
-  // Handle manual mode change
-  const handleModeChange = (newMode: UserMode) => {
-    setUserMode(newMode)
-    setModeManuallySet(true)
-    setShowModeSelector(false)
-  }
-
-  // Reset to auto mode
-  const handleResetAutoMode = () => {
-    setModeManuallySet(false)
-    setShowModeSelector(false)
-    // Recalculate mode based on last entry
-    if (insights && insights.lastMood !== null) {
-      const mockEntry = { mood_score: insights.lastMood } as MoodEntry
-      const streak = insights.currentStreak?.days || 0
-      const calculatedMode = calculateUserMode(mockEntry, streak)
-      setUserMode(calculatedMode)
-    }
   }
 
   // Computed view flags for mode-specific rendering
@@ -1023,45 +988,6 @@ function DashboardContent() {
           />
         )}
 
-        {/* Mode Override Selector */}
-        <div className="mode-override-section">
-          <button
-            className="btn-hero-action mode-trigger-btn"
-            onClick={() => setShowModeSelector(!showModeSelector)}
-          >
-            <span>{modeConfig.icon}</span>
-            <span>{modeConfig.label}</span>
-            <span className="mode-chevron">{showModeSelector ? '▲' : '▼'}</span>
-          </button>
-
-          {showModeSelector && (
-            <div className="mode-selector-dropdown">
-              <button
-                className={`mode-option-btn ${userMode === 'recovery' ? 'active' : ''}`}
-                onClick={() => handleModeChange('recovery')}
-              >
-                🫂 Recovery
-              </button>
-              <button
-                className={`mode-option-btn ${userMode === 'maintenance' ? 'active' : ''}`}
-                onClick={() => handleModeChange('maintenance')}
-              >
-                ⚖️ Steady
-              </button>
-              <button
-                className={`mode-option-btn ${userMode === 'growth' ? 'active' : ''}`}
-                onClick={() => handleModeChange('growth')}
-              >
-                🚀 Growth
-              </button>
-              {modeManuallySet && (
-                <button className="btn-text-link mode-reset-btn" onClick={handleResetAutoMode}>
-                  Reset to Auto
-                </button>
-              )}
-            </div>
-          )}
-        </div>
       </main>
 
       {/* Mode Override Toast (from Brake tool re-entry) */}
@@ -2543,73 +2469,6 @@ const styles = `
 
   .pulse-confirm-btn.no:hover {
     background: #e5e7eb;
-  }
-
-  /* ===== MODE OVERRIDE SELECTOR ===== */
-  .mode-override-section {
-    margin-top: clamp(20px, 5vw, 28px);
-    position: relative;
-  }
-
-  .mode-trigger-btn {
-    width: 100%;
-  }
-
-  .mode-chevron {
-    font-size: 12px;
-    opacity: 0.7;
-  }
-
-  .mode-selector-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-    z-index: 50;
-    animation: dropdownSlide 0.15s ease;
-  }
-
-  @keyframes dropdownSlide {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .mode-option-btn {
-    width: 100%;
-    padding: 14px 18px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #0f1419;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    text-align: left;
-  }
-
-  .mode-option-btn:hover {
-    border-color: #1D9BF0;
-    background: rgba(29, 155, 240, 0.04);
-  }
-
-  .mode-option-btn.active {
-    border-color: #1D9BF0;
-    background: rgba(29, 155, 240, 0.08);
-    color: #1D9BF0;
-  }
-
-  .mode-reset-btn {
-    margin-top: 4px;
   }
 
   /* ===== FLOATING ACTION BUTTON (FAB) ===== */
