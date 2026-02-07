@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import OutcomeChip from '@/components/OutcomeChip'
 import NeedsLinkingView from '@/components/NeedsLinkingView'
@@ -288,7 +288,7 @@ function OutcomesPageContent() {
 
   return (
     <div className="outcomes-page">
-      <AppHeader />
+      <UnifiedHeader subtitle="Outcomes" />
 
       <main className="main-content">
         {/* List View */}

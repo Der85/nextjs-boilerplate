@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { calculateXP, checkAchievements, getXPForNextLevel, calculateLevel } from '@/lib/gamification'
 import type { SessionData, Badge, UserStats } from '@/lib/gamification'
 import { getGreeting } from '@/lib/utils/ui-helpers'
+import UnifiedHeader from '@/components/UnifiedHeader'
 
 // Step components — "Snap Check-In" flow: vitals → coach → achievement → summary
 import VitalsCheck from './components/VitalsCheck'
@@ -310,6 +311,8 @@ export default function CheckInPage() {
 
   return (
     <>
+      <UnifiedHeader subtitle="Daily check-in" />
+
       {/* "Snap Check-In" flow: vitals → coach → achievement → summary */}
       {step === 'vitals' && (
         <VitalsCheck

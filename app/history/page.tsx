@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
@@ -270,14 +270,7 @@ export default function HistoryPage() {
 
   return (
     <div className="history-page">
-      <AppHeader
-        onlineCount={onlineCount}
-        notificationBar={{
-          text: 'Your mood journey over the last 90 days',
-          color: '#1D9BF0',
-          icon: '📊',
-        }}
-      />
+      <UnifiedHeader subtitle="Your journey" />
 
       <main className="main">
         {/* Page Title with Export Button */}

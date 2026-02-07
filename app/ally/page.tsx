@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 import OverwhelmNotification from '@/components/OverwhelmNotification'
@@ -354,13 +354,7 @@ export default function AllyPage() {
 
   return (
     <div className="ally-page">
-      <AppHeader
-        notificationBar={{
-          text: 'Break through executive dysfunction blocks',
-          color: '#805ad5',
-          icon: '💜',
-        }}
-      />
+      <UnifiedHeader subtitle="I'm stuck" />
 
       <main className="main">
         <div className="page-header-title">

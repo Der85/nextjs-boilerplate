@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import { useUserStats } from '@/context/UserStatsContext'
 import { XP_VALUES } from '@/lib/gamification'
@@ -455,18 +455,7 @@ function GoalsPageContent() {
 
   return (
     <div className="goals-page">
-      <AppHeader
-        onlineCount={onlineCount}
-        notificationBar={context.contextMessage ? {
-          text: context.contextMessage,
-          color: '#00ba7c',
-          icon: '🌱',
-        } : {
-          text: 'Track meaningful progress with your plant garden',
-          color: '#00ba7c',
-          icon: '🌱',
-        }}
-      />
+      <UnifiedHeader subtitle="Your goals" />
 
       <main className="main">
         <div className="page-header-title">

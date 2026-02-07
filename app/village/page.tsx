@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 
 interface ContactLog {
@@ -317,14 +317,7 @@ export default function VillagePage() {
 
   return (
     <div className="village-page">
-      <AppHeader
-        onlineCount={onlineCount}
-        notificationBar={{
-          text: `${onlineCount} villagers online right now`,
-          color: '#00ba7c',
-          icon: '👥',
-        }}
-      />
+      <UnifiedHeader subtitle="Your support village" />
 
       <main className="main">
         {/* Page Title */}

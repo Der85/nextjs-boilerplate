@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 
 interface BurnoutLog {
@@ -241,17 +241,7 @@ export default function BurnoutPage() {
 
   return (
     <div className="burnout-page">
-      <AppHeader
-        notificationBar={latestSeverity ? {
-          text: getSeverityInfo(latestSeverity).label,
-          color: getSeverityInfo(latestSeverity).color,
-          icon: '🔋',
-        } : {
-          text: 'Track your energy levels',
-          color: '#1D9BF0',
-          icon: '🔋',
-        }}
-      />
+      <UnifiedHeader subtitle="Battery check" />
 
       <main className="main">
         <div className="page-header-title">

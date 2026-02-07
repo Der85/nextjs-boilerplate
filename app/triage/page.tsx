@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import ParentSelector from '@/components/ParentSelector'
 import {
@@ -259,7 +259,7 @@ function TriagePageContent() {
 
   return (
     <div className="triage-page">
-      <AppHeader />
+      <UnifiedHeader subtitle="Inbox triage" />
 
       <main className="main-content">
         {/* Progress Header */}

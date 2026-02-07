@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 
 type UserMode = 'recovery' | 'maintenance' | 'growth'
@@ -142,7 +142,7 @@ export default function ToolsPage() {
   if (loading) {
     return (
       <div className="tools-page">
-        <AppHeader notificationBar={{ text: 'Loading your toolkit...', color: '#1D9BF0', icon: '🧰' }} />
+        <UnifiedHeader subtitle="Tools" />
         <div className="loading-container">
           <div className="spinner" />
           <p>Loading...</p>
@@ -156,15 +156,7 @@ export default function ToolsPage() {
 
   return (
     <div className="tools-page">
-      <AppHeader
-        notificationBar={{
-          text: modeInfo.text,
-          color: userMode === 'recovery' ? '#f4212e' : userMode === 'growth' ? '#00ba7c' : '#1D9BF0',
-          icon: modeInfo.icon || '🧰',
-        }}
-        brakeVariant={userMode === 'recovery' ? 'urgent' : 'neutral'}
-        userMode={userMode}
-      />
+      <UnifiedHeader subtitle="Tools" />
 
       <main className="main">
         {/* Mode-aware message */}

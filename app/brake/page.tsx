@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 import OverwhelmNotification from '@/components/OverwhelmNotification'
+import UnifiedHeader from '@/components/UnifiedHeader'
 
 type Step = 'intro' | 'hold' | 'emotion' | 'breathing' | 'complete'
 
@@ -150,6 +151,8 @@ export default function BreakOnboardingPage() {
 
   return (
     <div className="break-page">
+      <UnifiedHeader subtitle="Take a breath" />
+
       {/* Step: Intro */}
       {step === 'intro' && (
         <div className="content centered">

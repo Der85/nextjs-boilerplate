@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 
 interface TodayWin {
@@ -144,7 +144,7 @@ export default function WindDownPage() {
 
   return (
     <div className="wind-down">
-      <AppHeader />
+      <UnifiedHeader subtitle="Wind down" />
 
       <main className="main">
         {/* Step 1: Today's Wins */}

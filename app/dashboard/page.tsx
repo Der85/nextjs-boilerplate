@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import WelcomeHero from '@/components/WelcomeHero'
 import SoftLandingHero from '@/components/SoftLandingHero'
@@ -1012,16 +1012,10 @@ function DashboardContent() {
   }
 
   const headerMode = getHeaderMode()
-  const isReturningUser = insights ? insights.daysSinceLastCheckIn >= 3 : false
 
   return (
     <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed zen-mode' : ''}`}>
-      <AppHeader
-        mode={headerMode}
-        isReturningUser={isReturningUser}
-        streakCount={insights?.currentStreak?.days || 0}
-        moodTrending={insights?.trend || undefined}
-      />
+      <UnifiedHeader subtitle="Dashboard" />
 
       <main className="main">
         {/* ===== "ONE THING" DASHBOARD =====
@@ -2587,13 +2581,6 @@ const styles = `
   .mode-override-section {
     margin-top: clamp(16px, 4vw, 24px);
     position: relative;
-    /* Zen Mode: Dim secondary elements */
-    opacity: 0.6;
-    transition: opacity 0.3s ease;
-  }
-
-  .mode-override-section:hover {
-    opacity: 1;
   }
 
   .mode-override-trigger {
@@ -2602,18 +2589,17 @@ const styles = `
     gap: clamp(8px, 2vw, 12px);
     width: 100%;
     padding: clamp(12px, 3vw, 16px);
-    /* Ghost style: transparent background with subtle border */
-    background: transparent;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: white;
+    border: 1px solid #e5e7eb;
     border-radius: clamp(12px, 3vw, 16px);
     cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   .mode-override-trigger:hover {
-    border-color: rgba(148, 163, 184, 0.5);
-    background: rgba(148, 163, 184, 0.05);
+    border-color: #d1d5db;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .mode-icon {
