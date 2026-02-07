@@ -244,3 +244,199 @@ Implementation suggestion: Add an analytics helper in `lib/analytics.ts` that ca
 2. **Partial Indexes:** `needs_linking` status has a partial index for fast filtering
 3. **RLS:** Row Level Security enabled on all tables for defense-in-depth
 4. **Rate Limiting:** 30 requests/minute for outcomes API (configurable)
+
+---
+
+# Rapid Capture & Triage System
+
+## Overview
+
+The capture-to-triage workflow enables ADHD users to capture thoughts in under 3 seconds, then process them later with a guided decision flow.
+
+## Design Decisions
+
+### 1. Inbox Items vs Direct Task Creation
+
+**Decision:** Captures go to an `inbox_items` table, not directly to tasks.
+
+**Rationale:**
+- Zero friction capture - no required fields
+- Decouples capture from processing
+- Preserves raw text and source metadata
+- Enables analytics on capture-to-triage time
+
+### 2. One-Item-at-a-Time Triage
+
+**Decision:** Triage shows one item at a time, not a list.
+
+**Rationale:**
+- Reduces decision fatigue (ADHD-optimized)
+- Keyboard shortcuts for each action
+- Clear progress indicator
+- Skip option for items needing more thought
+
+### 3. Token Parsing
+
+**Decision:** Parse tokens from raw text (@today, #project, !high) but preserve original.
+
+**Rationale:**
+- Quick capture with inline metadata
+- Original text preserved for reference
+- Tokens influence urgency display
+- Clean task name after conversion
+
+## Database Schema
+
+### `inbox_items` Table
+```sql
+CREATE TABLE inbox_items (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  raw_text text NOT NULL,
+  source text NOT NULL CHECK (source IN ('quick_capture', 'mobile', 'email_forward', 'voice', 'other')),
+  parsed_tokens jsonb DEFAULT '{}',
+  triage_status text NOT NULL DEFAULT 'pending' CHECK (triage_status IN ('pending', 'triaged', 'discarded')),
+  triage_action text CHECK (triage_action IN ('do_now', 'schedule', 'delegate', 'park', 'drop')),
+  triage_metadata jsonb DEFAULT '{}',
+  triaged_at timestamptz,
+  proposed_task_id uuid REFERENCES focus_plans(id),
+  converted_at timestamptz,
+  captured_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+## Token Syntax
+
+| Token | Meaning | Example |
+|-------|---------|---------|
+| `@today` | Due today | "Call dentist @today" |
+| `@thisweek` | Due this week | "Review proposal @thisweek" |
+| `#project` | Tag/project | "Fix bug #backend" |
+| `!high` | High priority | "Urgent meeting !high" |
+| `!medium` | Medium priority | "Follow up !medium" |
+| `!low` | Low priority | "Nice to have !low" |
+
+## Triage Actions
+
+| Action | Shortcut | Result |
+|--------|----------|--------|
+| **Do Now** | D | Convert to task, optionally start timer |
+| **Schedule** | S | Convert to task with specific date |
+| **Delegate** | G | Store assignee and follow-up date |
+| **Park** | P | Move to someday/maybe list |
+| **Drop** | X | Archive with optional reason |
+
+Additional shortcuts:
+- **Tab** - Skip to next item
+- **Ctrl+Z** - Undo last action (10 second window)
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/inbox` | GET | List pending inbox items |
+| `/api/inbox` | POST | Create capture (frictionless) |
+| `/api/inbox/triage` | POST | Triage an item |
+| `/api/inbox/undo` | POST | Undo last triage (within 10s) |
+
+## UI Components
+
+| Component | Purpose |
+|-----------|---------|
+| `QuickCapture` | Modal for fast text entry, shows token preview |
+| `MobileCaptureButton` | Sticky FAB for mobile capture |
+| `QuickCaptureProvider` | Global context with Cmd/Ctrl+K shortcut |
+
+## File Structure (Capture/Triage)
+
+```
+migrations/
+└── 007_create_inbox_items_table.sql
+
+lib/types/
+└── inbox.ts              # Types, guards, token parsing
+
+app/api/inbox/
+├── route.ts              # GET list, POST capture
+├── triage/route.ts       # POST triage action
+└── undo/route.ts         # POST undo
+
+app/triage/
+└── page.tsx              # One-at-a-time triage UI
+
+components/
+├── QuickCapture.tsx      # Capture modal
+└── MobileCaptureButton.tsx
+
+context/
+└── QuickCaptureContext.tsx
+
+hooks/
+└── useGlobalShortcuts.ts
+```
+
+## Conversion Logic
+
+When triaging as Do Now, Schedule, or Delegate:
+1. Strip tokens from raw text to get clean task name
+2. Apply parsed due date if present
+3. Apply priority if present
+4. Create task with `needs_linking` status if no outcome/commitment selected
+5. Link inbox item to created task via `proposed_task_id`
+
+## Analytics Events
+
+| Event | When Emitted |
+|-------|--------------|
+| `capture_created` | New inbox item created |
+| `triage_opened` | User opens triage page |
+| `inbox_item_triaged` | Item triaged (not dropped) |
+| `inbox_item_discarded` | Item dropped |
+| `capture_to_triage_time_ms` | Time between capture and triage |
+| `triage_undo` | User undoes triage |
+
+## Usage
+
+### Enable Global Quick Capture
+
+Wrap your app layout with the provider:
+
+```tsx
+import { QuickCaptureProvider } from '@/context/QuickCaptureContext'
+
+export default function Layout({ children }) {
+  return (
+    <QuickCaptureProvider>
+      {children}
+    </QuickCaptureProvider>
+  )
+}
+```
+
+Users can then press **Cmd/Ctrl + K** from anywhere to open capture.
+
+### Add Mobile Capture Button
+
+Include on pages where quick capture is useful:
+
+```tsx
+import MobileCaptureButton from '@/components/MobileCaptureButton'
+
+export default function Page() {
+  return (
+    <div>
+      {/* page content */}
+      <MobileCaptureButton />
+    </div>
+  )
+}
+```
+
+## Notification Configuration (TODO)
+
+Optional gentle reminder when inbox pending > threshold:
+- User-configurable threshold (default: 10 items)
+- Configurable reminder frequency (daily, twice daily)
+- No shame language - encouraging tone
