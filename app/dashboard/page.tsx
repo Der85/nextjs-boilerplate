@@ -7,7 +7,6 @@ import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 import WelcomeHero from '@/components/WelcomeHero'
 import SoftLandingHero from '@/components/SoftLandingHero'
 import GentleCheckIn from '@/components/GentleCheckIn'
@@ -1003,16 +1002,6 @@ function DashboardContent() {
     )
   }
 
-  // Determine header mode (accounts for pre-check-in state)
-  // Note: 'warming_up' maps to 'maintenance' for header since header doesn't have warming_up
-  const getHeaderMode = (): 'pre-checkin' | 'recovery' | 'maintenance' | 'growth' => {
-    if (!hasCheckedInToday && !welcomeSkipped) return 'pre-checkin'
-    if (userMode === 'warming_up') return 'maintenance'
-    return userMode
-  }
-
-  const headerMode = getHeaderMode()
-
   return (
     <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed zen-mode' : ''}`}>
       <UnifiedHeader subtitle="Dashboard" />
@@ -1087,14 +1076,6 @@ function DashboardContent() {
           )}
         </div>
       </main>
-
-      {/* FAB Toolbox */}
-      <FABToolbox
-        mode={headerMode}
-        energyParam={getEnergyParam(moodScore)}
-        streakCount={insights?.currentStreak?.days || 0}
-        hasActiveGoalStep={!!activeGoal && activeGoal.progress_percent < 100}
-      />
 
       {/* Mode Override Toast (from Brake tool re-entry) */}
       {showOverrideToast && (
