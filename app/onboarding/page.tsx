@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { hasCompletedOnboarding, setOnboardingCompleted } from '@/lib/prefetch'
 
 // Type for onboarding path based on mood score
 type OnboardingPath = 'recovery' | 'maintenance' | 'growth'
@@ -39,6 +40,21 @@ export default function OnboardingPage() {
   
   const HOLD_DURATION = 5000 // 5 seconds for onboarding (reduced from 10s)
   const PROGRESS_UPDATE_INTERVAL = 50 // Update progress every 50ms for smooth animation
+
+  // Guard: Redirect already-onboarded users to dashboard
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      // First check localStorage flag
+      if (hasCompletedOnboarding()) {
+        // Verify with auth - only redirect if actually authenticated
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          router.replace('/dashboard')
+        }
+      }
+    }
+    checkAndRedirect()
+  }, [router])
 
   const totalSteps = 11
 
@@ -172,11 +188,15 @@ export default function OnboardingPage() {
           onboarding_path: onboardingPath,
         })
       }
-      
+
+      // Mark onboarding as completed before navigating
+      setOnboardingCompleted()
       router.push('/dashboard')
     } catch (err) {
       console.error('Error saving user state:', err)
       // Still navigate even if save fails - don't block the user
+      // Still mark as completed so they don't get stuck in a loop
+      setOnboardingCompleted()
       router.push('/dashboard')
     } finally {
       setIsLoading(false)

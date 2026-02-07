@@ -10,6 +10,7 @@ import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 import WelcomeHero from '@/components/WelcomeHero'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
+import { getCachedPrefetchData, clearPrefetchCache, type PrefetchedData } from '@/lib/prefetch'
 
 interface MoodEntry {
   id: string
@@ -188,7 +189,22 @@ function DashboardContent() {
         return
       }
       setUser(session.user)
-      await fetchData(session.user.id)
+
+      // Check for prefetched data from smart router (instant render)
+      const cachedData = getCachedPrefetchData()
+      if (cachedData) {
+        // Use prefetched data immediately - no loading state needed!
+        applyPrefetchedData(cachedData)
+        setLoading(false)
+        // Clear cache after use
+        clearPrefetchCache()
+        // Still fetch fresh data in background (silent update)
+        fetchData(session.user.id)
+      } else {
+        // No cached data - fetch normally
+        await fetchData(session.user.id)
+        setLoading(false)
+      }
 
       // Prioritize URL mode param over calculated mode (e.g., from Brake tool)
       const modeParam = searchParams.get('mode') as UserMode | null
@@ -202,8 +218,6 @@ function DashboardContent() {
         setTimeout(() => setShowOverrideToast(false), 4000)
       }
 
-      setLoading(false)
-
       // Load "Do This Next" recommendation (non-blocking)
       loadRecommendation(session.access_token)
     }
@@ -212,6 +226,26 @@ function DashboardContent() {
       if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current)
     }
   }, [router, searchParams])
+
+  // Apply prefetched data to state (for instant rendering from smart router)
+  const applyPrefetchedData = (data: PrefetchedData) => {
+    if (data.insights) {
+      setInsights(data.insights)
+      // Calculate mode from insights
+      if (data.insights.lastMood !== null) {
+        const calculatedMode = data.insights.lastMood <= 3 ? 'recovery'
+          : data.insights.lastMood >= 8 ? 'growth'
+          : 'maintenance'
+        setUserMode(calculatedMode)
+      }
+    }
+    if (data.activeGoal) {
+      setActiveGoal(data.activeGoal)
+    }
+    if (data.todaysWinsCount > 0) {
+      setYesterdayWinsCount(data.todaysWinsCount)
+    }
+  }
 
   const loadRecommendation = async (token: string) => {
     try {
