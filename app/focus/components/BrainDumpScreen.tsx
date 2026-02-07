@@ -42,18 +42,18 @@ export default function BrainDumpScreen({ onSubmit, onSkip, onQuickStart }: Brai
           <button
             onClick={() => onSubmit(text)}
             disabled={text.trim().length < 3}
-            className="submit-btn"
+            className="btn-hero-action submit-btn"
           >
             Let&apos;s sort this out →
           </button>
-          <button onClick={onSkip} className="skip-btn">
+          <button onClick={onSkip} className="btn-text-link">
             Skip →
           </button>
         </div>
 
         {/* Express Lane: Quick Start */}
         {onQuickStart && (
-          <button onClick={onQuickStart} className="quick-start-link">
+          <button onClick={onQuickStart} className="btn-text-link quick-start-link">
             ⚡ Skip planning, just start timer
           </button>
         )}
@@ -158,74 +158,15 @@ export default function BrainDumpScreen({ onSubmit, onSkip, onQuickStart }: Brai
           }
         }
 
+        /* Submit button extends global .btn-hero-action */
         .submit-btn {
-          background: #1D9BF0;
-          color: white;
-          border: none;
-          border-radius: 14px;
-          padding: 16px 24px;
-          font-size: 1.1rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
-          min-height: 56px;
+          width: 100%;
         }
 
-        .submit-btn:hover:not(:disabled) {
-          background: #1a8cd8;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(29, 155, 240, 0.4);
-        }
-
-        .submit-btn:active:not(:disabled) {
-          transform: translateY(0);
-          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        /* Stepped Clarity: Skip and Quick Start as text-only links */
-        .skip-btn {
-          background: none;
-          border: none;
-          color: #b0b8c1;
-          font-size: clamp(13px, 3.5vw, 14px);
-          font-weight: 400;
-          cursor: pointer;
-          padding: clamp(6px, 1.5vw, 8px);
-          transition: color 0.2s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-
-        .skip-btn:hover {
-          color: #8899a6;
-        }
-
+        /* Quick start link positioning */
         .quick-start-link {
           display: inline-block;
           margin-top: clamp(20px, 5vw, 28px);
-          padding: clamp(6px, 1.5vw, 8px);
-          background: none;
-          border: none;
-          color: #b0b8c1;
-          font-size: clamp(13px, 3.5vw, 14px);
-          font-weight: 400;
-          cursor: pointer;
-          transition: color 0.2s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-
-        .quick-start-link:hover {
-          color: #8899a6;
         }
       `}</style>
     </div>

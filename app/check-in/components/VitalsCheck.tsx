@@ -134,7 +134,7 @@ export default function VitalsCheck({
         <button
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="submit-btn"
+          className="btn-hero-action submit-btn"
         >
           {isSubmitting ? 'Saving...' : 'Log Check-in →'}
         </button>
@@ -371,22 +371,10 @@ export default function VitalsCheck({
           color: #8899a6;
         }
 
-        /* Submit Button - Unified Hero Action Button */
+        /* Submit Button - extends global .btn-hero-action */
         .submit-btn {
           width: 100%;
-          padding: 16px 24px;
           margin-top: clamp(8px, 2vw, 12px);
-          background: #1D9BF0;
-          color: white;
-          border: none;
-          border-radius: 14px;
-          font-size: 1.1rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
-          min-height: 56px;
         }
 
         /* Mobile: Fixed bottom button for thumb zone ergonomics */
@@ -400,22 +388,6 @@ export default function VitalsCheck({
             margin-top: 0;
             z-index: 50;
           }
-        }
-
-        .submit-btn:hover:not(:disabled) {
-          background: #1a8cd8;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(29, 155, 240, 0.4);
-        }
-
-        .submit-btn:active:not(:disabled) {
-          transform: translateY(0);
-          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
         }
       `}</style>
     </div>

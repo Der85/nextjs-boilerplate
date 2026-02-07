@@ -278,7 +278,7 @@ export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, o
           <button
             onClick={handleConfirm}
             disabled={confirmedTasks.length === 0}
-            className={`submit-btn ${isOvercapacity ? 'overcapacity' : isSprint ? 'sprint' : ''}`}
+            className={`btn-hero-action submit-btn ${isOvercapacity ? 'overcapacity' : isSprint ? 'sprint' : ''}`}
           >
             {isOvercapacity ? (
               <>⚠️ Heavy Load — Continue anyway →</>
@@ -293,7 +293,7 @@ export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, o
               Defer last item for later
             </button>
           )}
-          <button onClick={onBack} className="skip-btn">
+          <button onClick={onBack} className="btn-text-link">
             ← Back to Brain Dump
           </button>
         </div>
@@ -471,46 +471,9 @@ const styles = `
     margin-top: clamp(24px, 6vw, 32px);
   }
 
+  /* Submit button extends global .btn-hero-action */
   .submit-btn {
-    background: #1D9BF0;
-    color: white;
-    border: none;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    padding: clamp(14px, 4vw, 18px);
-    font-size: clamp(15px, 4vw, 17px);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .submit-btn:hover:not(:disabled) {
-    background: #1a8cd8;
-  }
-
-  .submit-btn:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-
-  .submit-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .skip-btn {
-    background: none;
-    border: none;
-    color: #8899a6;
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 500;
-    cursor: pointer;
-    padding: clamp(8px, 2vw, 12px);
-    transition: color 0.2s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .skip-btn:hover {
-    color: #536471;
+    width: 100%;
   }
 
   /* ===== ENERGY WARNING TOAST ===== */

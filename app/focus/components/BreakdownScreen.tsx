@@ -133,11 +133,11 @@ export default function BreakdownScreen({
         <div className="action-buttons">
           <button
             onClick={() => onStartFocusing(breakdowns)}
-            className="submit-btn"
+            className="btn-hero-action submit-btn"
           >
             Start focusing →
           </button>
-          <button onClick={onBack} className="skip-btn">
+          <button onClick={onBack} className="btn-text-link">
             ← Back
           </button>
         </div>
@@ -382,42 +382,15 @@ const styles = `
     padding-top: clamp(32px, 8vw, 48px);
   }
 
+  /* Submit button extends global .btn-hero-action with green color for "go" action */
   .submit-btn {
+    width: 100%;
     background: #00ba7c;
-    color: white;
-    border: none;
-    border-radius: clamp(12px, 3vw, 16px);
-    padding: clamp(18px, 5vw, 24px);
-    font-size: clamp(17px, 4.5vw, 20px);
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     box-shadow: 0 4px 16px rgba(0, 186, 124, 0.3);
-    min-height: 60px;
   }
 
-  .submit-btn:hover {
+  .submit-btn:hover:not(:disabled) {
     background: #00a06a;
-  }
-
-  .submit-btn:active {
-    transform: scale(0.98);
-  }
-
-  .skip-btn {
-    background: none;
-    border: none;
-    color: #8899a6;
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 500;
-    cursor: pointer;
-    padding: clamp(8px, 2vw, 12px);
-    transition: color 0.2s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .skip-btn:hover {
-    color: #536471;
+    box-shadow: 0 6px 20px rgba(0, 186, 124, 0.4);
   }
 `

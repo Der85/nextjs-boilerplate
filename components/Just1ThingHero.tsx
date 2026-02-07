@@ -62,7 +62,7 @@ export default function Just1ThingHero({
         </div>
         <button
           onClick={() => router.push('/focus')}
-          className="hero-action-btn"
+          className="btn-hero-action hero-action-btn"
         >
           <span className="btn-text">Pick something small</span>
           <span className="btn-arrow">→</span>
@@ -133,7 +133,7 @@ export default function Just1ThingHero({
 
       {/* Action buttons */}
       <div className="action-row">
-        <button onClick={handleGo} className="hero-action-btn primary">
+        <button onClick={handleGo} className="btn-hero-action hero-action-btn">
           <span className="btn-text">Let's go</span>
           <span className="btn-arrow">→</span>
         </button>
@@ -296,36 +296,9 @@ const styles = `
     gap: 12px;
   }
 
-  /* Unified Hero Action Button - matches global .btn-hero-action */
+  /* Hero button extends global .btn-hero-action */
   .hero-action-btn {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 16px 24px;
-    background: #1D9BF0;
-    color: white;
-    border: none;
-    border-radius: 14px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    min-height: 56px;
-  }
-
-  .hero-action-btn:hover {
-    background: #1a8cd8;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(29, 155, 240, 0.4);
-  }
-
-  .hero-action-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
   }
 
   .btn-arrow {

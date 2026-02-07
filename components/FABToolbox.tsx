@@ -482,9 +482,10 @@ export default function FABToolbox({
                     className={`fab-tool-btn ${promotedTool?.id === tool.id ? 'promoted' : ''}`}
                     onClick={() => navigateTo(tool.path)}
                     style={{ animationDelay: `${index * 0.03}s` }}
+                    aria-label={tool.label}
+                    title={tool.label}
                   >
                     <span className="fab-tool-icon">{tool.icon}</span>
-                    <span className="fab-tool-label">{tool.label}</span>
                   </button>
                 ))}
               </div>
@@ -500,34 +501,37 @@ export default function FABToolbox({
                     className={`fab-tool-btn ${promotedTool?.id === tool.id ? 'promoted' : ''}`}
                     onClick={() => navigateTo(tool.path)}
                     style={{ animationDelay: `${(index + 3) * 0.03}s` }}
+                    aria-label={tool.label}
+                    title={tool.label}
                   >
                     <span className="fab-tool-icon">{tool.icon}</span>
-                    <span className="fab-tool-label">{tool.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Utility Tools - smaller, less prominent */}
+            {/* Utility Tools */}
             <div className="utility-section">
               {UTILITY_TOOLS.map((tool, index) => (
                 <button
                   key={tool.id}
-                  className={`utility-btn ${promotedTool?.id === tool.id ? 'promoted' : ''}`}
+                  className={`fab-tool-btn small ${promotedTool?.id === tool.id ? 'promoted' : ''}`}
                   onClick={() => navigateTo(tool.path)}
                   style={{ animationDelay: `${(index + 6) * 0.03}s` }}
+                  aria-label={tool.label}
+                  title={tool.label}
                 >
-                  <span className="utility-icon">{tool.icon}</span>
-                  <span className="utility-label">{tool.label}</span>
+                  <span className="fab-tool-icon">{tool.icon}</span>
                 </button>
               ))}
               <button
-                className="utility-btn"
+                className="fab-tool-btn small"
                 onClick={() => { setSettingsOpen(true); handleClose() }}
                 style={{ animationDelay: '0.27s' }}
+                aria-label="Settings"
+                title="Settings"
               >
-                <span className="utility-icon">⚙️</span>
-                <span className="utility-label">Settings</span>
+                <span className="fab-tool-icon">⚙️</span>
               </button>
             </div>
 
@@ -828,22 +832,23 @@ export default function FABToolbox({
 
         .tool-row {
           display: flex;
-          gap: clamp(8px, 2vw, 12px);
+          justify-content: center;
+          gap: clamp(12px, 3vw, 18px);
         }
 
+        /* Icon-only circle buttons */
         .fab-tool-btn {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: clamp(6px, 1.5vw, 8px);
-          padding: clamp(12px, 3vw, 16px) clamp(6px, 1.5vw, 10px);
-          background: #f7f9fa;
-          border: 2px solid transparent;
-          border-radius: clamp(12px, 3vw, 16px);
+          width: clamp(52px, 13vw, 60px);
+          height: clamp(52px, 13vw, 60px);
+          border-radius: 50%;
+          background: white;
+          border: 2px solid #eff3f4;
           cursor: pointer;
-          transition: all 0.15s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          transition: all 0.2s ease;
           animation: popIn 0.2s ease-out backwards;
         }
 
@@ -853,18 +858,29 @@ export default function FABToolbox({
         }
 
         .fab-tool-btn:hover {
-          background: white;
+          transform: scale(1.1);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
           border-color: #1D9BF0;
-          transform: translateY(-2px);
         }
 
         .fab-tool-btn:active {
-          transform: translateY(0) scale(0.98);
+          transform: scale(0.95);
         }
 
         .fab-tool-btn.promoted {
-          background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
-          border-color: #f59e0b;
+          background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+          border-color: #fbbf24;
+          animation: popIn 0.2s ease-out backwards, pulse-gentle 2s ease-in-out infinite 0.2s;
+        }
+
+        @keyframes pulse-gentle {
+          0%, 100% { box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3); }
+          50% { box-shadow: 0 4px 16px rgba(251, 191, 36, 0.5); }
+        }
+
+        .fab-tool-btn.small {
+          width: clamp(44px, 11vw, 50px);
+          height: clamp(44px, 11vw, 50px);
         }
 
         .fab-tool-icon {
@@ -872,53 +888,17 @@ export default function FABToolbox({
           line-height: 1;
         }
 
-        .fab-tool-label {
-          font-size: clamp(11px, 3vw, 13px);
-          font-weight: 600;
-          color: #536471;
+        .fab-tool-btn.small .fab-tool-icon {
+          font-size: clamp(18px, 4.5vw, 22px);
         }
 
-        /* ===== Utility Section (smaller tools) ===== */
+        /* ===== Utility Section ===== */
         .utility-section {
           display: flex;
-          flex-wrap: wrap;
-          gap: clamp(6px, 1.5vw, 10px);
+          justify-content: center;
+          gap: clamp(10px, 2.5vw, 14px);
           padding: clamp(12px, 3vw, 16px);
           border-bottom: 1px solid #eff3f4;
-        }
-
-        .utility-btn {
-          display: flex;
-          align-items: center;
-          gap: clamp(6px, 1.5vw, 8px);
-          padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px);
-          background: #f7f9fa;
-          border: 1px solid #eff3f4;
-          border-radius: clamp(8px, 2vw, 12px);
-          cursor: pointer;
-          transition: all 0.15s ease;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          animation: popIn 0.2s ease-out backwards;
-        }
-
-        .utility-btn:hover {
-          background: white;
-          border-color: #1D9BF0;
-        }
-
-        .utility-btn.promoted {
-          background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
-          border-color: #f59e0b;
-        }
-
-        .utility-icon {
-          font-size: clamp(16px, 4vw, 18px);
-        }
-
-        .utility-label {
-          font-size: clamp(12px, 3.2vw, 14px);
-          font-weight: 500;
-          color: #536471;
         }
 
         /* ===== Footer ===== */
