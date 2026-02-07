@@ -2560,83 +2560,79 @@ const styles = `
 
   /* ===== MODE OVERRIDE SELECTOR ===== */
   .mode-override-section {
-    margin-top: clamp(16px, 4vw, 24px);
+    margin-top: clamp(20px, 5vw, 28px);
     position: relative;
   }
 
   .mode-override-trigger {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: clamp(8px, 2vw, 12px);
-    width: 100%;
-    padding: clamp(12px, 3vw, 16px);
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: clamp(12px, 3vw, 16px);
+    gap: 8px;
+    padding: 8px 14px;
+    background: none;
+    border: none;
     cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #536471;
+    font-size: 14px;
   }
 
   .mode-override-trigger:hover {
-    border-color: #d1d5db;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  .mode-icon {
-    font-size: clamp(20px, 5vw, 24px);
-  }
-
-  .mode-label {
-    flex: 1;
-    text-align: left;
-    font-size: clamp(14px, 3.8vw, 16px);
-    font-weight: 600;
     color: #0f1419;
   }
 
+  .mode-icon {
+    font-size: 18px;
+  }
+
+  .mode-label {
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .mode-manual-badge {
-    font-size: clamp(10px, 2.8vw, 12px);
+    font-size: 11px;
     font-weight: 600;
     color: #f97316;
     background: rgba(249, 115, 22, 0.1);
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 100px;
   }
 
   .mode-chevron {
-    font-size: clamp(10px, 2.8vw, 12px);
-    color: var(--dark-gray);
+    font-size: 10px;
+    color: #8899a6;
   }
 
   .mode-selector-dropdown {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 4px);
     left: 0;
-    right: 0;
+    min-width: 220px;
     background: white;
-    border: 1px solid var(--extra-light-gray);
-    border-radius: clamp(12px, 3vw, 16px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     z-index: 50;
     overflow: hidden;
     animation: dropdownSlide 0.15s ease;
   }
 
   @keyframes dropdownSlide {
-    from { opacity: 0; transform: translateY(-8px); }
+    from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
   .mode-option {
     display: flex;
     align-items: center;
-    gap: clamp(10px, 2.5vw, 14px);
+    gap: 12px;
     width: 100%;
-    padding: clamp(14px, 3.5vw, 18px);
+    padding: 12px 14px;
     background: white;
     border: none;
-    border-bottom: 1px solid var(--extra-light-gray);
+    border-bottom: 1px solid #f3f4f6;
     cursor: pointer;
     transition: background 0.15s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -2648,42 +2644,46 @@ const styles = `
   }
 
   .mode-option:hover {
-    background: var(--bg-gray);
+    background: #f7f9fa;
   }
 
   .mode-option.active {
-    background: rgba(29, 155, 240, 0.08);
+    background: #f0f9ff;
+  }
+
+  .mode-option.active .mode-option-label {
+    color: #1D9BF0;
   }
 
   .mode-option-icon {
-    font-size: clamp(22px, 5.5vw, 26px);
+    font-size: 20px;
   }
 
   .mode-option-text {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
 
   .mode-option-label {
-    font-size: clamp(14px, 3.8vw, 16px);
+    font-size: 14px;
     font-weight: 600;
     color: #0f1419;
   }
 
   .mode-option-desc {
-    font-size: clamp(12px, 3.2vw, 14px);
-    color: var(--dark-gray);
+    font-size: 12px;
+    color: #8899a6;
   }
 
   .mode-reset-btn {
     width: 100%;
-    padding: clamp(12px, 3vw, 16px);
-    background: var(--bg-gray);
+    padding: 10px 14px;
+    background: #f7f9fa;
     border: none;
-    border-top: 1px solid var(--extra-light-gray);
-    color: var(--primary);
-    font-size: clamp(13px, 3.5vw, 15px);
+    border-top: 1px solid #f3f4f6;
+    color: #1D9BF0;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s ease;
