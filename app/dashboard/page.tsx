@@ -240,9 +240,13 @@ function DashboardContent() {
       setInsights(data.insights)
       // Calculate mode from insights
       if (data.insights.lastMood !== null) {
-        const calculatedMode = data.insights.lastMood <= 3 ? 'recovery'
+        let calculatedMode: UserMode = data.insights.lastMood <= 3 ? 'recovery'
           : data.insights.lastMood >= 8 ? 'growth'
           : 'maintenance'
+        // Apply snooze override: if snooze is active, force maintenance instead of recovery
+        if (calculatedMode === 'recovery' && isBrakeSnoozeActive()) {
+          calculatedMode = 'maintenance'
+        }
         setUserMode(calculatedMode)
       }
     }
@@ -573,8 +577,12 @@ function DashboardContent() {
     setPulseSaving(true)
 
     // Recovery transition: Require confirmation for scores 2-3, auto-enter for score 1
+    // Note: enterRecoveryMode already checks snooze, so no additional check needed here
     if (value <= 3 && userMode !== 'recovery' && userMode !== 'warming_up') {
-      if (value === 1) {
+      // If snooze is active, skip recovery mode entirely
+      if (isBrakeSnoozeActive()) {
+        setUserMode('maintenance')
+      } else if (value === 1) {
         // Score of 1 = strong signal, auto-enter recovery with smooth transition
         enterRecoveryMode()
       } else {
@@ -598,8 +606,15 @@ function DashboardContent() {
     }, 3000)
   }
 
-  // Enter recovery mode with tracking
+  // Enter recovery mode with tracking (respects snooze)
   const enterRecoveryMode = () => {
+    // If snooze is active, stay in maintenance instead of recovery
+    if (isBrakeSnoozeActive()) {
+      setUserMode('maintenance')
+      setShowPulseConfirmation(false)
+      setPendingLowMoodScore(null)
+      return
+    }
     setUserMode('recovery')
     setRecoveryEntryTime(Date.now())
     setShowGentleCheckIn(false)
@@ -793,9 +808,14 @@ function DashboardContent() {
       coach_advice: null,
     })
 
-    // Set the mode based on mood
+    // Set the mode based on mood (respects snooze)
     if (mood === 'low') {
-      setUserMode('recovery')
+      // If snooze is active, stay in maintenance instead of recovery
+      if (isBrakeSnoozeActive()) {
+        setUserMode('maintenance')
+      } else {
+        setUserMode('recovery')
+      }
     } else if (mood === 'good' && insights?.currentStreak && insights.currentStreak.days > 2) {
       setUserMode('growth')
     } else {

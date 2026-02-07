@@ -4,7 +4,14 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
-import { saveFocusFlowDraft, loadFocusFlowDraft, clearFocusFlowDraft } from '@/lib/focusFlowState'
+import {
+  saveFocusFlowDraft,
+  loadFocusFlowDraft,
+  clearFocusFlowDraft,
+  saveFocusFlowDraftToDb,
+  loadFocusFlowDraftFromDb,
+  clearFocusFlowDraftFromDb,
+} from '@/lib/focusFlowState'
 import FocusSkeleton from '@/components/FocusSkeleton'
 
 // Step components
@@ -112,7 +119,12 @@ function FocusPageContent() {
       const fetchedGoals = await fetchGoals(session.user.id)
 
       // Check for resumable draft FIRST (prevents data loss on refresh)
-      const draft = loadFocusFlowDraft()
+      // Priority: 1) Database draft (persists across sessions), 2) SessionStorage draft
+      let draft = await loadFocusFlowDraftFromDb(supabase, session.user.id)
+      if (!draft) {
+        draft = loadFocusFlowDraft()
+      }
+
       if (draft && draft.step !== 'brain-dump' && draft.step !== 'dashboard') {
         // Restore state from draft
         if (draft.parsedTasks) setParsedTasks(draft.parsedTasks)
@@ -275,22 +287,32 @@ function FocusPageContent() {
       setParseInfo({ aiUsed: false, fallbackReason: 'api_error' })
     }
 
-    // Save draft after brain dump is parsed
-    saveFocusFlowDraft({
-      step: 'triage',
+    // Save draft after brain dump is parsed - to both database and sessionStorage
+    const draftData = {
+      step: 'triage' as const,
       brainDumpText: text,
       parsedTasks: tasks,
       handoffGoalId,
       handoffStepId,
       userMode,
       energyLevel,
-    })
+    }
+    if (user) {
+      saveFocusFlowDraftToDb(supabase, user.id, draftData)
+    } else {
+      saveFocusFlowDraft(draftData)
+    }
 
     setTriageLoading(false)
   }
 
-  const handleBrainDumpSkip = () => {
-    clearFocusFlowDraft() // Clear any draft when skipping to dashboard
+  const handleBrainDumpSkip = async () => {
+    // Clear any draft when skipping to dashboard
+    if (user) {
+      await clearFocusFlowDraftFromDb(supabase, user.id)
+    } else {
+      clearFocusFlowDraft()
+    }
     setStep('dashboard')
   }
 
@@ -318,7 +340,7 @@ function FocusPageContent() {
     await supabase.from('focus_plans').insert(quickPlan)
 
     // Clear any draft since we're completing the flow
-    clearFocusFlowDraft()
+    await clearFocusFlowDraftFromDb(supabase, user.id)
 
     // Refresh plans and go directly to dashboard
     await fetchPlans(user.id)
@@ -329,20 +351,30 @@ function FocusPageContent() {
     setParsedTasks(tasks)
     setStep('context')
 
-    // Save draft after triage confirmation
-    saveFocusFlowDraft({
-      step: 'context',
+    // Save draft after triage confirmation - to both database and sessionStorage
+    const draftData = {
+      step: 'context' as const,
       parsedTasks: tasks,
       handoffGoalId,
       handoffStepId,
       userMode,
       energyLevel,
-    })
+    }
+    if (user) {
+      saveFocusFlowDraftToDb(supabase, user.id, draftData)
+    } else {
+      saveFocusFlowDraft(draftData)
+    }
   }
 
-  const handleTriageBack = () => {
+  const handleTriageBack = async () => {
     setParsedTasks([])
-    clearFocusFlowDraft() // Clear draft when going back to start
+    // Clear draft when going back to start
+    if (user) {
+      await clearFocusFlowDraftFromDb(supabase, user.id)
+    } else {
+      clearFocusFlowDraft()
+    }
     setStep('brain-dump')
   }
 
@@ -386,9 +418,9 @@ function FocusPageContent() {
 
       setBreakdowns(results)
 
-      // Save draft after breakdowns are generated
-      saveFocusFlowDraft({
-        step: 'breakdown',
+      // Save draft after breakdowns are generated - to database
+      const draftData = {
+        step: 'breakdown' as const,
         parsedTasks,
         tasksWithContext: tasks,
         breakdowns: results,
@@ -396,7 +428,12 @@ function FocusPageContent() {
         handoffStepId,
         userMode,
         energyLevel,
-      })
+      }
+      if (user) {
+        saveFocusFlowDraftToDb(supabase, user.id, draftData)
+      } else {
+        saveFocusFlowDraft(draftData)
+      }
     } catch (error) {
       console.error('Error generating breakdowns:', error)
       // Fallback: create basic breakdowns
@@ -412,9 +449,9 @@ function FocusPageContent() {
       }))
       setBreakdowns(fallbacks)
 
-      // Save draft with fallback breakdowns
-      saveFocusFlowDraft({
-        step: 'breakdown',
+      // Save draft with fallback breakdowns - to database
+      const fallbackDraftData = {
+        step: 'breakdown' as const,
         parsedTasks,
         tasksWithContext: tasks,
         breakdowns: fallbacks,
@@ -422,7 +459,12 @@ function FocusPageContent() {
         handoffStepId,
         userMode,
         energyLevel,
-      })
+      }
+      if (user) {
+        saveFocusFlowDraftToDb(supabase, user.id, fallbackDraftData)
+      } else {
+        saveFocusFlowDraft(fallbackDraftData)
+      }
     }
 
     setBreakdownLoading(false)
@@ -430,14 +472,19 @@ function FocusPageContent() {
 
   const handleContextBack = () => {
     // Save draft when going back to triage
-    saveFocusFlowDraft({
-      step: 'triage',
+    const draftData = {
+      step: 'triage' as const,
       parsedTasks,
       handoffGoalId,
       handoffStepId,
       userMode,
       energyLevel,
-    })
+    }
+    if (user) {
+      saveFocusFlowDraftToDb(supabase, user.id, draftData)
+    } else {
+      saveFocusFlowDraft(draftData)
+    }
     setStep('triage')
   }
 
@@ -476,8 +523,8 @@ function FocusPageContent() {
       await supabase.from('focus_plans').insert(insertData)
     }
 
-    // Flow completed successfully - clear the draft
-    clearFocusFlowDraft()
+    // Flow completed successfully - clear the draft from database
+    await clearFocusFlowDraftFromDb(supabase, user.id)
 
     // Refresh plans and show dashboard
     await fetchPlans(user.id)
@@ -488,21 +535,30 @@ function FocusPageContent() {
 
   const handleBreakdownBack = () => {
     // Save draft when going back to context
-    saveFocusFlowDraft({
-      step: 'context',
+    const draftData = {
+      step: 'context' as const,
       parsedTasks,
       tasksWithContext,
       handoffGoalId,
       handoffStepId,
       userMode,
       energyLevel,
-    })
+    }
+    if (user) {
+      saveFocusFlowDraftToDb(supabase, user.id, draftData)
+    } else {
+      saveFocusFlowDraft(draftData)
+    }
     setStep('context')
   }
 
-  const handleNewBrainDump = () => {
+  const handleNewBrainDump = async () => {
     // Clear draft when starting fresh
-    clearFocusFlowDraft()
+    if (user) {
+      await clearFocusFlowDraftFromDb(supabase, user.id)
+    } else {
+      clearFocusFlowDraft()
+    }
     // Reset journey state
     setParsedTasks([])
     setTasksWithContext([])
