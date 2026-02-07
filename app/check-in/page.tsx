@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { calculateXP, checkAchievements, getXPForNextLevel, calculateLevel } from '@/lib/gamification'
 import type { SessionData, Badge, UserStats } from '@/lib/gamification'
+import { getGreeting } from '@/lib/utils/ui-helpers'
 
 // Step components — "Snap Check-In" flow: vitals → coach → achievement → summary
 import VitalsCheck from './components/VitalsCheck'
@@ -142,13 +143,6 @@ export default function CheckInPage() {
       }
     }))
     setStep(nextStep)
-  }
-
-  const getGreeting = (): string => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
   }
 
   // "Snap Check-In" handler — combines mood, energy, and note in one step

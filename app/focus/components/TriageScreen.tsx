@@ -7,10 +7,16 @@ interface ParsedTask {
   text: string
 }
 
+interface ParseInfo {
+  aiUsed: boolean
+  fallbackReason?: 'no_api_key' | 'api_error' | 'parse_error' | 'rate_limited'
+}
+
 interface TriageScreenProps {
   tasks: ParsedTask[]
   loading: boolean
   energyLevel: 'high' | 'low' | null
+  parseInfo: ParseInfo | null
   onConfirm: (tasks: ParsedTask[]) => void
   onBack: () => void
 }
@@ -52,7 +58,21 @@ function getCapacityMinutes(): { minutes: number; isNightSession: boolean } {
   return { minutes: minutesLeft, isNightSession: false }
 }
 
-export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, onBack }: TriageScreenProps) {
+function getFallbackMessage(reason?: string): string {
+  switch (reason) {
+    case 'no_api_key':
+      return 'AI parsing unavailable. These are basic text splits — feel free to edit them.'
+    case 'rate_limited':
+      return 'AI is busy right now. These are rough splits — you can refine them below.'
+    case 'parse_error':
+      return 'AI had trouble understanding that. Here\'s a rough breakdown — edit as needed.'
+    case 'api_error':
+    default:
+      return 'Couldn\'t reach the AI. Here\'s a simple breakdown — feel free to edit.'
+  }
+}
+
+export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, onConfirm, onBack }: TriageScreenProps) {
   const [confirmedTasks, setConfirmedTasks] = useState<ParsedTask[]>(tasks)
   const [energyWarning, setEnergyWarning] = useState<{ task: ParsedTask; visible: boolean }>({ task: { id: '', text: '' }, visible: false })
 
@@ -124,6 +144,15 @@ export default function TriageScreen({ tasks, loading, energyLevel, onConfirm, o
         {isSprint && (
           <div className="sprint-badge">🚀 Sprint Mode</div>
         )}
+
+        {/* AI Fallback Warning */}
+        {parseInfo && !parseInfo.aiUsed && (
+          <div className="fallback-warning">
+            <span className="fallback-icon">✏️</span>
+            <span className="fallback-text">{getFallbackMessage(parseInfo.fallbackReason)}</span>
+          </div>
+        )}
+
         <h2 className="triage-title">
           {isSprint ? 'Pick Your Top 3' : 'Here\u0027s what I found'}
         </h2>
@@ -648,5 +677,30 @@ const styles = `
 
   .submit-btn.sprint:hover:not(:disabled) {
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  }
+
+  /* ===== AI FALLBACK WARNING ===== */
+  .fallback-warning {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 2.5vw, 14px);
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(12px, 3vw, 16px);
+    margin-bottom: clamp(16px, 4vw, 20px);
+    text-align: left;
+  }
+
+  .fallback-icon {
+    font-size: clamp(18px, 4.5vw, 22px);
+    flex-shrink: 0;
+  }
+
+  .fallback-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: #92400e;
+    line-height: 1.4;
+    font-weight: 500;
   }
 `

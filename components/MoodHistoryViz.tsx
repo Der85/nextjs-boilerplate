@@ -6,6 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine
 } from 'recharts'
+import { getMoodEmoji } from '@/lib/utils/ui-helpers'
 
 interface MoodEntry {
   id: string
@@ -23,14 +24,6 @@ type TimeRange = '7d' | '30d' | '90d' | 'all'
 type ChartType = 'area' | 'line' | 'bar'
 
 // Helper functions
-const getMoodEmoji = (score: number): string => {
-  if (score <= 2) return '😢'
-  if (score <= 4) return '😔'
-  if (score <= 6) return '😐'
-  if (score <= 8) return '🙂'
-  return '😄'
-}
-
 const getMoodColor = (score: number): string => {
   if (score <= 3) return '#e0245e' // red
   if (score <= 5) return '#ffad1f' // amber

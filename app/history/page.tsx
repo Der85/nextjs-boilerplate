@@ -8,6 +8,7 @@ import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
+import { getMoodEmoji } from '@/lib/utils/ui-helpers'
 
 interface MoodEntry {
   id: string
@@ -85,14 +86,6 @@ function groupPlansByDateAndGoal(plans: CompletedPlan[], goals: GoalInfo[]): Dat
   }
 
   return result
-}
-
-const getMoodEmoji = (score: number): string => {
-  if (score <= 2) return '😢'
-  if (score <= 4) return '😔'
-  if (score <= 6) return '😐'
-  if (score <= 8) return '🙂'
-  return '😄'
 }
 
 export default function HistoryPage() {

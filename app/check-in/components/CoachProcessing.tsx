@@ -2,18 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { getEnergyEmoji } from '@/lib/gamification'
+import { getMoodEmoji } from '@/lib/utils/ui-helpers'
 
 interface CoachProcessingProps {
   energyLevel: number | null
   moodScore: number | null
-}
-
-const getMoodEmoji = (score: number): string => {
-  if (score <= 2) return '😢'
-  if (score <= 4) return '😔'
-  if (score <= 6) return '😐'
-  if (score <= 8) return '🙂'
-  return '😄'
 }
 
 // Dopamine-friendly affirmations to keep the user engaged while loading

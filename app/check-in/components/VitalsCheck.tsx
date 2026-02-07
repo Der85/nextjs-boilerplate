@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
+import { getMoodEmoji } from '@/lib/utils/ui-helpers'
 
 interface VitalsCheckProps {
   onSubmit: (moodScore: number, energyLevel: number, note: string) => void
@@ -18,14 +19,6 @@ const energyToNumber = (energy: EnergyLevel): number => {
     case 'medium': return 5
     case 'high': return 8
   }
-}
-
-const getMoodEmoji = (score: number): string => {
-  if (score <= 2) return '😢'
-  if (score <= 4) return '😔'
-  if (score <= 6) return '😐'
-  if (score <= 8) return '🙂'
-  return '😄'
 }
 
 export default function VitalsCheck({

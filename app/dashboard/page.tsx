@@ -14,9 +14,11 @@ import GentleCheckIn from '@/components/GentleCheckIn'
 import GentleTidyUp from '@/components/GentleTidyUp'
 import TriageModal from '@/components/TriageModal'
 import Just1ThingHero from '@/components/Just1ThingHero'
+import DashboardSkeleton from '@/components/DashboardSkeleton'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 import { getCachedPrefetchData, clearPrefetchCache, type PrefetchedData } from '@/lib/prefetch'
 import { autoArchiveOverdueTasks, getRecentlyAutoArchivedTasks, getTasksDueTomorrow, spreadTasksAcrossDays } from '@/lib/autoArchive'
+import { getMoodEmoji, getEnergyParam, getPulseLabel, getGreeting, getPlantEmoji } from '@/lib/utils/ui-helpers'
 
 interface MoodEntry {
   id: string
@@ -53,67 +55,9 @@ interface UserInsights {
 // Phase 1: User Mode type for holistic state (includes warming_up transitional state)
 type UserMode = 'recovery' | 'warming_up' | 'maintenance' | 'growth'
 
-const getMoodEmoji = (score: number): string => {
-  if (score <= 2) return '😢'
-  if (score <= 4) return '😔'
-  if (score <= 6) return '😐'
-  if (score <= 8) return '🙂'
-  return '😄'
-}
-
-const getEnergyParam = (score: number | null): 'low' | 'medium' | 'high' => {
-  if (score === null) return 'medium'
-  if (score <= 3) return 'low'
-  if (score <= 6) return 'medium'
-  return 'high'
-}
-
-const getPulseLabel = (): string => {
-  const hour = new Date().getHours()
-  if (hour >= 5 && hour < 11) return '🌅 Morning Check-in: How did you sleep?'
-  if (hour >= 11 && hour < 18) return '⚡ Daily Pulse: How is your energy?'
-  return '🌙 Evening Wind Down: Carrying any tension?'
-}
-
-const getGreeting = (): string => {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 17) return 'Good afternoon'
-  return 'Good evening'
-}
-
-const getPlantEmoji = (p: number): string => {
-  if (p >= 100) return '🌸'
-  if (p >= 75) return '🌷'
-  if (p >= 50) return '🪴'
-  if (p >= 25) return '🌿'
-  return '🌱'
-}
-
 export default function Dashboard() {
   return (
-    <Suspense fallback={
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f7f9fa',
-        color: '#8899a6',
-      }}>
-        <div style={{
-          width: 32,
-          height: 32,
-          border: '3px solid #1D9BF0',
-          borderTopColor: 'transparent',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          marginBottom: 16,
-        }} />
-        <p>Loading...</p>
-      </div>
-    }>
+    <Suspense fallback={<DashboardSkeleton />}>
       <DashboardContent />
     </Suspense>
   )
@@ -202,6 +146,19 @@ function DashboardContent() {
       setTidyUpHidden(true)
     }
   }, [])
+
+  // Check for active brake snooze - suppresses recovery mode prompts
+  const isBrakeSnoozeActive = (): boolean => {
+    const snoozeUntil = localStorage.getItem('brake-snooze-until')
+    if (!snoozeUntil) return false
+    const snoozeTime = parseInt(snoozeUntil, 10)
+    if (isNaN(snoozeTime)) return false
+    // If snooze is still active, return true
+    if (Date.now() < snoozeTime) return true
+    // Snooze expired, clean up
+    localStorage.removeItem('brake-snooze-until')
+    return false
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -352,13 +309,58 @@ function DashboardContent() {
   }
 
   const fetchData = async (userId: string) => {
-    const { data } = await supabase
-      .from('mood_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(14)
+    // Prepare date ranges for queries
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
 
+    const yesterdayStart = new Date()
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+    yesterdayStart.setHours(0, 0, 0, 0)
+    const yesterdayEnd = new Date(yesterdayStart)
+    yesterdayEnd.setHours(23, 59, 59, 999)
+
+    // CONCURRENT FETCH: Run all independent queries in parallel
+    const [moodRes, goalRes, winsRes, yesterdayWinsRes] = await Promise.all([
+      // Mood entries (last 14)
+      supabase
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(14),
+
+      // Most recent active goal
+      supabase
+        .from('goals')
+        .select('id, title, progress_percent, plant_type')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1),
+
+      // Today's wins
+      supabase
+        .from('goal_progress_logs')
+        .select('action_type, step_text')
+        .eq('user_id', userId)
+        .gte('created_at', todayStart.toISOString())
+        .order('created_at', { ascending: false }),
+
+      // Yesterday's wins count
+      supabase
+        .from('goal_progress_logs')
+        .select('id')
+        .eq('user_id', userId)
+        .gte('created_at', yesterdayStart.toISOString())
+        .lte('created_at', yesterdayEnd.toISOString()),
+    ])
+
+    const data = moodRes.data
+    const goalData = goalRes.data
+    const winsData = winsRes.data
+    const yesterdayWinsData = yesterdayWinsRes.data
+
+    // Process mood entries
     if (data && data.length > 0) {
       const lastEntry = data[0]
       const daysSince = Math.floor(
@@ -399,7 +401,7 @@ function DashboardContent() {
 
       const recentAvg = data.slice(0, 7).reduce((s, m) => s + m.mood_score, 0) / Math.min(data.length, 7)
 
-      // Set insights (existing logic)
+      // Set insights
       setInsights({
         totalCheckIns: data.length,
         currentStreak: streak >= 2 ? { type: 'checking_in', days: streak } : null,
@@ -413,37 +415,25 @@ function DashboardContent() {
       // Phase 1: Calculate User Mode based on mood data
       // Only auto-set mode if not manually overridden
       if (!modeManuallySet) {
-        const calculatedMode = calculateUserMode(lastEntry, streak)
+        let calculatedMode = calculateUserMode(lastEntry, streak)
+
+        // Check for active brake snooze - suppress recovery mode if snoozed
+        if (calculatedMode === 'recovery' && isBrakeSnoozeActive()) {
+          calculatedMode = 'maintenance'
+        }
+
         setUserMode(calculatedMode)
       }
     }
 
-    // Fetch most recent active goal
-    const { data: goalData } = await supabase
-      .from('goals')
-      .select('id, title, progress_percent, plant_type')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-
+    // Process goal data
     if (goalData && goalData.length > 0) {
       setActiveGoal(goalData[0] as ActiveGoal)
     } else {
       setActiveGoal(null)
     }
 
-    // Fetch today's wins from goal_progress_logs
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    const { data: winsData } = await supabase
-      .from('goal_progress_logs')
-      .select('action_type, step_text')
-      .eq('user_id', userId)
-      .gte('created_at', todayStart.toISOString())
-      .order('created_at', { ascending: false })
-
+    // Process today's wins
     const wins: Array<{ text: string; icon: string }> = []
     if (winsData) {
       for (const w of winsData) {
@@ -465,29 +455,19 @@ function DashboardContent() {
     }
     setTodaysWins(wins)
 
-    // Fetch yesterday's wins count for Welcome Hero
-    const yesterdayStart = new Date()
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-    yesterdayStart.setHours(0, 0, 0, 0)
-    const yesterdayEnd = new Date(yesterdayStart)
-    yesterdayEnd.setHours(23, 59, 59, 999)
-
-    const { data: yesterdayWinsData } = await supabase
-      .from('goal_progress_logs')
-      .select('id')
-      .eq('user_id', userId)
-      .gte('created_at', yesterdayStart.toISOString())
-      .lte('created_at', yesterdayEnd.toISOString())
-
+    // Process yesterday's wins
     setYesterdayWinsCount(yesterdayWinsData?.length || 0)
 
-    // Auto-archive overdue tasks (2+ days old) before fetching
-    // This runs silently in the background so user never sees a backlog
+    // SECOND BATCH: Auto-archive tasks, then fetch archived + tomorrow count
+    // These have a dependency: archive must run before fetching archived tasks
     await autoArchiveOverdueTasks(userId)
 
-    // Fetch recently auto-archived tasks for the Gentle Tidy Up card
-    // These are tasks that were auto-archived in the last 7 days
-    const autoArchivedTasks = await getRecentlyAutoArchivedTasks(userId)
+    // These can run in parallel after archiving
+    const [autoArchivedTasks, tomorrowCount] = await Promise.all([
+      getRecentlyAutoArchivedTasks(userId),
+      getTasksDueTomorrow(userId),
+    ])
+
     setOverduePlans(autoArchivedTasks.map(t => ({
       id: t.id,
       task_name: t.task_name,
@@ -495,8 +475,6 @@ function DashboardContent() {
       created_at: t.created_at,
     })) as OverduePlan[])
 
-    // Get count of tasks already due tomorrow (for safety cap)
-    const tomorrowCount = await getTasksDueTomorrow(userId)
     setTasksDueTomorrow(tomorrowCount)
   }
 
@@ -876,15 +854,7 @@ function DashboardContent() {
   }
 
   if (loading) {
-    return (
-      <div className="dashboard">
-        <div className="loading-container">
-          <div className="spinner" />
-          <p>Loading...</p>
-        </div>
-        <style jsx>{styles}</style>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   const modeConfig = getModeConfig()

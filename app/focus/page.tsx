@@ -4,6 +4,8 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
+import { saveFocusFlowDraft, loadFocusFlowDraft, clearFocusFlowDraft } from '@/lib/focusFlowState'
+import FocusSkeleton from '@/components/FocusSkeleton'
 
 // Step components
 import BrainDumpScreen from './components/BrainDumpScreen'
@@ -54,37 +56,9 @@ interface Goal {
 
 export default function FocusPage() {
   return (
-    <Suspense fallback={<FocusPageLoading />}>
+    <Suspense fallback={<FocusSkeleton />}>
       <FocusPageContent />
     </Suspense>
-  )
-}
-
-function FocusPageLoading() {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#f7f9fa',
-      color: '#8899a6',
-    }}>
-      <div style={{
-        width: 32,
-        height: 32,
-        border: '3px solid #1D9BF0',
-        borderTopColor: 'transparent',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-        marginBottom: 16,
-      }} />
-      <p>Loading...</p>
-      <style jsx>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
-    </div>
   )
 }
 
@@ -99,6 +73,10 @@ function FocusPageContent() {
   // Data flowing through the journey
   const [parsedTasks, setParsedTasks] = useState<ParsedTask[]>([])
   const [triageLoading, setTriageLoading] = useState(false)
+  const [parseInfo, setParseInfo] = useState<{
+    aiUsed: boolean
+    fallbackReason?: 'no_api_key' | 'api_error' | 'parse_error' | 'rate_limited'
+  } | null>(null)
   const [tasksWithContext, setTasksWithContext] = useState<TaskWithContext[]>([])
   const [breakdowns, setBreakdowns] = useState<TaskBreakdown[]>([])
   const [breakdownLoading, setBreakdownLoading] = useState(false)
@@ -131,6 +109,22 @@ function FocusPageContent() {
 
       const fetchedPlans = await fetchPlans(session.user.id)
       const fetchedGoals = await fetchGoals(session.user.id)
+
+      // Check for resumable draft FIRST (prevents data loss on refresh)
+      const draft = loadFocusFlowDraft()
+      if (draft && draft.step !== 'brain-dump' && draft.step !== 'dashboard') {
+        // Restore state from draft
+        if (draft.parsedTasks) setParsedTasks(draft.parsedTasks)
+        if (draft.tasksWithContext) setTasksWithContext(draft.tasksWithContext as TaskWithContext[])
+        if (draft.breakdowns) setBreakdowns(draft.breakdowns)
+        if (draft.handoffGoalId !== undefined) setHandoffGoalId(draft.handoffGoalId)
+        if (draft.handoffStepId !== undefined) setHandoffStepId(draft.handoffStepId)
+        if (draft.userMode) setUserMode(draft.userMode)
+        if (draft.energyLevel !== undefined) setEnergyLevel(draft.energyLevel)
+        setStep(draft.step)
+        setLoading(false)
+        return // Skip normal routing - we're resuming from draft
+      }
 
       // Handle URL params from Goals handoff
       const createParam = searchParams.get('create')
@@ -249,7 +243,9 @@ function FocusPageContent() {
   const handleBrainDumpSubmit = async (text: string) => {
     setStep('triage')
     setTriageLoading(true)
+    setParseInfo(null) // Reset parse info
 
+    let tasks: ParsedTask[] = []
     try {
       const token = await getAuthToken()
       const response = await fetch('/api/focus-coach', {
@@ -262,17 +258,38 @@ function FocusPageContent() {
       })
 
       const data = await response.json()
-      setParsedTasks(data.tasks || [])
+      tasks = data.tasks || []
+      setParsedTasks(tasks)
+
+      // Capture AI usage info for UI feedback
+      setParseInfo({
+        aiUsed: data.aiUsed ?? true,
+        fallbackReason: data.fallbackReason,
+      })
     } catch (error) {
       console.error('Error parsing brain dump:', error)
       // Fallback: treat the whole text as one task
-      setParsedTasks([{ id: 'task_1', text: text.trim() }])
+      tasks = [{ id: 'task_1', text: text.trim() }]
+      setParsedTasks(tasks)
+      setParseInfo({ aiUsed: false, fallbackReason: 'api_error' })
     }
+
+    // Save draft after brain dump is parsed
+    saveFocusFlowDraft({
+      step: 'triage',
+      brainDumpText: text,
+      parsedTasks: tasks,
+      handoffGoalId,
+      handoffStepId,
+      userMode,
+      energyLevel,
+    })
 
     setTriageLoading(false)
   }
 
   const handleBrainDumpSkip = () => {
+    clearFocusFlowDraft() // Clear any draft when skipping to dashboard
     setStep('dashboard')
   }
 
@@ -299,6 +316,9 @@ function FocusPageContent() {
 
     await supabase.from('focus_plans').insert(quickPlan)
 
+    // Clear any draft since we're completing the flow
+    clearFocusFlowDraft()
+
     // Refresh plans and go directly to dashboard
     await fetchPlans(user.id)
     setStep('dashboard')
@@ -307,10 +327,21 @@ function FocusPageContent() {
   const handleTriageConfirm = (tasks: ParsedTask[]) => {
     setParsedTasks(tasks)
     setStep('context')
+
+    // Save draft after triage confirmation
+    saveFocusFlowDraft({
+      step: 'context',
+      parsedTasks: tasks,
+      handoffGoalId,
+      handoffStepId,
+      userMode,
+      energyLevel,
+    })
   }
 
   const handleTriageBack = () => {
     setParsedTasks([])
+    clearFocusFlowDraft() // Clear draft when going back to start
     setStep('brain-dump')
   }
 
@@ -353,6 +384,18 @@ function FocusPageContent() {
       }
 
       setBreakdowns(results)
+
+      // Save draft after breakdowns are generated
+      saveFocusFlowDraft({
+        step: 'breakdown',
+        parsedTasks,
+        tasksWithContext: tasks,
+        breakdowns: results,
+        handoffGoalId,
+        handoffStepId,
+        userMode,
+        energyLevel,
+      })
     } catch (error) {
       console.error('Error generating breakdowns:', error)
       // Fallback: create basic breakdowns
@@ -367,12 +410,33 @@ function FocusPageContent() {
         ],
       }))
       setBreakdowns(fallbacks)
+
+      // Save draft with fallback breakdowns
+      saveFocusFlowDraft({
+        step: 'breakdown',
+        parsedTasks,
+        tasksWithContext: tasks,
+        breakdowns: fallbacks,
+        handoffGoalId,
+        handoffStepId,
+        userMode,
+        energyLevel,
+      })
     }
 
     setBreakdownLoading(false)
   }
 
   const handleContextBack = () => {
+    // Save draft when going back to triage
+    saveFocusFlowDraft({
+      step: 'triage',
+      parsedTasks,
+      handoffGoalId,
+      handoffStepId,
+      userMode,
+      energyLevel,
+    })
     setStep('triage')
   }
 
@@ -411,6 +475,9 @@ function FocusPageContent() {
       await supabase.from('focus_plans').insert(insertData)
     }
 
+    // Flow completed successfully - clear the draft
+    clearFocusFlowDraft()
+
     // Refresh plans and show dashboard
     await fetchPlans(user.id)
     setHandoffGoalId(null)
@@ -419,10 +486,22 @@ function FocusPageContent() {
   }
 
   const handleBreakdownBack = () => {
+    // Save draft when going back to context
+    saveFocusFlowDraft({
+      step: 'context',
+      parsedTasks,
+      tasksWithContext,
+      handoffGoalId,
+      handoffStepId,
+      userMode,
+      energyLevel,
+    })
     setStep('context')
   }
 
   const handleNewBrainDump = () => {
+    // Clear draft when starting fresh
+    clearFocusFlowDraft()
     // Reset journey state
     setParsedTasks([])
     setTasksWithContext([])
@@ -440,7 +519,7 @@ function FocusPageContent() {
   }
 
   if (loading) {
-    return <FocusPageLoading />
+    return <FocusSkeleton />
   }
 
   return (
@@ -478,6 +557,7 @@ function FocusPageContent() {
           tasks={parsedTasks}
           loading={triageLoading}
           energyLevel={energyLevel}
+          parseInfo={parseInfo}
           onConfirm={handleTriageConfirm}
           onBack={handleTriageBack}
         />
