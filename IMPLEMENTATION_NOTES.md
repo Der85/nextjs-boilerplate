@@ -674,3 +674,255 @@ export default function Layout({ children }) {
 2. **Query Optimization:** Single query fetches all Now Mode tasks with joins
 3. **Caching:** State cached in context, refreshed on mutations
 4. **Optimistic Updates:** UI updates immediately, rollback on error
+
+---
+
+# Daily State Check-in - Adaptive UX System
+
+## Overview
+
+A 10-second daily check-in that tracks stress/state (not just output) and drives adaptive UX personalization.
+
+## Design Decisions
+
+### 1. Four Core Metrics
+
+**Decision:** Track overwhelm, anxiety, energy, and clarity on 1-5 scales.
+
+**Rationale:**
+- Overwhelm: Captures cognitive load
+- Anxiety: Captures emotional state
+- Energy: Captures physical/mental capacity
+- Clarity: Captures focus/decision-making ability
+- All four are ADHD-relevant and actionable
+
+### 2. Once-Daily Prompt
+
+**Decision:** Prompt at first app open, dismissible until next day.
+
+**Rationale:**
+- Low friction (10 seconds)
+- Not nagging - respects user's choice to skip
+- Consistent timing for trend analysis
+- Dismissed state stored in localStorage
+
+### 3. Adaptive Triggers
+
+**Decision:** Automatic UX adjustments based on thresholds.
+
+**Thresholds:**
+- High overwhelm/anxiety: ≥4
+- Low energy/clarity: ≤2
+
+**Rationale:**
+- Proactive support when user is struggling
+- No explicit mode switching required
+- Recommendations are suggestions, not mandates
+
+## Database Schema
+
+### `daily_checkins` Table
+```sql
+CREATE TABLE daily_checkins (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  overwhelm INTEGER NOT NULL CHECK (overwhelm >= 1 AND overwhelm <= 5),
+  anxiety INTEGER NOT NULL CHECK (anxiety >= 1 AND anxiety <= 5),
+  energy INTEGER NOT NULL CHECK (energy >= 1 AND energy <= 5),
+  clarity INTEGER NOT NULL CHECK (clarity >= 1 AND clarity <= 5),
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT unique_user_daily_checkin UNIQUE (user_id, date)
+);
+```
+
+### `adaptive_mode_events` Table
+```sql
+CREATE TABLE adaptive_mode_events (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN (
+    'daily_checkin_submitted',
+    'adaptive_mode_triggered',
+    'simplified_ui_enabled',
+    'state_based_recommendation_shown',
+    'state_based_recommendation_accepted',
+    'state_based_recommendation_dismissed'
+  )),
+  trigger_reason TEXT,
+  checkin_id UUID REFERENCES daily_checkins(id),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+## Adaptive Behavior Rules
+
+### High Overwhelm (≥4) or High Anxiety (≥4)
+- Enable simplified UI mode
+- Reduce visible tasks to 3
+- Show low-cognitive-load action suggestions
+- Recommendations: "Focus on just 1 thing", "Do a brain dump"
+
+### Low Energy (≤2)
+- Prioritize short/admin tasks
+- Sort by estimated duration
+- Recommendations: "Start with quick wins", "Admin tasks prioritized"
+
+### Low Clarity (≤2)
+- Surface planning micro-step before execution
+- Recommendations: "Start with planning", "Talk it through with Ally"
+
+### Combined Stress
+- Multiple triggers active simultaneously
+- Most restrictive rules apply
+- Maximum of 3 recommendations shown
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/daily-checkin` | GET | Get latest check-in and adaptive state |
+| `/api/daily-checkin` | POST | Upsert today's check-in |
+| `/api/daily-checkin/trend` | GET | Get 7-day/30-day trends and correlations |
+
+## UI Components
+
+| Component | Purpose |
+|-----------|---------|
+| `DailyCheckinModal` | Fast 4-slider check-in UI |
+| `AdaptiveBanner` | Show recommendations based on state |
+| `CheckinInsightsWidget` | 7-day sparklines and correlation insights |
+
+## File Structure
+
+```
+migrations/
+└── 009_create_daily_checkins_table.sql
+
+lib/
+├── types/daily-checkin.ts    # Types, validation, constants
+└── adaptive-engine.ts        # Rule engine and recommendations
+
+app/api/daily-checkin/
+├── route.ts                  # GET latest, POST upsert
+└── trend/route.ts            # GET trends and correlations
+
+components/
+├── DailyCheckinModal.tsx     # Check-in UI
+├── AdaptiveBanner.tsx        # Recommendations banner
+└── CheckinInsightsWidget.tsx # Trends and sparklines
+
+context/
+└── DailyCheckinContext.tsx   # State management
+
+tests/unit/
+└── daily-checkin.test.ts     # Validation and engine tests
+```
+
+## Usage
+
+### Enable Daily Check-in Prompt
+
+Wrap your app with the context provider:
+
+```tsx
+import { DailyCheckinProvider } from '@/context/DailyCheckinContext'
+import DailyCheckinModal from '@/components/DailyCheckinModal'
+
+export default function Layout({ children }) {
+  return (
+    <DailyCheckinProvider>
+      {children}
+      <DailyCheckinModalWrapper />
+    </DailyCheckinProvider>
+  )
+}
+
+function DailyCheckinModalWrapper() {
+  const { showCheckinModal, closeCheckinModal, updateAdaptiveState } = useDailyCheckin()
+  return (
+    <DailyCheckinModal
+      isOpen={showCheckinModal}
+      onClose={closeCheckinModal}
+      onComplete={updateAdaptiveState}
+    />
+  )
+}
+```
+
+### Show Adaptive Recommendations
+
+```tsx
+import AdaptiveBanner from '@/components/AdaptiveBanner'
+import { useRouter } from 'next/navigation'
+
+function Dashboard() {
+  const router = useRouter()
+
+  const handleRecommendation = (rec) => {
+    if (rec.actionType === 'navigate' && rec.actionPath) {
+      router.push(rec.actionPath)
+    }
+  }
+
+  return (
+    <div>
+      <AdaptiveBanner onRecommendationAccepted={handleRecommendation} />
+      {/* rest of dashboard */}
+    </div>
+  )
+}
+```
+
+### Show Insights Widget
+
+```tsx
+import CheckinInsightsWidget from '@/components/CheckinInsightsWidget'
+
+function InsightsPage() {
+  return (
+    <div>
+      <h1>Your Insights</h1>
+      <CheckinInsightsWidget />
+    </div>
+  )
+}
+```
+
+## Analytics Events
+
+| Event | When Emitted |
+|-------|--------------|
+| `daily_checkin_submitted` | Check-in saved |
+| `adaptive_mode_triggered` | Adaptive triggers activated |
+| `simplified_ui_enabled` | Simplified mode turned on |
+| `state_based_recommendation_shown` | Recommendation displayed |
+| `state_based_recommendation_accepted` | User clicked recommendation |
+| `state_based_recommendation_dismissed` | User dismissed recommendation |
+
+## Correlation Insights
+
+The system tracks correlations between check-in data and behavior:
+
+- **Overwhelm vs Untriaged Captures:** "High overwhelm days have X untriaged items on average"
+- **Energy vs Task Completion:** "You complete X tasks on high-energy days vs Y on low-energy days"
+
+Requires minimum 5 check-ins to generate correlation insights.
+
+## Accessibility
+
+- Slider controls with keyboard support (arrow keys)
+- ARIA labels for all interactive elements
+- Screen reader announcements for state changes
+- High contrast mode compatibility
+- Keyboard shortcut: ⌘/Ctrl+Enter to save
+
+## Performance Considerations
+
+1. **One check-in per day:** Unique constraint prevents duplicates
+2. **Indexed queries:** Date-based indexes for fast trend lookups
+3. **Local dismissal:** Dismissed state in localStorage (no API call)
+4. **Lazy loading:** Trends fetched only when insights widget mounted
