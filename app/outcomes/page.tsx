@@ -580,7 +580,7 @@ function OutcomesPageContent() {
         )}
       </main>
 
-      <FABToolbox />
+      <FABToolbox mode="maintenance" />
 
       {/* Relink Modal */}
       <RelinkModal
