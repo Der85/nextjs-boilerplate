@@ -85,17 +85,30 @@ export default function BreakdownScreen({
                 </span>
               </div>
               <div className="steps-list">
-                {(expandedCards[i] ? breakdown.steps : breakdown.steps.slice(0, VISIBLE_STEPS)).map((step, j) => (
-                  <div key={step.id} className="step-row">
-                    <span className="step-number">{j + 1}</span>
-                    <div className="step-info">
-                      <span className="step-text">{step.text}</span>
-                      <span className="step-meta">
-                        {step.dueBy} · {step.timeEstimate}
+                {(expandedCards[i] ? breakdown.steps : breakdown.steps.slice(0, VISIBLE_STEPS)).map((step, j, visibleSteps) => {
+                  // Find the first uncompleted step in the full list
+                  const firstUncompletedIndex = breakdown.steps.findIndex(s => !s.completed)
+                  const isFirstUncompleted = j === firstUncompletedIndex
+                  const isFuture = !step.completed && j > firstUncompletedIndex
+                  const isCompleted = step.completed
+
+                  return (
+                    <div
+                      key={step.id}
+                      className={`step-row ${isFirstUncompleted ? 'spotlight' : ''} ${isFuture ? 'future' : ''} ${isCompleted ? 'completed' : ''}`}
+                    >
+                      <span className={`step-number ${isCompleted ? 'done' : ''}`}>
+                        {isCompleted ? '✓' : j + 1}
                       </span>
+                      <div className="step-info">
+                        <span className="step-text">{step.text}</span>
+                        <span className="step-meta">
+                          {step.dueBy} · {step.timeEstimate}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {breakdown.steps.length > VISIBLE_STEPS && !expandedCards[i] && (
                   <button
                     className="show-full-path-btn"
@@ -292,6 +305,45 @@ const styles = `
     color: #8899a6;
   }
 
+  /* ===== Step Spotlight States ===== */
+  .step-row.spotlight {
+    background: white;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(12px, 3vw, 16px);
+    margin: clamp(-8px, -2vw, -12px);
+    margin-bottom: clamp(4px, 1vw, 8px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(29, 155, 240, 0.15);
+    opacity: 1;
+  }
+
+  .step-row.spotlight .step-number {
+    background: #1D9BF0;
+    color: white;
+  }
+
+  .step-row.spotlight .step-text {
+    font-weight: 600;
+  }
+
+  .step-row.future {
+    opacity: 0.6;
+  }
+
+  .step-row.completed {
+    opacity: 0.4;
+  }
+
+  .step-row.completed .step-text {
+    text-decoration: line-through;
+    color: #8899a6;
+  }
+
+  .step-row.completed .step-number.done {
+    background: #00ba7c;
+    color: white;
+  }
+
   .show-full-path-btn {
     background: none;
     border: 1px dashed #d1d5db;
@@ -314,23 +366,35 @@ const styles = `
   }
 
   .action-buttons {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: flex;
     flex-direction: column;
     gap: clamp(12px, 3vw, 16px);
     margin-top: clamp(24px, 6vw, 32px);
+    padding: clamp(16px, 4vw, 24px);
+    margin-left: clamp(-16px, -4vw, -24px);
+    margin-right: clamp(-16px, -4vw, -24px);
+    margin-bottom: clamp(-20px, -5vw, -32px);
+    background: linear-gradient(to top, #f7f9fa 70%, transparent);
+    padding-top: clamp(32px, 8vw, 48px);
   }
 
   .submit-btn {
     background: #00ba7c;
     color: white;
     border: none;
-    border-radius: clamp(10px, 2.5vw, 14px);
-    padding: clamp(14px, 4vw, 18px);
-    font-size: clamp(15px, 4vw, 17px);
-    font-weight: 600;
+    border-radius: clamp(12px, 3vw, 16px);
+    padding: clamp(18px, 5vw, 24px);
+    font-size: clamp(17px, 4.5vw, 20px);
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease;
+    transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 4px 16px rgba(0, 186, 124, 0.3);
+    min-height: 60px;
   }
 
   .submit-btn:hover {

@@ -83,6 +83,7 @@ function FocusPageContent() {
   const [triageLoading, setTriageLoading] = useState(false)
   const [parseInfo, setParseInfo] = useState<{
     aiUsed: boolean
+    isFallbackNeeded?: boolean
     fallbackReason?: 'no_api_key' | 'api_error' | 'parse_error' | 'rate_limited'
   } | null>(null)
   const [tasksWithContext, setTasksWithContext] = useState<TaskWithContext[]>([])
@@ -274,17 +275,18 @@ function FocusPageContent() {
       tasks = data.tasks || []
       setParsedTasks(tasks)
 
-      // Capture AI usage info for UI feedback
+      // Capture AI usage info for UI feedback (including isFallbackNeeded flag)
       setParseInfo({
         aiUsed: data.aiUsed ?? true,
+        isFallbackNeeded: data.isFallbackNeeded ?? false,
         fallbackReason: data.fallbackReason,
       })
     } catch (error) {
       console.error('Error parsing brain dump:', error)
-      // Fallback: treat the whole text as one task
-      tasks = [{ id: 'task_1', text: text.trim() }]
+      // On error, signal that manual entry is needed (don't create bad fallback tasks)
+      tasks = []
       setParsedTasks(tasks)
-      setParseInfo({ aiUsed: false, fallbackReason: 'api_error' })
+      setParseInfo({ aiUsed: false, isFallbackNeeded: true, fallbackReason: 'api_error' })
     }
 
     // Save draft after brain dump is parsed - to both database and sessionStorage

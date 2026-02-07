@@ -248,7 +248,13 @@ export default function AppHeader({
           align-items: center;
           gap: clamp(8px, 2vw, 12px);
           z-index: 100;
-          transition: background 0.3s ease, border-color 0.3s ease;
+          transition: background 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+          /* Zen Mode: Dim secondary elements */
+          opacity: 0.6;
+        }
+
+        .app-header:hover {
+          opacity: 1;
         }
 
         .app-header.pre-checkin {

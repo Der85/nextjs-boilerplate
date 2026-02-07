@@ -11,6 +11,7 @@
   --bg-gray: #f5f8fa;
   --primary: #1da1f2;
   --primary-hover: #1a91da;
+  --primary-rgb: 29, 155, 240;
   --success: #17bf63;
   --warning: #ffad1f;
   --danger: #e0245e;
@@ -96,6 +97,76 @@ a:hover { text-decoration: underline; }
   .btn-ghost:hover { background: rgba(29, 161, 242, 0.1); color: var(--primary); }
   .btn-large { height: 46px; font-size: 17px; padding: 0 24px; }
   .btn-icon { width: 36px; height: 36px; padding: 0; }
+
+  /* ===== HERO ACTION BUTTON =====
+     Unified CTA style for primary actions across hero cards.
+     Larger, more prominent, with lifted shadow for instant recognition. */
+  .btn-hero-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 16px 24px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 56px;
+  }
+
+  .btn-hero-action:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(var(--primary-rgb), 0.4);
+  }
+
+  .btn-hero-action:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+  }
+
+  .btn-hero-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Arrow animation for hero buttons */
+  .btn-hero-action .btn-arrow {
+    transition: transform 0.2s ease;
+  }
+
+  .btn-hero-action:hover:not(:disabled) .btn-arrow {
+    transform: translateX(3px);
+  }
+
+  /* Text link style for secondary actions (Cancel, Back, Skip) near hero CTAs */
+  .btn-text-link {
+    background: none;
+    border: none;
+    color: var(--dark-gray);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 8px 16px;
+    transition: color 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .btn-text-link:hover:not(:disabled) {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .btn-text-link:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
   
   .input {
     width: 100%; padding: 12px; font-size: 15px;

@@ -353,34 +353,37 @@ export default function VitalsCheck({
           color: #8899a6;
         }
 
-        /* Submit Button */
+        /* Submit Button - Unified Hero Action Button */
         .submit-btn {
           width: 100%;
-          padding: clamp(16px, 4.5vw, 20px);
+          padding: 16px 24px;
           margin-top: clamp(8px, 2vw, 12px);
-          background: linear-gradient(135deg, #1D9BF0 0%, #1a8cd8 100%);
+          background: #1D9BF0;
           color: white;
           border: none;
-          border-radius: clamp(12px, 3vw, 16px);
-          font-size: clamp(16px, 4.5vw, 18px);
+          border-radius: 14px;
+          font-size: 1.1rem;
           font-weight: 700;
           cursor: pointer;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          transition: all 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          box-shadow: 0 4px 16px rgba(29, 155, 240, 0.3);
+          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
+          min-height: 56px;
         }
 
         .submit-btn:hover:not(:disabled) {
+          background: #1a8cd8;
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(29, 155, 240, 0.4);
+          box-shadow: 0 6px 16px rgba(29, 155, 240, 0.4);
         }
 
         .submit-btn:active:not(:disabled) {
           transform: translateY(0);
+          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
         }
 
         .submit-btn:disabled {
-          opacity: 0.7;
+          opacity: 0.6;
           cursor: not-allowed;
         }
       `}</style>

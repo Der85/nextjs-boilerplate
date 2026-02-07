@@ -2274,6 +2274,8 @@ const styles = `
     padding: clamp(24px, 6vw, 36px);
     text-align: center;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    /* Zen Mode: Hero Isolation - increased margin for visual separation */
+    margin-bottom: 60px;
   }
 
   .hero-icon {
@@ -2585,6 +2587,13 @@ const styles = `
   .mode-override-section {
     margin-top: clamp(16px, 4vw, 24px);
     position: relative;
+    /* Zen Mode: Dim secondary elements */
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+  }
+
+  .mode-override-section:hover {
+    opacity: 1;
   }
 
   .mode-override-trigger {
@@ -2593,17 +2602,18 @@ const styles = `
     gap: clamp(8px, 2vw, 12px);
     width: 100%;
     padding: clamp(12px, 3vw, 16px);
-    background: white;
-    border: 1px solid var(--extra-light-gray);
+    /* Ghost style: transparent background with subtle border */
+    background: transparent;
+    border: 1px solid rgba(148, 163, 184, 0.3);
     border-radius: clamp(12px, 3vw, 16px);
     cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, background 0.15s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   .mode-override-trigger:hover {
-    border-color: var(--primary);
-    box-shadow: 0 2px 8px rgba(29, 155, 240, 0.1);
+    border-color: rgba(148, 163, 184, 0.5);
+    background: rgba(148, 163, 184, 0.05);
   }
 
   .mode-icon {

@@ -46,8 +46,9 @@ export default function GentleTidyUp({
 
       <style jsx>{`
         .gentle-tidy-up {
-          background: rgba(148, 163, 184, 0.06);
-          border: 1px solid rgba(148, 163, 184, 0.15);
+          /* Zen Mode: Subtle gray background, no shadow, sits behind white Hero */
+          background: #f8f9fa;
+          border: 1px solid rgba(148, 163, 184, 0.12);
           border-radius: clamp(12px, 3vw, 16px);
           padding: clamp(16px, 4vw, 20px);
           margin-top: clamp(12px, 3vw, 16px);

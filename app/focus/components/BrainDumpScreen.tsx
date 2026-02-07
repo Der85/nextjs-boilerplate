@@ -163,46 +163,43 @@ export default function BrainDumpScreen({ onSubmit, onSkip, onQuickStart }: Brai
           cursor: not-allowed;
         }
 
+        /* Stepped Clarity: Skip and Quick Start as text-only links */
         .skip-btn {
           background: none;
           border: none;
-          color: #8899a6;
-          font-size: clamp(14px, 3.8vw, 16px);
-          font-weight: 500;
+          color: #b0b8c1;
+          font-size: clamp(13px, 3.5vw, 14px);
+          font-weight: 400;
           cursor: pointer;
-          padding: clamp(8px, 2vw, 12px);
+          padding: clamp(6px, 1.5vw, 8px);
           transition: color 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          text-decoration: underline;
+          text-underline-offset: 2px;
         }
 
         .skip-btn:hover {
-          color: #536471;
+          color: #8899a6;
         }
 
         .quick-start-link {
-          display: block;
-          margin-top: clamp(24px, 6vw, 32px);
-          padding: clamp(14px, 4vw, 18px);
+          display: inline-block;
+          margin-top: clamp(20px, 5vw, 28px);
+          padding: clamp(6px, 1.5vw, 8px);
           background: none;
-          border: 2px dashed rgba(0, 186, 124, 0.3);
-          border-radius: clamp(10px, 2.5vw, 14px);
-          color: #00ba7c;
-          font-size: clamp(14px, 3.8vw, 16px);
-          font-weight: 600;
+          border: none;
+          color: #b0b8c1;
+          font-size: clamp(13px, 3.5vw, 14px);
+          font-weight: 400;
           cursor: pointer;
-          transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+          transition: color 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          width: 100%;
-          text-align: center;
+          text-decoration: underline;
+          text-underline-offset: 2px;
         }
 
         .quick-start-link:hover {
-          background: rgba(0, 186, 124, 0.06);
-          border-color: #00ba7c;
-        }
-
-        .quick-start-link:active {
-          transform: scale(0.98);
+          color: #8899a6;
         }
       `}</style>
     </div>

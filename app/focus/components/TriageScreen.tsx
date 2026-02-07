@@ -9,6 +9,7 @@ interface ParsedTask {
 
 interface ParseInfo {
   aiUsed: boolean
+  isFallbackNeeded?: boolean
   fallbackReason?: 'no_api_key' | 'api_error' | 'parse_error' | 'rate_limited'
 }
 
@@ -75,6 +76,10 @@ function getFallbackMessage(reason?: string): string {
 export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, onConfirm, onBack }: TriageScreenProps) {
   const [confirmedTasks, setConfirmedTasks] = useState<ParsedTask[]>(tasks)
   const [energyWarning, setEnergyWarning] = useState<{ task: ParsedTask; visible: boolean }>({ task: { id: '', text: '' }, visible: false })
+  const [newTaskText, setNewTaskText] = useState('')
+
+  // Detect if we're in manual entry mode (AI failed, no auto-parsed tasks)
+  const isManualEntryMode = parseInfo?.isFallbackNeeded && tasks.length === 0
 
   // Reality Check: time-blindness safety net
   const totalLoadMinutes = confirmedTasks.reduce((sum, t) => sum + estimateTaskMinutes(t.text), 0)
@@ -94,6 +99,23 @@ export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, o
 
   const removeTask = (id: string) => {
     setConfirmedTasks(prev => prev.filter(t => t.id !== id))
+  }
+
+  const addManualTask = () => {
+    if (newTaskText.trim().length < 3) return
+    const newTask: ParsedTask = {
+      id: `manual_${Date.now()}`,
+      text: newTaskText.trim(),
+    }
+    setConfirmedTasks(prev => [...prev, newTask])
+    setNewTaskText('')
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      addManualTask()
+    }
   }
 
   const handleConfirm = () => {
@@ -145,8 +167,8 @@ export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, o
           <div className="sprint-badge">🚀 Sprint Mode</div>
         )}
 
-        {/* AI Fallback Warning */}
-        {parseInfo && !parseInfo.aiUsed && (
+        {/* AI Fallback Warning - only show if not in full manual entry mode */}
+        {parseInfo && !parseInfo.aiUsed && !isManualEntryMode && (
           <div className="fallback-warning">
             <span className="fallback-icon">✏️</span>
             <span className="fallback-text">{getFallbackMessage(parseInfo.fallbackReason)}</span>
@@ -154,12 +176,18 @@ export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, o
         )}
 
         <h2 className="triage-title">
-          {isSprint ? 'Pick Your Top 3' : 'Here\u0027s what I found'}
+          {isManualEntryMode
+            ? 'Add your tasks manually'
+            : isSprint
+              ? 'Pick Your Top 3'
+              : 'Here\u0027s what I found'}
         </h2>
         <p className="triage-subtitle">
-          {isSprint
-            ? 'Energy is high — choose your 3 most impactful tasks and go.'
-            : 'Remove anything that doesn\u0027t feel like a task right now'}
+          {isManualEntryMode
+            ? 'AI parsing is unavailable right now. Type your tasks one at a time below.'
+            : isSprint
+              ? 'Energy is high — choose your 3 most impactful tasks and go.'
+              : 'Remove anything that doesn\u0027t feel like a task right now'}
         </p>
 
         {isSprint && confirmedTasks.length > 3 && (
@@ -210,7 +238,37 @@ export default function TriageScreen({ tasks, loading, energyLevel, parseInfo, o
           </div>
         )}
 
-        {confirmedTasks.length === 0 && (
+        {/* Manual Entry Form - always show when in manual mode, or show as add button otherwise */}
+        {isManualEntryMode && (
+          <div className="manual-entry-section">
+            <div className="manual-entry-form">
+              <input
+                type="text"
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Type a task and press Enter..."
+                className="manual-entry-input"
+                autoFocus
+              />
+              <button
+                onClick={addManualTask}
+                disabled={newTaskText.trim().length < 3}
+                className="manual-entry-add"
+                type="button"
+              >
+                Add
+              </button>
+            </div>
+            {confirmedTasks.length === 0 && (
+              <p className="manual-entry-hint">
+                Add at least one task to continue
+              </p>
+            )}
+          </div>
+        )}
+
+        {confirmedTasks.length === 0 && !isManualEntryMode && (
           <div className="empty-state">
             <p>No tasks left. Go back and try again?</p>
           </div>
@@ -702,5 +760,69 @@ const styles = `
     color: #92400e;
     line-height: 1.4;
     font-weight: 500;
+  }
+
+  /* ===== MANUAL ENTRY MODE ===== */
+  .manual-entry-section {
+    margin-top: clamp(16px, 4vw, 24px);
+  }
+
+  .manual-entry-form {
+    display: flex;
+    gap: clamp(8px, 2vw, 12px);
+  }
+
+  .manual-entry-input {
+    flex: 1;
+    padding: clamp(14px, 4vw, 18px);
+    border: 2px solid #e5e7eb;
+    border-radius: clamp(12px, 3vw, 16px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: border-color 0.2s ease;
+    background: white;
+  }
+
+  .manual-entry-input:focus {
+    outline: none;
+    border-color: #1D9BF0;
+  }
+
+  .manual-entry-input::placeholder {
+    color: #8899a6;
+  }
+
+  .manual-entry-add {
+    background: #1D9BF0;
+    color: white;
+    border: none;
+    border-radius: clamp(10px, 2.5vw, 14px);
+    padding: clamp(14px, 4vw, 18px) clamp(20px, 5vw, 28px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    flex-shrink: 0;
+  }
+
+  .manual-entry-add:hover:not(:disabled) {
+    background: #1a8cd8;
+  }
+
+  .manual-entry-add:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .manual-entry-add:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .manual-entry-hint {
+    text-align: center;
+    color: #8899a6;
+    font-size: clamp(13px, 3.5vw, 15px);
+    margin-top: clamp(12px, 3vw, 16px);
   }
 `

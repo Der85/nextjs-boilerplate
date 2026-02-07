@@ -64,6 +64,7 @@ interface MicroStep {
 interface ParseResult {
   tasks: ParsedTask[]
   aiUsed: boolean
+  isFallbackNeeded: boolean
   fallbackReason?: 'no_api_key' | 'api_error' | 'parse_error' | 'rate_limited'
 }
 
@@ -71,11 +72,12 @@ interface ParseResult {
 // Parse Brain Dump (AI)
 // ============================================
 async function parseBrainDump(apiKey: string | undefined, text: string): Promise<ParseResult> {
-  // If no API key, return immediately with fallback flag
+  // If no API key, signal that manual entry is needed (don't auto-parse)
   if (!apiKey) {
     return {
-      tasks: createManualFallbackTasks(text),
+      tasks: [],
       aiUsed: false,
+      isFallbackNeeded: true,
       fallbackReason: 'no_api_key',
     }
   }
@@ -109,9 +111,11 @@ RESPOND with valid JSON array only:
 
     if (!response.ok) {
       console.error('AI API failed with status:', response.status)
+      // Don't auto-parse on error - let user enter tasks manually
       return {
-        tasks: createManualFallbackTasks(text),
+        tasks: [],
         aiUsed: false,
+        isFallbackNeeded: true,
         fallbackReason: response.status === 429 ? 'rate_limited' : 'api_error',
       }
     }
@@ -122,51 +126,27 @@ RESPOND with valid JSON array only:
     const jsonMatch = responseText.match(/\[[\s\S]*\]/)
     if (jsonMatch) {
       const tasks = JSON.parse(jsonMatch[0])
-      return { tasks, aiUsed: true }
+      return { tasks, aiUsed: true, isFallbackNeeded: false }
     }
 
-    // AI returned but couldn't parse response
+    // AI returned but couldn't parse response - let user enter manually
     console.error('Could not parse AI response:', responseText.slice(0, 200))
     return {
-      tasks: createManualFallbackTasks(text),
+      tasks: [],
       aiUsed: false,
+      isFallbackNeeded: true,
       fallbackReason: 'parse_error',
     }
   } catch (e) {
     console.error('Error parsing brain dump:', e)
+    // On any error, signal that manual entry is needed
     return {
-      tasks: createManualFallbackTasks(text),
+      tasks: [],
       aiUsed: false,
+      isFallbackNeeded: true,
       fallbackReason: 'api_error',
     }
   }
-}
-
-// ============================================
-// Smarter Fallback Task Creation
-// ============================================
-function createManualFallbackTasks(text: string): ParsedTask[] {
-  // Split by sentence endings, newlines, or "and"
-  // But be smarter about it - prefer newlines and periods over commas
-  const lines = text
-    .split(/[\n]/)  // First split by newlines
-    .flatMap(line => line.split(/[.!?]+/))  // Then by sentence endings
-    .map(s => s.trim())
-    .filter(s => s.length > 5 && !s.match(/^(and|but|or|so|also|maybe|i think|i need to|i should)$/i))
-    .slice(0, 8)
-
-  // If we only got 0-1 lines, the whole text might be one task
-  if (lines.length <= 1 && text.length > 5) {
-    return [{
-      id: 'task_1',
-      text: text.trim().slice(0, 200),
-    }]
-  }
-
-  return lines.map((line, i) => ({
-    id: `task_${i + 1}`,
-    text: line.charAt(0).toUpperCase() + line.slice(1).slice(0, 200),
-  }))
 }
 
 // ============================================
@@ -291,9 +271,11 @@ export async function POST(request: NextRequest) {
         const result = await parseBrainDump(apiKey, sanitizedText)
 
         // Return tasks with explicit error flags so UI can handle gracefully
+        // If isFallbackNeeded is true, UI should show manual task entry
         return NextResponse.json({
           tasks: result.tasks,
           aiUsed: result.aiUsed,
+          isFallbackNeeded: result.isFallbackNeeded,
           fallbackReason: result.fallbackReason,
         })
       }

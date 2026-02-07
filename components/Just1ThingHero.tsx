@@ -296,32 +296,36 @@ const styles = `
     gap: 12px;
   }
 
+  /* Unified Hero Action Button - matches global .btn-hero-action */
   .hero-action-btn {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: clamp(14px, 3.5vw, 18px) clamp(20px, 5vw, 28px);
+    padding: 16px 24px;
     background: #1D9BF0;
     color: white;
     border: none;
     border-radius: 14px;
-    font-size: clamp(15px, 4vw, 17px);
-    font-weight: 600;
+    font-size: 1.1rem;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 56px;
   }
 
   .hero-action-btn:hover {
     background: #1a8cd8;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(29, 155, 240, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(29, 155, 240, 0.4);
   }
 
   .hero-action-btn:active {
     transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
   }
 
   .btn-arrow {
