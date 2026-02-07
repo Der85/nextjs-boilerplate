@@ -9,6 +9,8 @@ import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 import WelcomeHero from '@/components/WelcomeHero'
+import SoftLandingHero from '@/components/SoftLandingHero'
+import GentleCheckIn from '@/components/GentleCheckIn'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 import { getCachedPrefetchData, clearPrefetchCache, type PrefetchedData } from '@/lib/prefetch'
 
@@ -44,8 +46,8 @@ interface UserInsights {
   trend: 'up' | 'down' | 'stable' | null
 }
 
-// Phase 1: User Mode type for holistic state
-type UserMode = 'recovery' | 'maintenance' | 'growth'
+// Phase 1: User Mode type for holistic state (includes warming_up transitional state)
+type UserMode = 'recovery' | 'warming_up' | 'maintenance' | 'growth'
 
 const getMoodEmoji = (score: number): string => {
   if (score <= 2) return '😢'
@@ -169,6 +171,15 @@ function DashboardContent() {
   // Mode override from URL (e.g., Brake tool re-entry)
   const [showOverrideToast, setShowOverrideToast] = useState(false)
 
+  // Recovery mode: Soft Landing state
+  const [recoveryEntryTime, setRecoveryEntryTime] = useState<number | null>(null)
+  const [showGentleCheckIn, setShowGentleCheckIn] = useState(false)
+  const [gentleCheckInVariant, setGentleCheckInVariant] = useState<'timed' | 'post-interaction'>('timed')
+  const [showPulseConfirmation, setShowPulseConfirmation] = useState(false)
+  const [pendingLowMoodScore, setPendingLowMoodScore] = useState<number | null>(null)
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warmingUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const { prefs: gamPrefs, isMaintenanceDay } = useGamificationPrefsSafe()
 
   // Check if a "Remind me at 4 PM" reminder has triggered
@@ -226,6 +237,33 @@ function DashboardContent() {
       if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current)
     }
   }, [router, searchParams])
+
+  // Recovery mode: 15-minute gentle check-in timer
+  useEffect(() => {
+    // Clear any existing timer
+    if (recoveryTimerRef.current) {
+      clearTimeout(recoveryTimerRef.current)
+      recoveryTimerRef.current = null
+    }
+
+    // Only set timer if in recovery mode
+    if (userMode === 'recovery' && recoveryEntryTime) {
+      recoveryTimerRef.current = setTimeout(() => {
+        setGentleCheckInVariant('timed')
+        setShowGentleCheckIn(true)
+      }, 15 * 60 * 1000) // 15 minutes
+    }
+
+    // Clean up warming up timer if we leave warming_up
+    if (userMode !== 'warming_up' && warmingUpTimerRef.current) {
+      clearTimeout(warmingUpTimerRef.current)
+      warmingUpTimerRef.current = null
+    }
+
+    return () => {
+      if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
+    }
+  }, [userMode, recoveryEntryTime])
 
   // Apply prefetched data to state (for instant rendering from smart router)
   const applyPrefetchedData = (data: PrefetchedData) => {
@@ -521,13 +559,24 @@ function DashboardContent() {
     setMoodScore(value)
     setPulseSaved(false)
     setPulseSaving(true)
-    if (value <= 3) {
-      setUserMode('recovery')
+
+    // Recovery transition: Require confirmation for scores 2-3, auto-enter for score 1
+    if (value <= 3 && userMode !== 'recovery' && userMode !== 'warming_up') {
+      if (value === 1) {
+        // Score of 1 = strong signal, auto-enter recovery with smooth transition
+        enterRecoveryMode()
+      } else {
+        // Score 2-3 = show confirmation
+        setPendingLowMoodScore(value)
+        setShowPulseConfirmation(true)
+        // Still save the mood but don't change mode yet
+      }
     } else if (value >= 8 && insights?.currentStreak && insights.currentStreak.days > 2) {
       setUserMode('growth')
-    } else {
+    } else if (value > 3) {
       setUserMode('maintenance')
     }
+
     // Debounced auto-save after 3 seconds of inactivity
     if (pulseTimerRef.current) {
       clearTimeout(pulseTimerRef.current)
@@ -535,6 +584,56 @@ function DashboardContent() {
     pulseTimerRef.current = setTimeout(() => {
       handlePulseSaveRef.current()
     }, 3000)
+  }
+
+  // Enter recovery mode with tracking
+  const enterRecoveryMode = () => {
+    setUserMode('recovery')
+    setRecoveryEntryTime(Date.now())
+    setShowGentleCheckIn(false)
+    setShowPulseConfirmation(false)
+    setPendingLowMoodScore(null)
+  }
+
+  // Handle pulse confirmation for entering recovery
+  const handlePulseConfirmYes = () => {
+    enterRecoveryMode()
+  }
+
+  const handlePulseConfirmNo = () => {
+    setShowPulseConfirmation(false)
+    setPendingLowMoodScore(null)
+    // Keep the mood score logged but stay in current mode
+  }
+
+  // Recovery mode: Soft Landing interaction handler
+  const handleSoftLandingInteraction = () => {
+    // Show gentle check-in after user engages with any soft landing option
+    setTimeout(() => {
+      setGentleCheckInVariant('post-interaction')
+      setShowGentleCheckIn(true)
+    }, 500) // Small delay after returning from the interaction
+  }
+
+  // Gentle check-in handlers
+  const handleStillLow = () => {
+    setShowGentleCheckIn(false)
+    setRecoveryEntryTime(Date.now()) // Reset the 15-minute timer
+  }
+
+  const handleALittleBetter = () => {
+    setShowGentleCheckIn(false)
+    setUserMode('warming_up')
+    // Set up auto-transition to maintenance after 10 minutes
+    if (warmingUpTimerRef.current) clearTimeout(warmingUpTimerRef.current)
+    warmingUpTimerRef.current = setTimeout(() => {
+      setUserMode('maintenance')
+    }, 10 * 60 * 1000) // 10 minutes
+  }
+
+  const handleOkayNow = () => {
+    setShowGentleCheckIn(false)
+    setUserMode('maintenance')
   }
 
   // Ref to always call latest handlePulseSave (avoids stale closure in timer)
@@ -709,7 +808,8 @@ function DashboardContent() {
   }
 
   // Computed view flags for mode-specific rendering
-  const isRecoveryView = userMode === 'recovery'
+  const isRecoveryView = userMode === 'recovery' || userMode === 'warming_up'
+  const isFullRecoveryView = userMode === 'recovery' // Strict recovery only
   // isGrowthView removed — atomic dashboard uses unified hero flow
   const brakeVariant: 'urgent' | 'neutral' =
     userMode === 'recovery' || insights?.trend === 'down' ? 'urgent' : 'neutral'
@@ -736,16 +836,37 @@ function DashboardContent() {
       )
     }
 
-    // PRIORITY 1: Recovery Mode — absolute simplicity
-    if (isRecoveryView) {
+    // PRIORITY 1: Recovery Mode — Soft Landing (not lockdown)
+    if (isFullRecoveryView) {
       return (
-        <div className="card hero-card recovery-hero">
-          <div className="hero-icon">🫂</div>
-          <h2 className="hero-title">Low Battery</h2>
-          <p className="hero-subtitle">One thing only: rest and regulate.</p>
-          <button onClick={() => router.push('/brake')} className="hero-btn recovery">
-            🛑 Press the Brake (10s)
-          </button>
+        <SoftLandingHero onInteraction={handleSoftLandingInteraction} />
+      )
+    }
+
+    // PRIORITY 1.5: Warming Up — transitional state from recovery
+    if (userMode === 'warming_up') {
+      return (
+        <div className="card hero-card warming-up-hero">
+          <div className="hero-icon">🌤️</div>
+          <h2 className="hero-title">Warming Up</h2>
+          <p className="hero-subtitle">You're easing back. Take it slow.</p>
+          <div className="warming-up-options">
+            <button
+              onClick={() => router.push(`/focus?energy=low`)}
+              className="hero-btn warming-primary"
+            >
+              🎯 Try one small thing
+            </button>
+            <button
+              onClick={() => {
+                setUserMode('recovery')
+                setRecoveryEntryTime(Date.now())
+              }}
+              className="hero-btn warming-secondary"
+            >
+              🫂 Need more time
+            </button>
+          </div>
         </div>
       )
     }
@@ -813,8 +934,10 @@ function DashboardContent() {
   }
 
   // Determine header mode (accounts for pre-check-in state)
+  // Note: 'warming_up' maps to 'maintenance' for header since header doesn't have warming_up
   const getHeaderMode = (): 'pre-checkin' | 'recovery' | 'maintenance' | 'growth' => {
     if (!hasCheckedInToday && !welcomeSkipped) return 'pre-checkin'
+    if (userMode === 'warming_up') return 'maintenance'
     return userMode
   }
 
@@ -906,6 +1029,40 @@ function DashboardContent() {
         </div>
       )}
 
+      {/* Gentle Check-In (Recovery exit path) */}
+      {showGentleCheckIn && (
+        <div className="gentle-checkin-overlay">
+          <GentleCheckIn
+            variant={gentleCheckInVariant}
+            onStillLow={handleStillLow}
+            onALittleBetter={handleALittleBetter}
+            onOkayNow={handleOkayNow}
+            onDismiss={() => setShowGentleCheckIn(false)}
+          />
+        </div>
+      )}
+
+      {/* Pulse Confirmation (entering recovery for scores 2-3) */}
+      {showPulseConfirmation && (
+        <div className="pulse-confirmation-overlay">
+          <div className="pulse-confirmation-card">
+            <div className="pulse-confirmation-icon">🫂</div>
+            <h3 className="pulse-confirmation-title">Need some quiet time?</h3>
+            <p className="pulse-confirmation-subtitle">
+              Recovery mode gives you space to rest and recharge.
+            </p>
+            <div className="pulse-confirmation-actions">
+              <button className="pulse-confirm-btn yes" onClick={handlePulseConfirmYes}>
+                Yes, I need rest
+              </button>
+              <button className="pulse-confirm-btn no" onClick={handlePulseConfirmNo}>
+                I'm okay for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{styles}</style>
     </div>
   )
@@ -931,8 +1088,11 @@ const styles = `
     transition: filter 0.5s ease;
   }
 
+  /* Recovery mode: warm, cozy palette instead of desaturated lockdown */
   .dashboard.recovery-dimmed {
-    filter: saturate(0.45) brightness(1.02);
+    --primary: #8b5cf6;
+    --bg-gray: #faf8f5;
+    background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 50%, #faf5ef 100%);
   }
 
   /* ===== LOADING ===== */
@@ -2044,7 +2204,39 @@ const styles = `
   }
 
   .recovery-hero .hero-title {
-    color: #dc2626;
+    color: #7c3aed;
+  }
+
+  /* Warming Up hero - transitional state */
+  .warming-up-hero {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.06) 0%, rgba(245, 158, 11, 0.04) 100%);
+    border: 1.5px solid rgba(251, 191, 36, 0.2);
+  }
+
+  .warming-up-hero .hero-title {
+    color: #d97706;
+  }
+
+  .warming-up-options {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 2.5vw, 14px);
+  }
+
+  .hero-btn.warming-primary {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: #78350f;
+    box-shadow: 0 4px 16px rgba(251, 191, 36, 0.3);
+  }
+
+  .hero-btn.warming-secondary {
+    background: rgba(139, 92, 246, 0.1);
+    color: #7c3aed;
+    border: 1.5px solid rgba(139, 92, 246, 0.2);
+  }
+
+  .hero-btn.warming-secondary:hover {
+    background: rgba(139, 92, 246, 0.15);
   }
 
   .fresh-start-hero {
@@ -2179,6 +2371,121 @@ const styles = `
 
   .just1-hero {
     text-align: center;
+  }
+
+  /* ===== GENTLE CHECK-IN OVERLAY ===== */
+  .gentle-checkin-overlay {
+    position: fixed;
+    bottom: clamp(80px, 20vw, 100px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 400px;
+    z-index: 100;
+    animation: slideUpFade 0.4s ease-out;
+  }
+
+  @keyframes slideUpFade {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  /* ===== PULSE CONFIRMATION OVERLAY ===== */
+  .pulse-confirmation-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 24px;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .pulse-confirmation-card {
+    background: white;
+    border-radius: clamp(16px, 4vw, 24px);
+    padding: clamp(24px, 6vw, 36px);
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .pulse-confirmation-icon {
+    font-size: clamp(48px, 12vw, 64px);
+    margin-bottom: clamp(12px, 3vw, 18px);
+    line-height: 1;
+  }
+
+  .pulse-confirmation-title {
+    font-size: clamp(20px, 5vw, 24px);
+    font-weight: 700;
+    color: #7c3aed;
+    margin: 0 0 clamp(8px, 2vw, 12px) 0;
+  }
+
+  .pulse-confirmation-subtitle {
+    font-size: clamp(14px, 3.5vw, 16px);
+    color: #6b7280;
+    margin: 0 0 clamp(20px, 5vw, 28px) 0;
+    line-height: 1.5;
+  }
+
+  .pulse-confirmation-actions {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 2.5vw, 14px);
+  }
+
+  .pulse-confirm-btn {
+    padding: clamp(14px, 3.5vw, 18px);
+    border: none;
+    border-radius: 100px;
+    font-size: clamp(15px, 4vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .pulse-confirm-btn.yes {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+  }
+
+  .pulse-confirm-btn.yes:hover {
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .pulse-confirm-btn.no {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+
+  .pulse-confirm-btn.no:hover {
+    background: #e5e7eb;
   }
 
   /* ===== MODE OVERRIDE SELECTOR ===== */
