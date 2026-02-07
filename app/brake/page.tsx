@@ -376,14 +376,10 @@ const styles = `
     --light-gray: #8899a6;
     --extra-light-gray: #eff3f4;
     --text-dark: #0f1419;
-    
+
     background: linear-gradient(180deg, #fef2f2 0%, #fff 50%);
     min-height: 100vh;
     min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: clamp(16px, 4vw, 24px);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
@@ -391,10 +387,12 @@ const styles = `
   .content {
     width: 100%;
     max-width: clamp(320px, 90vw, 440px);
+    margin: 0 auto;
     background: white;
     border-radius: clamp(20px, 5vw, 28px);
     box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     padding: clamp(24px, 6vw, 36px);
+    margin-top: clamp(20px, 5vw, 40px);
   }
 
   .content.centered {
