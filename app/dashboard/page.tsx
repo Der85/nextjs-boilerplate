@@ -13,6 +13,7 @@ import SoftLandingHero from '@/components/SoftLandingHero'
 import GentleCheckIn from '@/components/GentleCheckIn'
 import GentleTidyUp from '@/components/GentleTidyUp'
 import TriageModal from '@/components/TriageModal'
+import Just1ThingHero from '@/components/Just1ThingHero'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 import { getCachedPrefetchData, clearPrefetchCache, type PrefetchedData } from '@/lib/prefetch'
 import { autoArchiveOverdueTasks, getRecentlyAutoArchivedTasks, getTasksDueTomorrow, spreadTasksAcrossDays } from '@/lib/autoArchive'
@@ -158,13 +159,20 @@ function DashboardContent() {
   const [yesterdayWinsCount, setYesterdayWinsCount] = useState(0)
   const [welcomeTransitioning, setWelcomeTransitioning] = useState(false)
 
-  // "Do This Next" recommendation
-  const [recommendation, setRecommendation] = useState<{
+  // "Do This Next" recommendation (enhanced with full context)
+  interface EnhancedSuggestion {
+    goalId: string | null
+    goalTitle: string | null
     suggestion: string
     reason: string
-    goalId?: string
+    timeEstimate: string
+    effortLevel: 'low' | 'medium' | 'high'
     url: string
-  } | null>(null)
+  }
+  const [recommendations, setRecommendations] = useState<EnhancedSuggestion[]>([])
+  const [shuffleCount, setShuffleCount] = useState(0)
+  const [usedSuggestionIds, setUsedSuggestionIds] = useState<string[]>([])
+  const accessTokenRef = useRef<string | null>(null)
 
   const [pulseSaved, setPulseSaved] = useState(false)
   const [pulseSaving, setPulseSaving] = useState(false)
@@ -288,7 +296,8 @@ function DashboardContent() {
     }
   }
 
-  const loadRecommendation = async (token: string) => {
+  const loadRecommendation = async (token: string, excludeIds: string[] = []) => {
+    accessTokenRef.current = token
     try {
       const res = await fetch('/api/goals-coach', {
         method: 'POST',
@@ -299,22 +308,47 @@ function DashboardContent() {
         body: JSON.stringify({
           action: 'suggest_next',
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          moodScore: moodScore || insights?.lastMood || 6,
+          excludeIds,
         }),
       })
       if (res.ok) {
         const data = await res.json()
-        if (data.suggestion) {
-          setRecommendation({
+        if (data.suggestions && Array.isArray(data.suggestions)) {
+          setRecommendations(data.suggestions)
+        } else if (data.suggestion) {
+          // Fallback for old API format
+          setRecommendations([{
+            goalId: data.suggestion.goalId || null,
+            goalTitle: data.suggestion.goalTitle || null,
             suggestion: data.suggestion.suggestion,
-            reason: data.suggestion.reason,
-            goalId: data.suggestion.goalId,
-            url: data.suggestion.goalId ? '/goals' : '/focus',
-          })
+            reason: data.suggestion.reason || '',
+            timeEstimate: data.suggestion.timeEstimate || '~10 min',
+            effortLevel: data.suggestion.effortLevel || 'medium',
+            url: data.suggestion.url || '/focus',
+          }])
         }
       }
     } catch {
       // Silently fail — recommendation is optional
     }
+  }
+
+  // Shuffle handler for Just1ThingHero
+  const handleShuffle = async () => {
+    if (shuffleCount >= 3 || !accessTokenRef.current) return
+
+    // Track the current suggestion so we don't repeat it
+    const currentSuggestion = recommendations[0]
+    const newUsedIds = currentSuggestion?.goalId
+      ? [...usedSuggestionIds, currentSuggestion.goalId]
+      : usedSuggestionIds
+
+    setUsedSuggestionIds(newUsedIds)
+    setShuffleCount(prev => prev + 1)
+
+    // Fetch new recommendations excluding used ones
+    await loadRecommendation(accessTokenRef.current, newUsedIds)
   }
 
   const fetchData = async (userId: string) => {
@@ -942,24 +976,39 @@ function DashboardContent() {
 
     // PRIORITY 2: Just One Thing (recommendation or fallback)
     // Note: Fresh Start removed from hero hierarchy — now a non-blocking card below
-    const just1 = recommendation
-      ? { label: recommendation.suggestion, url: recommendation.url }
+
+    // Build suggestions array from recommendations or fallback to activeGoal
+    const suggestionsToShow: EnhancedSuggestion[] = recommendations.length > 0
+      ? recommendations
       : activeGoal
-        ? { label: activeGoal.title, url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}` }
-        : { label: 'Pick something small', url: `/focus?energy=${energy}` }
+        ? [{
+            goalId: activeGoal.id,
+            goalTitle: activeGoal.title,
+            suggestion: activeGoal.title,
+            reason: 'Your active goal',
+            timeEstimate: '~15 min',
+            effortLevel: 'medium' as const,
+            url: `/focus?create=true&taskName=${encodeURIComponent(activeGoal.title)}&goalId=${activeGoal.id}&energy=${energy}`,
+          }]
+        : [{
+            goalId: null,
+            goalTitle: null,
+            suggestion: 'Pick something small',
+            reason: 'Start with what feels manageable',
+            timeEstimate: '~5 min',
+            effortLevel: 'low' as const,
+            url: `/focus?energy=${energy}`,
+          }]
 
     return (
-      <div className="card hero-card just1-hero">
-        <div className="hero-greeting">
-          <h1>{getGreeting()} 👋</h1>
-          {getContextMessage() && <p className="hero-context">{getContextMessage()}</p>}
-        </div>
-        <button onClick={() => router.push(just1.url)} className="hero-btn primary large">
-          <span className="hero-btn-label">Just 1 Thing</span>
-          <span className="hero-btn-task">{just1.label}</span>
-          <span className="hero-btn-arrow">→</span>
-        </button>
-      </div>
+      <Just1ThingHero
+        greeting={getGreeting()}
+        contextMessage={getContextMessage() || undefined}
+        suggestions={suggestionsToShow}
+        onShuffle={recommendations.length > 0 ? handleShuffle : undefined}
+        shuffleCount={shuffleCount}
+        maxShuffles={3}
+      />
     )
   }
 

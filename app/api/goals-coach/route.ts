@@ -193,35 +193,74 @@ RESPOND with valid JSON array only:
 }
 
 // ============================================
-// Suggest Next Action Based on Context
+// Types for Enhanced Suggestions
+// ============================================
+interface EnhancedSuggestion {
+  goalId: string | null
+  goalTitle: string | null
+  suggestion: string
+  reason: string
+  timeEstimate: string
+  effortLevel: 'low' | 'medium' | 'high'
+  url: string
+}
+
+// ============================================
+// Effort Level Matching Based on Mood
+// ============================================
+function getEffortBandForMood(mood: number): ('low' | 'medium' | 'high')[] {
+  if (mood <= 5) return ['low']
+  if (mood <= 6) return ['low', 'medium']
+  if (mood <= 7) return ['medium']
+  if (mood <= 8) return ['medium', 'high']
+  return ['high']
+}
+
+// ============================================
+// Suggest Next Action Based on Context (Enhanced)
 // ============================================
 async function suggestNextAction(
   apiKey: string,
   goals: any[],
   userContext: any,
-  energyState: any
-): Promise<{ goalId: string; suggestion: string; reason: string } | null> {
-  if (!goals.length) return null
-
+  energyState: any,
+  moodScore: number,
+  excludeIds: string[] = []
+): Promise<EnhancedSuggestion[]> {
+  const suggestions: EnhancedSuggestion[] = []
   const energyLevel = energyState?.level || 'unknown'
-  const mood = userContext?.recentAverageMood || 5
+  const mood = moodScore || userContext?.recentAverageMood || 6
+  const effortBand = getEffortBandForMood(mood)
+  const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'
+
+  // Filter goals not in excludeIds
+  const availableGoals = goals.filter(g => !excludeIds.includes(g.id))
+
+  if (!availableGoals.length && !goals.length) {
+    return []
+  }
 
   const prompt = `You're an ADHD coach helping someone decide what to work on RIGHT NOW.
 
 THEIR ACTIVE GOALS:
-${goals.map((g, i) => `${i + 1}. "${g.title}" - ${g.progress_percent}% complete`).join('\n')}
+${(availableGoals.length ? availableGoals : goals).map((g, i) => `${i + 1}. "${g.title}" - ${g.progress_percent}% complete${g.micro_steps ? ` (has ${Array.isArray(g.micro_steps) ? g.micro_steps.filter((s: any) => !s.completed).length : 0} pending steps)` : ''}`).join('\n')}
 
 CURRENT STATE:
 - Energy level: ${energyLevel}
-- Recent mood: ${mood}/10
-- Time: ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}
+- Current mood: ${mood}/10
+- Time of day: ${timeOfDay}
+- Suitable effort levels: ${effortBand.join(' or ')}
 ${userContext?.currentStreak?.type === 'low_mood' ? '- ⚠️ Low mood streak - suggest gentlest option' : ''}
 
-Pick ONE goal and suggest ONE tiny action they can do in the next 10 minutes.
-Consider their energy and mood when choosing.
+Generate 3 task suggestions ranked by best fit for their current state.
+Each suggestion should:
+1. Be specific and actionable (can start in the next 2 minutes)
+2. Match their energy/effort capacity (${effortBand.join('/')})
+3. Include a realistic time estimate
+4. Include a short, honest reason (1 sentence max)
 
-RESPOND with valid JSON only:
-{"goalIndex": 0, "suggestion": "specific tiny action", "reason": "why this is right for right now"}`
+RESPOND with valid JSON array only:
+[{"goalIndex": 0, "suggestion": "specific action", "reason": "short reason", "timeEstimate": "~X min", "effortLevel": "low|medium|high"}]`
 
   try {
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
@@ -229,30 +268,72 @@ RESPOND with valid JSON only:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
+        generationConfig: { temperature: 0.8, maxOutputTokens: 400 },
       }),
     })
 
-    if (!response.ok) return null
+    if (response.ok) {
+      const data = await response.json()
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
 
-    const data = await response.json()
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const result = JSON.parse(jsonMatch[0])
-      const goal = goals[result.goalIndex] || goals[0]
-      return {
-        goalId: goal.id,
-        suggestion: result.suggestion,
-        reason: result.reason
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        const results = JSON.parse(jsonMatch[0])
+        const goalsToUse = availableGoals.length ? availableGoals : goals
+
+        for (const result of results) {
+          const goal = goalsToUse[result.goalIndex] || goalsToUse[0]
+          suggestions.push({
+            goalId: goal?.id || null,
+            goalTitle: goal?.title || null,
+            suggestion: result.suggestion,
+            reason: result.reason,
+            timeEstimate: result.timeEstimate || '~10 min',
+            effortLevel: result.effortLevel || 'medium',
+            url: goal ? `/focus?create=true&taskName=${encodeURIComponent(result.suggestion)}&goalId=${goal.id}` : `/focus?create=true&taskName=${encodeURIComponent(result.suggestion)}`
+          })
+        }
       }
     }
   } catch (e) {
     console.error('Error suggesting next action:', e)
   }
 
-  return null
+  // Fallback suggestions if AI fails
+  if (suggestions.length === 0) {
+    const goal = (availableGoals.length ? availableGoals : goals)[0]
+    suggestions.push({
+      goalId: goal?.id || null,
+      goalTitle: goal?.title || null,
+      suggestion: 'Pick the easiest next step and do just that',
+      reason: 'Starting small builds momentum',
+      timeEstimate: '~5 min',
+      effortLevel: 'low',
+      url: goal ? `/focus?create=true&taskName=Quick%20step&goalId=${goal.id}` : '/focus'
+    })
+    if (goal) {
+      suggestions.push({
+        goalId: goal.id,
+        goalTitle: goal.title,
+        suggestion: 'Review your goal and pick one tiny action',
+        reason: 'Next up on your list',
+        timeEstimate: '~10 min',
+        effortLevel: 'low',
+        url: `/goals`
+      })
+    }
+    suggestions.push({
+      goalId: null,
+      goalTitle: null,
+      suggestion: 'Clear one small thing from your mind',
+      reason: 'Quick win to build momentum',
+      timeEstimate: '~5 min',
+      effortLevel: 'low',
+      url: '/focus'
+    })
+  }
+
+  return suggestions.slice(0, 3)
 }
 
 // ============================================
@@ -357,26 +438,60 @@ export async function POST(request: NextRequest) {
 
       case 'suggest_next': {
         const goals = await fetchActiveGoals(contextClient, userId)
-        
+        const moodScore = (body as any).moodScore || userContext?.recentAverageMood || 6
+        const excludeIds = (body as any).excludeIds || []
+
         if (!goals.length) {
-          return NextResponse.json({ 
-            suggestion: null,
-            message: "You don't have any active goals yet. Want to plant one?"
+          // Still provide suggestions even without goals
+          const fallbackSuggestions: EnhancedSuggestion[] = [
+            {
+              goalId: null,
+              goalTitle: null,
+              suggestion: 'Start with one tiny thing on your mind',
+              reason: 'Getting started is the hardest part',
+              timeEstimate: '~5 min',
+              effortLevel: 'low',
+              url: '/focus'
+            },
+            {
+              goalId: null,
+              goalTitle: null,
+              suggestion: 'Plant a goal seed for something you care about',
+              reason: "You don't have any active goals yet",
+              timeEstimate: '~3 min',
+              effortLevel: 'low',
+              url: '/goals'
+            }
+          ]
+          return NextResponse.json({
+            suggestions: fallbackSuggestions,
+            energyState: energyState ? { level: energyState.level, isRecent: energyState.isRecent } : null,
+            mood: moodScore,
+            effortBand: getEffortBandForMood(moodScore)
           })
         }
 
-        const suggestion = apiKey
-          ? await suggestNextAction(apiKey, goals, userContext, energyState)
-          : {
-              goalId: goals[0].id,
-              suggestion: 'Pick the easiest next step and do just that',
-              reason: 'Starting small builds momentum'
-            }
+        const suggestions = apiKey
+          ? await suggestNextAction(apiKey, goals, userContext, energyState, moodScore, excludeIds)
+          : [
+              {
+                goalId: goals[0].id,
+                goalTitle: goals[0].title,
+                suggestion: 'Pick the easiest next step and do just that',
+                reason: 'Starting small builds momentum',
+                timeEstimate: '~5 min',
+                effortLevel: 'low' as const,
+                url: `/focus?create=true&taskName=Quick%20step&goalId=${goals[0].id}`
+              }
+            ]
 
-        return NextResponse.json({ 
-          suggestion,
+        return NextResponse.json({
+          suggestions,
+          // Legacy field for backwards compatibility
+          suggestion: suggestions[0] || null,
           energyState: energyState ? { level: energyState.level, isRecent: energyState.isRecent } : null,
-          mood: userContext?.recentAverageMood
+          mood: moodScore,
+          effortBand: getEffortBandForMood(moodScore)
         })
       }
 
