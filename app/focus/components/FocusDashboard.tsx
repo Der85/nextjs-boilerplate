@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import AppHeader from '@/components/AppHeader'
+import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import PostFocusToast from '@/components/micro/PostFocusToast'
 import QuickAllyModal from './QuickAllyModal'
@@ -730,16 +730,7 @@ export default function FocusDashboard({
   return (
     <div className={`focus-page ${isZenMode ? 'zen-page' : ''} ${lockedIn && !isZenMode ? 'locked-in-page' : ''} ${userMode === 'recovery' ? 'recovery-dimmed' : ''}`}>
       {!isZenMode && !lockedIn && (
-        <AppHeader
-          onlineCount={onlineCount}
-          notificationBar={{
-            text: 'Break down tasks into manageable steps',
-            color: '#1D9BF0',
-            icon: '⏱️',
-          }}
-          brakeVariant={userMode === 'recovery' ? 'urgent' : 'neutral'}
-          userMode={userMode}
-        />
+        <UnifiedHeader subtitle="Focus" />
       )}
 
       {/* Lock-In bar: minimal header that replaces AppHeader during focus */}
