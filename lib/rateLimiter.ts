@@ -140,6 +140,9 @@ export const outcomesRateLimiter = new RateLimiter(60_000, 30)
 // Weekly Planning API: 30 requests per minute (wizard steps + CRUD)
 export const weeklyPlanningRateLimiter = new RateLimiter(60_000, 30)
 
+// Renegotiation API: 30 requests per minute (modal interactions + CRUD)
+export const renegotiationRateLimiter = new RateLimiter(60_000, 30)
+
 // Generic helper for backwards compatibility
 export function createRateLimiter(windowMs?: number, maxRequests?: number): RateLimiter {
   return new RateLimiter(windowMs, maxRequests)
