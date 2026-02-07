@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
+import FABToolbox from '@/components/FABToolbox'
 import PostFocusToast from '@/components/micro/PostFocusToast'
 import QuickAllyModal from './QuickAllyModal'
 import { useUserStats } from '@/context/UserStatsContext'
@@ -2732,6 +2733,8 @@ export default function FocusDashboard({
           .main { max-width: 680px; }
         }
       `}</style>
+
+      <FABToolbox />
     </div>
   )
 }

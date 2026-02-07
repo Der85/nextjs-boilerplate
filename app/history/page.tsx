@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
 import AppHeader from '@/components/AppHeader'
+import FABToolbox from '@/components/FABToolbox'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
 
@@ -492,6 +493,8 @@ export default function HistoryPage() {
           </ProgressiveCard>
         )}
       </main>
+
+      <FABToolbox />
 
       <style jsx>{styles}</style>
     </div>

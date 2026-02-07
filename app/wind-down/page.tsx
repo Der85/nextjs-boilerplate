@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppHeader from '@/components/AppHeader'
+import FABToolbox from '@/components/FABToolbox'
 
 interface TodayWin {
   id: string
@@ -237,6 +238,8 @@ export default function WindDownPage() {
           </div>
         )}
       </main>
+
+      <FABToolbox />
 
       <style jsx>{styles}</style>
     </div>

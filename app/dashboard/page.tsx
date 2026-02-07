@@ -7,7 +7,7 @@ import { usePresenceWithFallback } from '@/hooks/usePresence'
 import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
-import GamificationSettings from '@/components/GamificationSettings'
+import FABToolbox from '@/components/FABToolbox'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface MoodEntry {
@@ -163,9 +163,6 @@ function DashboardContent() {
   // Mode override from URL (e.g., Brake tool re-entry)
   const [showOverrideToast, setShowOverrideToast] = useState(false)
 
-  // Atomic Dashboard: Toolbox collapsed by default
-  const [toolboxExpanded, setToolboxExpanded] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const { prefs: gamPrefs, isMaintenanceDay } = useGamificationPrefsSafe()
 
   // Check if a "Remind me at 4 PM" reminder has triggered
@@ -775,65 +772,8 @@ function DashboardContent() {
         </div>
       </main>
 
-      {/* ===== FLOATING ACTION BUTTON (FAB) for Toolbox ===== */}
-      {!isRecoveryView && (
-        <>
-          <button
-            className="toolbox-fab"
-            onClick={() => setToolboxExpanded(!toolboxExpanded)}
-            aria-label="Open toolbox"
-          >
-            🧰
-          </button>
-
-          {/* Toolbox Modal Overlay */}
-          {toolboxExpanded && (
-            <>
-              <div className="fab-overlay" onClick={() => setToolboxExpanded(false)} />
-              <div className="fab-modal">
-                <div className="fab-modal-header">
-                  <span className="fab-modal-title">Quick Tools</span>
-                  <button className="fab-modal-close" onClick={() => setToolboxExpanded(false)}>×</button>
-                </div>
-                <div className="fab-modal-grid">
-                  <button onClick={() => { router.push(`/focus?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">⏱️</span>
-                    <span className="fab-tool-label">Focus</span>
-                  </button>
-                  <button onClick={() => { router.push(`/goals?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">🎯</span>
-                    <span className="fab-tool-label">Goals</span>
-                  </button>
-                  <button onClick={() => { router.push(`/ally?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">💜</span>
-                    <span className="fab-tool-label">Stuck</span>
-                  </button>
-                  <button onClick={() => { router.push(`/history?energy=${getEnergyParam(moodScore)}`); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">📊</span>
-                    <span className="fab-tool-label">History</span>
-                  </button>
-                  <button onClick={() => { router.push('/brake'); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">🫁</span>
-                    <span className="fab-tool-label">Breathe</span>
-                  </button>
-                  <button onClick={() => { router.push('/check-in'); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">📋</span>
-                    <span className="fab-tool-label">Check-in</span>
-                  </button>
-                  <button onClick={() => { router.push('/wind-down'); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">🌙</span>
-                    <span className="fab-tool-label">Wind Down</span>
-                  </button>
-                  <button onClick={() => { setSettingsOpen(true); setToolboxExpanded(false) }} className="fab-tool-btn">
-                    <span className="fab-tool-icon">⚙️</span>
-                    <span className="fab-tool-label">Settings</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
+      {/* FAB Toolbox */}
+      <FABToolbox energyParam={getEnergyParam(moodScore)} isRecoveryMode={isRecoveryView} />
 
       {/* Mode Override Toast (from Brake tool re-entry) */}
       {showOverrideToast && (
@@ -841,22 +781,6 @@ function DashboardContent() {
           <span className="override-toast-icon">🌿</span>
           <span className="override-toast-text">State updated from Breathing Session</span>
         </div>
-      )}
-
-      {/* Settings Modal */}
-      {settingsOpen && (
-        <>
-          <div className="settings-overlay" onClick={() => setSettingsOpen(false)} />
-          <div className="settings-modal">
-            <div className="settings-modal-header">
-              <span className="settings-modal-title">Settings</span>
-              <button className="settings-modal-close" onClick={() => setSettingsOpen(false)}>×</button>
-            </div>
-            <div className="settings-modal-content">
-              <GamificationSettings onClose={() => setSettingsOpen(false)} />
-            </div>
-          </div>
-        </>
       )}
 
       <style jsx>{styles}</style>

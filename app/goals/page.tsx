@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import AppHeader from '@/components/AppHeader'
+import FABToolbox from '@/components/FABToolbox'
 import { useUserStats } from '@/context/UserStatsContext'
 import { XP_VALUES } from '@/lib/gamification'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
@@ -799,6 +800,8 @@ function GoalsPageContent() {
       {gamPrefs.showXP && xpToast.visible && (
         <div className="xp-toast">+{xpToast.amount} XP</div>
       )}
+
+      <FABToolbox />
 
       <style jsx>{styles}</style>
     </div>
