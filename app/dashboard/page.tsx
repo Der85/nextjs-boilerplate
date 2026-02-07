@@ -1026,50 +1026,37 @@ function DashboardContent() {
         {/* Mode Override Selector */}
         <div className="mode-override-section">
           <button
-            className="mode-override-trigger"
+            className="btn-hero-action mode-trigger-btn"
             onClick={() => setShowModeSelector(!showModeSelector)}
           >
-            <span className="mode-icon">{modeConfig.icon}</span>
-            <span className="mode-label">{modeConfig.label}</span>
-            {modeManuallySet && <span className="mode-manual-badge">Manual</span>}
+            <span>{modeConfig.icon}</span>
+            <span>{modeConfig.label}</span>
             <span className="mode-chevron">{showModeSelector ? '▲' : '▼'}</span>
           </button>
 
           {showModeSelector && (
             <div className="mode-selector-dropdown">
               <button
-                className={`mode-option ${userMode === 'recovery' ? 'active' : ''}`}
+                className={`mode-option-btn ${userMode === 'recovery' ? 'active' : ''}`}
                 onClick={() => handleModeChange('recovery')}
               >
-                <span className="mode-option-icon">🫂</span>
-                <div className="mode-option-text">
-                  <span className="mode-option-label">Recovery</span>
-                  <span className="mode-option-desc">Low energy, need rest</span>
-                </div>
+                🫂 Recovery
               </button>
               <button
-                className={`mode-option ${userMode === 'maintenance' ? 'active' : ''}`}
+                className={`mode-option-btn ${userMode === 'maintenance' ? 'active' : ''}`}
                 onClick={() => handleModeChange('maintenance')}
               >
-                <span className="mode-option-icon">⚖️</span>
-                <div className="mode-option-text">
-                  <span className="mode-option-label">Steady</span>
-                  <span className="mode-option-desc">Consistent and sustainable</span>
-                </div>
+                ⚖️ Steady
               </button>
               <button
-                className={`mode-option ${userMode === 'growth' ? 'active' : ''}`}
+                className={`mode-option-btn ${userMode === 'growth' ? 'active' : ''}`}
                 onClick={() => handleModeChange('growth')}
               >
-                <span className="mode-option-icon">🚀</span>
-                <div className="mode-option-text">
-                  <span className="mode-option-label">Growth</span>
-                  <span className="mode-option-desc">High energy, push harder</span>
-                </div>
+                🚀 Growth
               </button>
               {modeManuallySet && (
-                <button className="mode-reset-btn" onClick={handleResetAutoMode}>
-                  ↻ Reset to Auto
+                <button className="btn-text-link mode-reset-btn" onClick={handleResetAutoMode}>
+                  Reset to Auto
                 </button>
               )}
             </div>
@@ -2564,58 +2551,29 @@ const styles = `
     position: relative;
   }
 
-  .mode-override-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #536471;
-    font-size: 14px;
-  }
-
-  .mode-override-trigger:hover {
-    color: #0f1419;
-  }
-
-  .mode-icon {
-    font-size: 18px;
-  }
-
-  .mode-label {
-    font-weight: 500;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .mode-manual-badge {
-    font-size: 11px;
-    font-weight: 600;
-    color: #f97316;
-    background: rgba(249, 115, 22, 0.1);
-    padding: 2px 6px;
-    border-radius: 100px;
+  .mode-trigger-btn {
+    width: 100%;
   }
 
   .mode-chevron {
-    font-size: 10px;
-    color: #8899a6;
+    font-size: 12px;
+    opacity: 0.7;
   }
 
   .mode-selector-dropdown {
     position: absolute;
-    top: calc(100% + 4px);
+    top: calc(100% + 8px);
     left: 0;
-    min-width: 220px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     z-index: 50;
-    overflow: hidden;
     animation: dropdownSlide 0.15s ease;
   }
 
@@ -2624,74 +2582,34 @@ const styles = `
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .mode-option {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  .mode-option-btn {
     width: 100%;
-    padding: 12px 14px;
+    padding: 14px 18px;
     background: white;
-    border: none;
-    border-bottom: 1px solid #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f1419;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: all 0.15s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     text-align: left;
   }
 
-  .mode-option:last-of-type {
-    border-bottom: none;
+  .mode-option-btn:hover {
+    border-color: #1D9BF0;
+    background: rgba(29, 155, 240, 0.04);
   }
 
-  .mode-option:hover {
-    background: #f7f9fa;
-  }
-
-  .mode-option.active {
-    background: #f0f9ff;
-  }
-
-  .mode-option.active .mode-option-label {
+  .mode-option-btn.active {
+    border-color: #1D9BF0;
+    background: rgba(29, 155, 240, 0.08);
     color: #1D9BF0;
-  }
-
-  .mode-option-icon {
-    font-size: 20px;
-  }
-
-  .mode-option-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .mode-option-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #0f1419;
-  }
-
-  .mode-option-desc {
-    font-size: 12px;
-    color: #8899a6;
   }
 
   .mode-reset-btn {
-    width: 100%;
-    padding: 10px 14px;
-    background: #f7f9fa;
-    border: none;
-    border-top: 1px solid #f3f4f6;
-    color: #1D9BF0;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  .mode-reset-btn:hover {
-    background: #e5e7eb;
+    margin-top: 4px;
   }
 
   /* ===== FLOATING ACTION BUTTON (FAB) ===== */
