@@ -11,6 +11,7 @@ import {
   type InboxItem,
   type TriageItemRequest,
   type TriageAction,
+  type TriageMetadata,
 } from '@/lib/types/inbox'
 import { isValidUUID } from '@/lib/types/outcomes'
 
@@ -32,7 +33,7 @@ async function convertToTask(
   userId: string,
   inboxItem: InboxItem,
   action: TriageAction,
-  metadata: Record<string, unknown>,
+  metadata: TriageMetadata,
   outcomeId?: string | null,
   commitmentId?: string | null
 ): Promise<{ id: string; task_name: string; status: string } | null> {
@@ -54,7 +55,7 @@ async function convertToTask(
   let dueDate: string | null = null
   if (action === 'do_now') {
     dueDate = 'today'
-  } else if (action === 'schedule' && metadata.scheduled_date) {
+  } else if (action === 'schedule' && 'scheduled_date' in metadata && metadata.scheduled_date) {
     dueDate = metadata.scheduled_date as string
   }
 
