@@ -440,3 +440,237 @@ Optional gentle reminder when inbox pending > threshold:
 - User-configurable threshold (default: 10 items)
 - Configurable reminder frequency (daily, twice daily)
 - No shame language - encouraging tone
+
+---
+
+# Now Mode - Cognitive Load Limiter
+
+## Overview
+
+Now Mode limits active cognitive load to a maximum of 3 actionable tasks, preventing overwhelm by narrowing attention to a small, intentional set.
+
+## Design Decisions
+
+### 1. Fixed 3-Slot Limit
+
+**Decision:** Hard cap of 3 tasks in Now Mode.
+
+**Rationale:**
+- Research-backed cognitive load limit
+- Forces intentional prioritization
+- Reduces decision fatigue
+- Clear visual representation (3 cards)
+
+### 2. Linkage Requirement
+
+**Decision:** Tasks must be linked to Outcome/Commitment before pinning.
+
+**Rationale:**
+- Ensures tasks align with higher-level goals
+- Prevents random task accumulation
+- Maintains outcome-linked architecture
+
+### 3. Time Estimate Warning
+
+**Decision:** Warn (but allow override) for tasks > 90 minutes.
+
+**Rationale:**
+- Encourages task breakdown
+- 90 min is ~2 Pomodoro cycles
+- User can override with explicit acknowledgment
+
+### 4. Strict vs Non-Strict Mode
+
+**Decision:** User-configurable enforcement level.
+
+**Rationale:**
+- Strict: Blocks 4th task completely
+- Non-Strict: Warns but allows overflow
+- Accommodates different user preferences
+
+## Database Schema
+
+### Extended Tables
+
+#### `focus_plans` (new columns)
+```sql
+ALTER TABLE focus_plans
+ADD COLUMN now_slot INTEGER CHECK (now_slot >= 1 AND now_slot <= 3),
+ADD COLUMN estimated_minutes INTEGER CHECK (estimated_minutes >= 1 AND estimated_minutes <= 480);
+```
+
+#### `user_stats` (new columns)
+```sql
+ALTER TABLE user_stats
+ADD COLUMN now_mode_enabled BOOLEAN DEFAULT TRUE,
+ADD COLUMN now_mode_strict_limit BOOLEAN DEFAULT TRUE;
+```
+
+### New Tables
+
+#### `now_mode_events`
+```sql
+CREATE TABLE now_mode_events (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN (
+    'now_mode_enabled', 'now_mode_disabled', 'task_pinned',
+    'task_unpinned', 'task_swapped', 'all_slots_completed',
+    'time_override_warning'
+  )),
+  task_id UUID REFERENCES focus_plans(id),
+  slot_number INTEGER CHECK (slot_number >= 1 AND slot_number <= 3),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+## Business Rules
+
+### Pinning Validation
+1. Task must NOT already be in Now Mode
+2. Current slot count must be < 3 (strict mode) or warn (non-strict)
+3. Task must be linked to Outcome OR Commitment
+4. Task status must NOT be 'completed'
+5. If estimated_minutes > 90, require override confirmation
+
+### Slot Assignment
+- User can specify slot (1, 2, or 3)
+- If not specified, auto-assigns to first available slot
+- Slots are always numbered 1-3 (no gaps)
+
+### Task Completion in Now Mode
+- When task is marked complete, it stays in its slot (visually indicated)
+- When ALL occupied slots are completed, trigger celebration
+- User can unpin completed tasks or add new ones
+
+### Swap Flow
+1. User selects task to swap out
+2. System shows recommended replacements (scored by urgency, time estimate)
+3. User selects replacement
+4. Atomic swap: unpin current, pin replacement to same slot
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/now-mode` | GET | Get current Now Mode state |
+| `/api/now-mode` | PUT | Update Now Mode preferences |
+| `/api/now-mode/pin` | POST | Pin task to Now Mode slot |
+| `/api/now-mode/unpin` | POST | Unpin task from Now Mode |
+| `/api/now-mode/swap` | POST | Swap task in Now Mode |
+| `/api/now-mode/recommended` | GET | Get recommended tasks to pin |
+
+## UI Components
+
+| Component | Purpose |
+|-----------|---------|
+| `NowModePanel` | Main panel with 3 slot cards |
+| `NowModeSlotCard` | Individual slot card (empty or filled) |
+| `NowModeSection` | Self-contained integration component |
+| `SwapTaskModal` | Modal for swapping tasks |
+| `TaskPickerModal` | Modal for selecting tasks to pin |
+
+## File Structure (Now Mode)
+
+```
+migrations/
+└── 008_create_now_mode.sql
+
+lib/types/
+└── now-mode.ts             # Types, guards, validation
+
+app/api/now-mode/
+├── route.ts                # GET state, PUT preferences
+├── pin/route.ts            # POST pin task
+├── unpin/route.ts          # POST unpin task
+├── swap/route.ts           # POST swap task
+└── recommended/route.ts    # GET recommended tasks
+
+components/
+├── NowModePanel.tsx        # Main panel
+├── NowModeSlotCard.tsx     # Slot card
+├── NowModeSection.tsx      # Integration component
+├── SwapTaskModal.tsx       # Swap modal
+└── TaskPickerModal.tsx     # Task picker
+
+context/
+└── NowModeContext.tsx      # State management
+
+tests/unit/
+└── now-mode.test.ts        # Type/validation tests
+```
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `1` | Select/add to slot 1 |
+| `2` | Select/add to slot 2 |
+| `3` | Select/add to slot 3 |
+| `B` | Toggle backlog visibility |
+| `Enter` | Start selected task |
+| `C` | Complete selected task |
+| `S` | Swap selected task |
+| `Escape` | Clear selection |
+
+## Usage
+
+### Add Now Mode to Focus Dashboard
+
+```tsx
+import NowModeSection from '@/components/NowModeSection'
+
+export default function FocusDashboard({ user }) {
+  return (
+    <div>
+      <NowModeSection
+        userId={user.id}
+        onStartTask={(taskId) => startTimer(taskId)}
+        onTaskCompleted={() => refreshPlans()}
+      />
+      {/* rest of dashboard */}
+    </div>
+  )
+}
+```
+
+### Wrap with Context (optional for global state)
+
+```tsx
+import { NowModeProvider } from '@/context/NowModeContext'
+
+export default function Layout({ children }) {
+  return (
+    <NowModeProvider>
+      {children}
+    </NowModeProvider>
+  )
+}
+```
+
+## Analytics Events
+
+| Event | When Emitted |
+|-------|--------------|
+| `now_mode_enabled` | User enables Now Mode |
+| `now_mode_disabled` | User disables Now Mode |
+| `task_pinned_now_mode` | Task pinned to slot |
+| `task_unpinned_now_mode` | Task unpinned from slot |
+| `task_swapped_now_mode` | Task swapped with another |
+| `now_mode_all_slots_completed` | All occupied slots completed |
+| `now_mode_time_override` | User overrode time warning |
+
+## Accessibility
+
+- Full keyboard navigation
+- ARIA labels for slot positions
+- Screen reader announcements for state changes
+- Focus management in modals
+
+## Performance Considerations
+
+1. **Indexes:** `now_slot` column indexed with partial index (WHERE now_slot IS NOT NULL)
+2. **Query Optimization:** Single query fetches all Now Mode tasks with joins
+3. **Caching:** State cached in context, refreshed on mutations
+4. **Optimistic Updates:** UI updates immediately, rollback on error
