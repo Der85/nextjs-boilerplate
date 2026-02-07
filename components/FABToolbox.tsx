@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import GamificationSettings from './GamificationSettings'
@@ -108,6 +108,39 @@ export default function FABToolbox({
   const [expanded, setExpanded] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [animatingOut, setAnimatingOut] = useState(false)
+  const [isIdle, setIsIdle] = useState(false)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Idle detection: Show pulse animation after 10s of no interaction
+  useEffect(() => {
+    const resetIdleTimer = () => {
+      setIsIdle(false)
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+      idleTimerRef.current = setTimeout(() => {
+        setIsIdle(true)
+      }, 10000) // 10 seconds
+    }
+
+    // Initial timer
+    resetIdleTimer()
+
+    // Listen for user interactions
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart']
+    events.forEach(event => {
+      window.addEventListener(event, resetIdleTimer, { passive: true })
+    })
+
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+      events.forEach(event => {
+        window.removeEventListener(event, resetIdleTimer)
+      })
+    }
+  }, [])
 
   // Determine effective mode (legacy prop fallback)
   const effectiveMode: FABMode = isRecoveryMode ? 'recovery' : mode
@@ -394,7 +427,7 @@ export default function FABToolbox({
       {/* Main FAB Button */}
       {!expanded && (
         <button
-          className={`toolbox-fab ${fabConfig.className}`}
+          className={`toolbox-fab ${fabConfig.className} ${isIdle ? 'idle-pulse' : ''}`}
           onClick={() => setExpanded(true)}
           aria-label={fabConfig.label}
           title={fabConfig.label}
@@ -589,6 +622,47 @@ export default function FABToolbox({
 
         .toolbox-fab:active {
           transform: scale(0.95);
+        }
+
+        /* ===== Idle Pulse Animation ===== */
+        .toolbox-fab.idle-pulse {
+          animation: idle-attention 2s ease-in-out infinite;
+        }
+
+        .toolbox-fab.idle-pulse::after {
+          content: '';
+          position: absolute;
+          inset: -6px;
+          border-radius: 50%;
+          border: 2px solid currentColor;
+          opacity: 0;
+          animation: idle-ring 2s ease-in-out infinite;
+        }
+
+        @keyframes idle-attention {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 4px 16px rgba(29, 155, 240, 0.35);
+          }
+          50% {
+            transform: scale(1.08);
+            box-shadow: 0 6px 24px rgba(29, 155, 240, 0.5);
+          }
+        }
+
+        @keyframes idle-ring {
+          0% {
+            transform: scale(0.9);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.1);
+            opacity: 0.6;
+          }
+          100% {
+            transform: scale(1.3);
+            opacity: 0;
+          }
         }
 
         /* ===== Overlay ===== */

@@ -74,6 +74,13 @@ export default function BrainDumpScreen({ onSubmit, onSkip, onQuickStart }: Brai
           max-width: 600px;
           width: 100%;
           text-align: center;
+          padding-bottom: 120px; /* Space for fixed button on mobile */
+        }
+
+        @media (min-width: 768px) {
+          .braindump-content {
+            padding-bottom: 0;
+          }
         }
 
         .braindump-icon {
@@ -137,29 +144,48 @@ export default function BrainDumpScreen({ onSubmit, onSkip, onQuickStart }: Brai
           margin-top: clamp(24px, 6vw, 32px);
         }
 
+        /* Mobile: Fixed bottom action buttons for thumb zone ergonomics */
+        @media (max-width: 767px) {
+          .action-buttons {
+            position: fixed;
+            bottom: 20px;
+            left: 16px;
+            right: 16px;
+            margin-top: 0;
+            z-index: 50;
+            background: linear-gradient(to top, #f7f9fa 80%, transparent);
+            padding-top: 20px;
+          }
+        }
+
         .submit-btn {
           background: #1D9BF0;
           color: white;
           border: none;
-          border-radius: clamp(10px, 2.5vw, 14px);
-          padding: clamp(14px, 4vw, 18px);
-          font-size: clamp(15px, 4vw, 17px);
-          font-weight: 600;
+          border-radius: 14px;
+          padding: 16px 24px;
+          font-size: 1.1rem;
+          font-weight: 700;
           cursor: pointer;
-          transition: background 0.2s ease, transform 0.1s ease;
+          transition: all 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
+          min-height: 56px;
         }
 
         .submit-btn:hover:not(:disabled) {
           background: #1a8cd8;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(29, 155, 240, 0.4);
         }
 
         .submit-btn:active:not(:disabled) {
-          transform: scale(0.98);
+          transform: translateY(0);
+          box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
         }
 
         .submit-btn:disabled {
-          opacity: 0.5;
+          opacity: 0.6;
           cursor: not-allowed;
         }
 

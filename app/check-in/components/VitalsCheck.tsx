@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 import { getMoodEmoji } from '@/lib/utils/ui-helpers'
 
@@ -31,6 +31,16 @@ export default function VitalsCheck({
   const [energy, setEnergy] = useState<EnergyLevel>('medium')
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const noteRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-focus note input on mount (mobile keyboard opens immediately)
+  useEffect(() => {
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      noteRef.current?.focus()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleSubmit = () => {
     if (isSubmitting) return
@@ -110,6 +120,7 @@ export default function VitalsCheck({
         <div className="vitals-section note-section">
           <span className="section-label">Quick note? <span className="optional">(optional)</span></span>
           <textarea
+            ref={noteRef}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="What's on your mind..."
@@ -144,6 +155,13 @@ export default function VitalsCheck({
         .vitals-content {
           max-width: 480px;
           width: 100%;
+          padding-bottom: 100px; /* Space for fixed button on mobile */
+        }
+
+        @media (min-width: 768px) {
+          .vitals-content {
+            padding-bottom: 0;
+          }
         }
 
         .vitals-header {
@@ -369,6 +387,19 @@ export default function VitalsCheck({
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           box-shadow: 0 4px 12px rgba(29, 155, 240, 0.3);
           min-height: 56px;
+        }
+
+        /* Mobile: Fixed bottom button for thumb zone ergonomics */
+        @media (max-width: 767px) {
+          .submit-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 16px;
+            right: 16px;
+            width: auto;
+            margin-top: 0;
+            z-index: 50;
+          }
         }
 
         .submit-btn:hover:not(:disabled) {
