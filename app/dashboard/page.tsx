@@ -8,6 +8,7 @@ import ModeIndicator from '@/components/adhd/ModeIndicator'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
+import WelcomeHero from '@/components/WelcomeHero'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 
 interface MoodEntry {
@@ -144,6 +145,10 @@ function DashboardContent() {
   // "Today's Wins" section
   const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
 
+  // Welcome Hero (Value-First Dashboard)
+  const [welcomeSkipped, setWelcomeSkipped] = useState(false)
+  const [yesterdayWinsCount, setYesterdayWinsCount] = useState(0)
+  const [welcomeTransitioning, setWelcomeTransitioning] = useState(false)
 
   // "Do This Next" recommendation
   const [recommendation, setRecommendation] = useState<{
@@ -351,6 +356,22 @@ function DashboardContent() {
     }
     setTodaysWins(wins)
 
+    // Fetch yesterday's wins count for Welcome Hero
+    const yesterdayStart = new Date()
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+    yesterdayStart.setHours(0, 0, 0, 0)
+    const yesterdayEnd = new Date(yesterdayStart)
+    yesterdayEnd.setHours(23, 59, 59, 999)
+
+    const { data: yesterdayWinsData } = await supabase
+      .from('goal_progress_logs')
+      .select('id')
+      .eq('user_id', userId)
+      .gte('created_at', yesterdayStart.toISOString())
+      .lte('created_at', yesterdayEnd.toISOString())
+
+    setYesterdayWinsCount(yesterdayWinsData?.length || 0)
+
     // Fetch overdue focus plans (incomplete plans from previous days with urgent due_dates)
     const todayDateStr = new Date().toISOString().split('T')[0]
     const { data: overdueCandidates } = await supabase
@@ -540,6 +561,51 @@ function DashboardContent() {
     setFreshStartDismissed(true)
   }
 
+  // Welcome Hero handlers (Value-First Dashboard)
+  const handleWelcomeMoodSelect = async (mood: 'low' | 'okay' | 'good') => {
+    if (!user) return
+
+    // Map mood to score: low=3, okay=6, good=8
+    const moodScoreMap = { low: 3, okay: 6, good: 8 }
+    const score = moodScoreMap[mood]
+
+    setWelcomeTransitioning(true)
+
+    // Save the mood entry
+    await supabase.from('mood_entries').insert({
+      user_id: user.id,
+      mood_score: score,
+      note: null,
+      coach_advice: null,
+    })
+
+    // Set the mode based on mood
+    if (mood === 'low') {
+      setUserMode('recovery')
+    } else if (mood === 'good' && insights?.currentStreak && insights.currentStreak.days > 2) {
+      setUserMode('growth')
+    } else {
+      setUserMode('maintenance')
+    }
+
+    // Set the mood score for compatibility with existing logic
+    setMoodScore(score)
+
+    // Refresh data to update hasCheckedInToday
+    await fetchData(user.id)
+
+    // Brief delay for smooth transition animation
+    setTimeout(() => {
+      setWelcomeTransitioning(false)
+    }, 300)
+  }
+
+  const handleWelcomeSkip = () => {
+    setWelcomeSkipped(true)
+    // Default to maintenance mode when skipped
+    setUserMode('maintenance')
+  }
+
   // Phase 1: Get mode-specific styling and content
   const getModeConfig = () => {
     switch (userMode) {
@@ -622,6 +688,19 @@ function DashboardContent() {
   // This eliminates choice paralysis by showing the single most important action.
   const renderHero = () => {
     const energy = getEnergyParam(moodScore)
+
+    // PRIORITY 0: Welcome Hero — Value-First Dashboard
+    // Show when user hasn't checked in today and hasn't skipped
+    if (!hasCheckedInToday && !welcomeSkipped && !welcomeTransitioning) {
+      return (
+        <WelcomeHero
+          insights={insights}
+          yesterdayWinsCount={yesterdayWinsCount}
+          onMoodSelect={handleWelcomeMoodSelect}
+          onSkip={handleWelcomeSkip}
+        />
+      )
+    }
 
     // PRIORITY 1: Recovery Mode — absolute simplicity
     if (isRecoveryView) {
