@@ -49,11 +49,11 @@ export default function AppHeader({
         <div
           className="notification-bar"
           style={{
-            background: `${notificationBar.color}12`,
-            color: notificationBar.color,
+            background: `${notificationBar.color}15`,
+            borderLeft: `3px solid ${notificationBar.color}`,
           }}
         >
-          {notificationBar.icon && <span className="notif-icon">{notificationBar.icon}</span>}
+          {notificationBar.icon && <span className="notif-icon" style={{ color: notificationBar.color }}>{notificationBar.icon}</span>}
           <span className="notif-text">{notificationBar.text}</span>
         </div>
       )}
@@ -155,6 +155,7 @@ export default function AppHeader({
 
         .notif-text {
           line-height: 1.3;
+          color: #1f2937;
         }
       `}</style>
     </>
