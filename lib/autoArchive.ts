@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 interface OverdueTask {
   id: string
@@ -27,6 +27,7 @@ interface AutoArchiveResult {
  * This runs on dashboard load to ensure the user never faces a backlog.
  */
 export async function autoArchiveOverdueTasks(userId: string): Promise<AutoArchiveResult> {
+  const supabase = createClient()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -101,6 +102,7 @@ export async function autoArchiveOverdueTasks(userId: string): Promise<AutoArchi
  * Only shows tasks that were auto-archived since the user's last session
  */
 export async function getRecentlyAutoArchivedTasks(userId: string): Promise<OverdueTask[]> {
+  const supabase = createClient()
   try {
     // Get tasks that were auto-archived in the last 7 days
     const sevenDaysAgo = new Date()
@@ -131,6 +133,7 @@ export async function getRecentlyAutoArchivedTasks(userId: string): Promise<Over
  * Used for the reschedule safety cap
  */
 export async function getTasksDueTomorrow(userId: string): Promise<number> {
+  const supabase = createClient()
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
@@ -165,6 +168,7 @@ export async function spreadTasksAcrossDays(
 ): Promise<boolean> {
   if (taskIds.length === 0) return true
 
+  const supabase = createClient()
   try {
     const updates: { id: string; due_date: string }[] = []
     let currentDate = new Date()
@@ -219,6 +223,7 @@ export async function restoreAutoArchivedTask(
   taskId: string,
   newDueDate?: string
 ): Promise<boolean> {
+  const supabase = createClient()
   try {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)

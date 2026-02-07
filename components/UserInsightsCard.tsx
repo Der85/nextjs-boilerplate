@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 interface UserInsights {
   totalCheckIns: number
@@ -16,6 +16,7 @@ interface UserInsights {
 }
 
 export function UserInsightsCard() {
+  const supabase = createClient()
   const [insights, setInsights] = useState<UserInsights | null>(null)
   const [loading, setLoading] = useState(true)
 

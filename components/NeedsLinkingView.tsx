@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import ParentSelector from './ParentSelector'
 
 interface UnlinkedTask {
@@ -15,6 +15,7 @@ interface NeedsLinkingViewProps {
 }
 
 export default function NeedsLinkingView({ onTaskLinked }: NeedsLinkingViewProps) {
+  const supabase = createClient()
   const [tasks, setTasks] = useState<UnlinkedTask[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)

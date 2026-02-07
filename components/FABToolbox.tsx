@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import GamificationSettings from './GamificationSettings'
 
 type FABMode = 'pre-checkin' | 'recovery' | 'maintenance' | 'growth'
@@ -103,6 +103,7 @@ export default function FABToolbox({
   // Legacy prop - convert to mode if needed
   isRecoveryMode,
 }: FABToolboxProps) {
+  const supabase = createClient()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)

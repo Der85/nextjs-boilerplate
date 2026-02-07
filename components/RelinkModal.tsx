@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import ParentSelector from './ParentSelector'
 
 interface ActiveTask {
@@ -26,6 +26,7 @@ export default function RelinkModal({
   onClose,
   onRelinked,
 }: RelinkModalProps) {
+  const supabase = createClient()
   const [selectedOutcomeId, setSelectedOutcomeId] = useState<string | null>(null)
   const [selectedCommitmentId, setSelectedCommitmentId] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)

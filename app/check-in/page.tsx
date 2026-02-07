@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { calculateXP, checkAchievements, getXPForNextLevel, calculateLevel } from '@/lib/gamification'
 import type { SessionData, Badge, UserStats } from '@/lib/gamification'
 import { getGreeting } from '@/lib/utils/ui-helpers'
@@ -22,6 +22,7 @@ interface CoachResponse {
 }
 
 export default function CheckInPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)

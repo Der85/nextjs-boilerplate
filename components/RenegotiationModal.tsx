@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import {
   type RenegotiationAction,
   type RenegotiationReasonCode,
@@ -42,6 +42,7 @@ export default function RenegotiationModal({
   onClose,
   onComplete,
 }: RenegotiationModalProps) {
+  const supabase = createClient()
   const [step, setStep] = useState<ModalStep>('action')
   const [selectedAction, setSelectedAction] = useState<RenegotiationAction | null>(null)
   const [selectedReason, setSelectedReason] = useState<RenegotiationReasonCode | null>(null)

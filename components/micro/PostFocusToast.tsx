@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 interface PostFocusToastProps {
   userId: string
@@ -18,6 +18,7 @@ const FOCUS_MAP: Record<FocusQuality, { icon: string; label: string; focus_diffi
 }
 
 export default function PostFocusToast({ userId, show, onDismiss }: PostFocusToastProps) {
+  const supabase = createClient()
   const [saving, setSaving] = useState(false)
 
   if (!show) return null

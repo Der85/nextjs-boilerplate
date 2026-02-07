@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 import ParentSelector from '@/components/ParentSelector'
@@ -39,6 +39,7 @@ export default function TriagePage() {
 }
 
 function TriagePageContent() {
+  const supabase = createClient()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)

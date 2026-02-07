@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import {
   type CheckinScale,
   type UpsertCheckinRequest,
@@ -28,6 +28,7 @@ export default function DailyCheckinModal({
   onComplete,
   initialValues,
 }: DailyCheckinModalProps) {
+  const supabase = createClient()
   const [values, setValues] = useState({
     overwhelm: initialValues?.overwhelm ?? (3 as CheckinScale),
     anxiety: initialValues?.anxiety ?? (3 as CheckinScale),

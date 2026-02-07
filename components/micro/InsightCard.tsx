@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 // ============================================
 // Types
@@ -25,6 +25,7 @@ interface InsightCardProps {
 // Footer: "Was this helpful?" Thumbs Up / Down
 // ============================================
 export default function InsightCard({ insight, onDismiss }: InsightCardProps) {
+  const supabase = createClient()
   const [helpful, setHelpful] = useState<boolean | null>(null)
   const [dismissed, setDismissed] = useState(false)
 

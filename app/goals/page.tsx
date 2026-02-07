@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
@@ -83,6 +83,7 @@ const getEnergyBg = (level: string) => {
 // API Helper
 // ============================================
 async function fetchGoalsCoach(action: string, data: Record<string, any> = {}) {
+  const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Not authenticated')
 
@@ -132,6 +133,7 @@ export default function GoalsPage() {
 }
 
 function GoalsPageContent() {
+  const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const energyParam = searchParams.get('energy') as 'low' | 'medium' | 'high' | null

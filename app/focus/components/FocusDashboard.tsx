@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 import PostFocusToast from '@/components/micro/PostFocusToast'
@@ -78,6 +78,7 @@ export default function FocusDashboard({
   onNewBrainDump,
   onPlansUpdate,
 }: FocusDashboardProps) {
+  const supabase = createClient()
   const router = useRouter()
   const { awardXP } = useUserStats()
   const { prefs: gamPrefs } = useGamificationPrefsSafe()

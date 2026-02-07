@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { hasCompletedOnboarding, setOnboardingCompleted } from '@/lib/prefetch'
 
 // Type for onboarding path based on mood score
@@ -12,6 +12,7 @@ type OnboardingPath = 'recovery' | 'maintenance' | 'growth'
 type RegulationState = 'regulated' | 'dysregulated'
 
 export default function OnboardingPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [isLoading, setIsLoading] = useState(false)

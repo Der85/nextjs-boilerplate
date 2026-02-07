@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 interface MorningSleepCardProps {
   userId: string
@@ -9,6 +9,7 @@ interface MorningSleepCardProps {
 }
 
 export default function MorningSleepCard({ userId, onDismiss }: MorningSleepCardProps) {
+  const supabase = createClient()
   const [sleepValue, setSleepValue] = useState(5)
   const [saving, setSaving] = useState(false)
 

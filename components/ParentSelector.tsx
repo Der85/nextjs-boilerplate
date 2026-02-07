@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import type {
   Outcome,
   Commitment,
@@ -32,6 +32,7 @@ export default function ParentSelector({
   onSelect,
   disabled = false,
 }: ParentSelectorProps) {
+  const supabase = createClient()
   const [tab, setTab] = useState<ParentSelectorTab>('outcome')
   const [outcomes, setOutcomes] = useState<Outcome[]>([])
   const [commitments, setCommitments] = useState<CommitmentWithOutcome[]>([])

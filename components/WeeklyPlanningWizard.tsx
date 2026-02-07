@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import {
   type WeeklyPlanFull,
   type WizardStep,
@@ -48,6 +48,7 @@ export default function WeeklyPlanningWizard({
   onClose,
   onComplete,
 }: WeeklyPlanningWizardProps) {
+  const supabase = createClient()
   const [currentStep, setCurrentStep] = useState<WizardStep>('review')
   const [plan, setPlan] = useState<WeeklyPlanFull | null>(null)
   const [weekInfo, setWeekInfo] = useState<WeekInfo | null>(null)

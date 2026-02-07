@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import NowModePanel from './NowModePanel'
 import TaskPickerModal from './TaskPickerModal'
 import type {
@@ -37,6 +37,7 @@ export default function NowModeSection({
   onTaskCompleted,
   className = '',
 }: NowModeSectionProps) {
+  const supabase = createClient()
   const [state, setState] = useState<NowModeState>(defaultState)
   const [loading, setLoading] = useState(true)
   const [backlogVisible, setBacklogVisible] = useState(false)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 
@@ -47,6 +47,7 @@ const DRAIN_CHIPS: DrainChip[] = [
 ]
 
 export default function BurnoutPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)

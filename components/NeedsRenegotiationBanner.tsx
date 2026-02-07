@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { type TaskNeedingRenegotiation, formatDaysOverdue } from '@/lib/types/renegotiation'
 import RenegotiationModal from './RenegotiationModal'
 
@@ -14,6 +14,7 @@ export default function NeedsRenegotiationBanner({
   className = '',
   onTaskUpdated,
 }: NeedsRenegotiationBannerProps) {
+  const supabase = createClient()
   const [tasks, setTasks] = useState<TaskNeedingRenegotiation[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<TaskNeedingRenegotiation | null>(null)

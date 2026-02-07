@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import { saveFocusFlowDraft, loadFocusFlowDraft, clearFocusFlowDraft } from '@/lib/focusFlowState'
 import FocusSkeleton from '@/components/FocusSkeleton'
@@ -63,6 +63,7 @@ export default function FocusPage() {
 }
 
 function FocusPageContent() {
+  const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
 

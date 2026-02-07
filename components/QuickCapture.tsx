@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { parseTokens, type CaptureSource } from '@/lib/types/inbox'
 
 interface QuickCaptureProps {
@@ -17,6 +17,7 @@ export default function QuickCapture({
   onCaptured,
   source = 'quick_capture',
 }: QuickCaptureProps) {
+  const supabase = createClient()
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)

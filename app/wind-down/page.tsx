@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 
@@ -16,6 +16,7 @@ interface TodayWin {
 type WindDownStep = 'loading' | 'wins' | 'tomorrow' | 'breathe' | 'done'
 
 export default function WindDownPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [step, setStep] = useState<WindDownStep>('loading')
   const [todayWins, setTodayWins] = useState<TodayWin[]>([])

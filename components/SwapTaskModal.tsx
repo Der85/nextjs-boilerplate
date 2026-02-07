@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import type { NowModeTask } from '@/lib/types/now-mode'
 
 interface RecommendedTask {
@@ -29,6 +29,7 @@ export default function SwapTaskModal({
   currentTask,
   excludeTaskIds,
 }: SwapTaskModalProps) {
+  const supabase = createClient()
   const [recommendations, setRecommendations] = useState<RecommendedTask[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)

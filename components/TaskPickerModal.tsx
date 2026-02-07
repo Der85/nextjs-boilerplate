@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import type { NowSlot } from '@/lib/types/now-mode'
 
 interface PickableTask {
@@ -29,6 +29,7 @@ export default function TaskPickerModal({
   slot,
   excludeTaskIds,
 }: TaskPickerModalProps) {
+  const supabase = createClient()
   const [tasks, setTasks] = useState<PickableTask[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)

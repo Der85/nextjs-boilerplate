@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 // Types for prefetched data
 export interface PrefetchedInsights {
@@ -73,6 +73,7 @@ export function clearPrefetchCache(): void {
 
 // Main prefetch function - runs during splash screen
 export async function prefetchDashboardData(userId: string): Promise<PrefetchedData> {
+  const supabase = createClient()
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
 
@@ -210,6 +211,7 @@ export async function checkOnboardingStatus(userId: string): Promise<boolean> {
   }
 
   // Fallback: Check if user has any mood entries (created during onboarding)
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('mood_entries')
     .select('id')

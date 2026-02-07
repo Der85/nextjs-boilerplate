@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 interface QuickJournalProps {
   onSave?: () => void
@@ -9,6 +9,7 @@ interface QuickJournalProps {
 }
 
 export default function QuickJournal({ onSave, onClose }: QuickJournalProps) {
+  const supabase = createClient()
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)

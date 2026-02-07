@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import {
   type CheckinTrendPoint,
   type CheckinCorrelations,
@@ -28,6 +28,7 @@ interface TrendData {
 }
 
 export default function CheckinInsightsWidget({ className = '' }: CheckinInsightsWidgetProps) {
+  const supabase = createClient()
   const [trendData, setTrendData] = useState<TrendData | null>(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<'week' | 'month'>('week')

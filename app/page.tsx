@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import SplashScreen from '@/components/SplashScreen'
 import {
   prefetchDashboardData,
@@ -13,6 +13,7 @@ import {
 type RoutingState = 'loading' | 'routing' | 'offline'
 
 export default function SmartEntryRouter() {
+  const supabase = createClient()
   const router = useRouter()
   const [state, setState] = useState<RoutingState>('loading')
   const [showSlowMessage, setShowSlowMessage] = useState(false)

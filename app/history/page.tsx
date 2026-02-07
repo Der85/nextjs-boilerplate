@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
@@ -89,6 +89,7 @@ function groupPlansByDateAndGoal(plans: CompletedPlan[], goals: GoalInfo[]): Dat
 }
 
 export default function HistoryPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState<MoodEntry[]>([])

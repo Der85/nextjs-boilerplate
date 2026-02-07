@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { RealtimeChannel } from '@supabase/supabase-js'
 
 // ============================================
@@ -50,9 +50,10 @@ const getSpiritAnimal = (userId: string): string => {
 // Hook
 // ============================================
 export function usePresence(options: UsePresenceOptions = {}): UsePresenceReturn {
-  const { 
-    isFocusing = false, 
-    roomName = 'room_global' 
+  const supabase = createClient()
+  const {
+    isFocusing = false,
+    roomName = 'room_global'
   } = options
 
   const [onlineCount, setOnlineCount] = useState(0)

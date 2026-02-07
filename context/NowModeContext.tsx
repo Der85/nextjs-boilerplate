@@ -8,7 +8,7 @@ import {
   useCallback,
   ReactNode,
 } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import type {
   NowModeState,
   NowModeSlotState,
@@ -45,6 +45,7 @@ const defaultState: NowModeState = {
 const NowModeContext = createContext<NowModeContextType | null>(null)
 
 export function NowModeProvider({ children }: { children: ReactNode }) {
+  const supabase = createClient()
   const [state, setState] = useState<NowModeState>(defaultState)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

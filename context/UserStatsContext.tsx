@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { getXPForNextLevel, getXPForAction, calculateLevel, type XPAction } from '@/lib/gamification'
 
 export interface UserStats {
@@ -60,6 +60,7 @@ export function getLevelProgress(stats: UserStats) {
 }
 
 export function UserStatsProvider({ children }: { children: ReactNode }) {
+  const supabase = createClient()
   const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
 

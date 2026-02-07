@@ -8,7 +8,7 @@ import {
   useCallback,
   ReactNode,
 } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import {
   type DailyCheckinWithMetadata,
   type AdaptiveState,
@@ -33,6 +33,7 @@ const DailyCheckinContext = createContext<DailyCheckinContextType | null>(null)
 const DISMISS_KEY = 'daily_checkin_dismissed'
 
 export function DailyCheckinProvider({ children }: { children: ReactNode }) {
+  const supabase = createClient()
   const [checkin, setCheckin] = useState<DailyCheckinWithMetadata | null>(null)
   const [adaptiveState, setAdaptiveState] = useState<AdaptiveState>(DEFAULT_ADAPTIVE_STATE)
   const [needsCheckinToday, setNeedsCheckinToday] = useState(false)

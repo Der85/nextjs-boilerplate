@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 import OverwhelmNotification from '@/components/OverwhelmNotification'
 
@@ -18,6 +18,7 @@ const emotions = [
 ]
 
 export default function BreakOnboardingPage() {
+  const supabase = createClient()
   const router = useRouter()
 
   // Transparent overwhelm logging - asks user for consent before logging

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import AppHeader from '@/components/AppHeader'
 import FABToolbox from '@/components/FABToolbox'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
@@ -68,6 +68,7 @@ const getClientTimeZone = (): string => {
 }
 
 async function fetchStuckCoach(step: string, data: Record<string, any> = {}) {
+  const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Not authenticated')
 
@@ -115,6 +116,7 @@ const STATIC_ACTIONS: ActionSuggestion[] = [
 // Main Component
 // ============================================
 export default function AllyPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
 

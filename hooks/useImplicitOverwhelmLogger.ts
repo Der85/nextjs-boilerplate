@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 
 /**
  * TRANSPARENT Overwhelm Logger
@@ -23,6 +23,7 @@ interface UseTransparentOverwhelmLoggerReturn {
 }
 
 export function useImplicitOverwhelmLogger(): UseTransparentOverwhelmLoggerReturn {
+  const supabase = createClient()
   const initialized = useRef(false)
   const [showNotification, setShowNotification] = useState(false)
   const [isLogged, setIsLogged] = useState(false)
