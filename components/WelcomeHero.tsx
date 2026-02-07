@@ -15,6 +15,7 @@ interface UserInsights {
 interface WelcomeHeroProps {
   insights: UserInsights | null
   yesterdayWinsCount: number
+  hasOverdueTasks?: boolean  // True if there are archived overdue tasks
   onMoodSelect: (mood: 'low' | 'okay' | 'good') => void
   onSkip: () => void
 }
@@ -54,6 +55,7 @@ const getTimeGreeting = (): string => {
 export default function WelcomeHero({
   insights,
   yesterdayWinsCount,
+  hasOverdueTasks = false,
   onMoodSelect,
   onSkip,
 }: WelcomeHeroProps) {
@@ -107,6 +109,13 @@ export default function WelcomeHero({
 
     // Priority 4: Returning after absence (3+ days)
     if (daysSinceLastCheckIn >= 3) {
+      // Person-first messaging: If they have overdue tasks, we've handled them gracefully
+      if (hasOverdueTasks) {
+        return {
+          text: "Welcome back. Fresh start — we've kept things tidy while you were away.",
+          icon: '🌱',
+        }
+      }
       return {
         text: "Welcome back. No catching up needed — let's just start from here.",
         icon: '🌱',

@@ -11,8 +11,11 @@ import FABToolbox from '@/components/FABToolbox'
 import WelcomeHero from '@/components/WelcomeHero'
 import SoftLandingHero from '@/components/SoftLandingHero'
 import GentleCheckIn from '@/components/GentleCheckIn'
+import GentleTidyUp from '@/components/GentleTidyUp'
+import TriageModal from '@/components/TriageModal'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
 import { getCachedPrefetchData, clearPrefetchCache, type PrefetchedData } from '@/lib/prefetch'
+import { autoArchiveOverdueTasks, getRecentlyAutoArchivedTasks, getTasksDueTomorrow, spreadTasksAcrossDays } from '@/lib/autoArchive'
 
 interface MoodEntry {
   id: string
@@ -139,11 +142,13 @@ function DashboardContent() {
   const { onlineCount } = usePresenceWithFallback({ isFocusing: false })
 
 
-  // Fresh Start (overdue task cleanup)
+  // Gentle Tidy Up (non-blocking overdue task card)
   const [overduePlans, setOverduePlans] = useState<OverduePlan[]>([])
-  const [freshStartDismissed, setFreshStartDismissed] = useState(false)
+  const [tidyUpDismissed, setTidyUpDismissed] = useState(false)
+  const [tidyUpHidden, setTidyUpHidden] = useState(false) // Permanently hidden after 3 consecutive dismissals
   const [freshStartProcessing, setFreshStartProcessing] = useState(false)
-  const [freshStartReminded, setFreshStartReminded] = useState(false)
+  const [triageModalOpen, setTriageModalOpen] = useState(false)
+  const [tasksDueTomorrow, setTasksDueTomorrow] = useState(0)
 
   // "Today's Wins" section
   const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
@@ -182,13 +187,11 @@ function DashboardContent() {
 
   const { prefs: gamPrefs, isMaintenanceDay } = useGamificationPrefsSafe()
 
-  // Check if a "Remind me at 4 PM" reminder has triggered
+  // Check localStorage for consecutive tidy-up dismissals (hide after 3)
   useEffect(() => {
-    const remindAt = localStorage.getItem('fresh-start-remind-at')
-    if (remindAt && Date.now() >= Number(remindAt)) {
-      localStorage.removeItem('fresh-start-remind-at')
-      setFreshStartDismissed(false)
-      setFreshStartReminded(true)
+    const dismissCount = localStorage.getItem('tidy-up-dismiss-count')
+    if (dismissCount && parseInt(dismissCount) >= 3) {
+      setTidyUpHidden(true)
     }
   }, [])
 
@@ -444,27 +447,23 @@ function DashboardContent() {
 
     setYesterdayWinsCount(yesterdayWinsData?.length || 0)
 
-    // Fetch overdue focus plans (incomplete plans from previous days with urgent due_dates)
-    const todayDateStr = new Date().toISOString().split('T')[0]
-    const { data: overdueCandidates } = await supabase
-      .from('focus_plans')
-      .select('id, task_name, due_date, created_at')
-      .eq('user_id', userId)
-      .eq('is_completed', false)
-      .in('due_date', ['today', 'tomorrow'])
+    // Auto-archive overdue tasks (2+ days old) before fetching
+    // This runs silently in the background so user never sees a backlog
+    await autoArchiveOverdueTasks(userId)
 
-    if (overdueCandidates) {
-      const overdue = overdueCandidates.filter(p => {
-        const createdDate = new Date(p.created_at).toISOString().split('T')[0]
-        if (p.due_date === 'today' && createdDate < todayDateStr) return true
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayStr = yesterday.toISOString().split('T')[0]
-        if (p.due_date === 'tomorrow' && createdDate < yesterdayStr) return true
-        return false
-      })
-      setOverduePlans(overdue as OverduePlan[])
-    }
+    // Fetch recently auto-archived tasks for the Gentle Tidy Up card
+    // These are tasks that were auto-archived in the last 7 days
+    const autoArchivedTasks = await getRecentlyAutoArchivedTasks(userId)
+    setOverduePlans(autoArchivedTasks.map(t => ({
+      id: t.id,
+      task_name: t.task_name,
+      due_date: t.due_date,
+      created_at: t.created_at,
+    })) as OverduePlan[])
+
+    // Get count of tasks already due tomorrow (for safety cap)
+    const tomorrowCount = await getTasksDueTomorrow(userId)
+    setTasksDueTomorrow(tomorrowCount)
   }
 
   // Phase 1: User Mode calculation logic
@@ -651,7 +650,7 @@ function DashboardContent() {
       .in('id', ids)
       .eq('user_id', user.id)
     setOverduePlans([])
-    setFreshStartDismissed(true)
+    setTidyUpDismissed(true)
     setFreshStartProcessing(false)
   }
 
@@ -665,7 +664,7 @@ function DashboardContent() {
       .in('id', ids)
       .eq('user_id', user.id)
     setOverduePlans([])
-    setFreshStartDismissed(true)
+    setTidyUpDismissed(true)
     setFreshStartProcessing(false)
   }
 
@@ -679,19 +678,88 @@ function DashboardContent() {
       .in('id', ids)
       .eq('user_id', user.id)
     setOverduePlans([])
-    setFreshStartDismissed(true)
+    setTidyUpDismissed(true)
     setFreshStartProcessing(false)
   }
 
-  const handleFreshStartRemind4PM = () => {
-    const now = new Date()
-    const fourPM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0)
-    // If it's already past 4 PM, set for tomorrow
-    if (now >= fourPM) {
-      fourPM.setDate(fourPM.getDate() + 1)
+  // Gentle Tidy Up handlers
+  const handleTidyUpDismiss = () => {
+    // Track consecutive dismissals in localStorage
+    const currentCount = parseInt(localStorage.getItem('tidy-up-dismiss-count') || '0')
+    const newCount = currentCount + 1
+    localStorage.setItem('tidy-up-dismiss-count', String(newCount))
+
+    // After 3 consecutive dismissals, hide permanently
+    if (newCount >= 3) {
+      setTidyUpHidden(true)
     }
-    localStorage.setItem('fresh-start-remind-at', String(fourPM.getTime()))
-    setFreshStartDismissed(true)
+
+    setTidyUpDismissed(true)
+  }
+
+  const handleTidyUpReview = () => {
+    // Reset the consecutive dismissal count when user actually reviews
+    localStorage.removeItem('tidy-up-dismiss-count')
+    // Open the triage modal instead of navigating
+    setTriageModalOpen(true)
+  }
+
+  // Triage Modal handlers
+  const handleTriageClose = () => {
+    setTriageModalOpen(false)
+    // If all items were handled, dismiss the tidy-up card
+    if (overduePlans.length === 0) {
+      setTidyUpDismissed(true)
+    }
+  }
+
+  const handleTriageArchiveAll = async () => {
+    if (!user || overduePlans.length === 0) return
+    const ids = overduePlans.map(p => p.id)
+    await supabase
+      .from('focus_plans')
+      .update({ due_date: null, status: 'archived' })
+      .in('id', ids)
+      .eq('user_id', user.id)
+    setOverduePlans([])
+    setTidyUpDismissed(true)
+  }
+
+  const handleTriageArchiveSelected = async (ids: string[]) => {
+    if (!user || ids.length === 0) return
+    await supabase
+      .from('focus_plans')
+      .update({ due_date: null, status: 'archived' })
+      .in('id', ids)
+      .eq('user_id', user.id)
+    // Remove archived items from local state
+    setOverduePlans(prev => prev.filter(p => !ids.includes(p.id)))
+  }
+
+  const handleTriageRescheduleSelected = async (ids: string[]) => {
+    if (!user || ids.length === 0) return
+    // Reschedule to tomorrow (not today - reduces pressure)
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+
+    await supabase
+      .from('focus_plans')
+      .update({ due_date: tomorrowStr })
+      .in('id', ids)
+      .eq('user_id', user.id)
+    // Remove rescheduled items from overdue list
+    setOverduePlans(prev => prev.filter(p => !ids.includes(p.id)))
+    // Update tomorrow count
+    setTasksDueTomorrow(prev => prev + ids.length)
+  }
+
+  const handleTriageSpreadTasks = async (ids: string[]) => {
+    if (!user || ids.length === 0) return
+    // Use the spreadTasksAcrossDays utility to distribute tasks
+    await spreadTasksAcrossDays(user.id, ids)
+    // Remove spread items from overdue list
+    setOverduePlans(prev => prev.filter(p => !ids.includes(p.id)))
   }
 
   // Welcome Hero handlers (Value-First Dashboard)
@@ -830,6 +898,7 @@ function DashboardContent() {
         <WelcomeHero
           insights={insights}
           yesterdayWinsCount={yesterdayWinsCount}
+          hasOverdueTasks={overduePlans.length > 0}
           onMoodSelect={handleWelcomeMoodSelect}
           onSkip={handleWelcomeSkip}
         />
@@ -871,47 +940,8 @@ function DashboardContent() {
       )
     }
 
-    // PRIORITY 2: Fresh Start — simplified (only 2 options to reduce decision fatigue)
-    if (overduePlans.length > 0 && !freshStartDismissed) {
-      return (
-        <div className="card hero-card fresh-start-hero">
-          <div className="hero-icon">🌅</div>
-          <h2 className="hero-title">Fresh Start</h2>
-          <p className="hero-subtitle">
-            {overduePlans.length} item{overduePlans.length !== 1 ? 's' : ''} from yesterday
-          </p>
-          <div className="fresh-start-items">
-            {overduePlans.slice(0, 2).map(p => (
-              <div key={p.id} className="fresh-start-item">
-                <span className="fresh-start-item-dot" />
-                <span className="fresh-start-item-text">{p.task_name}</span>
-              </div>
-            ))}
-            {overduePlans.length > 2 && (
-              <p className="fresh-start-more">+{overduePlans.length - 2} more</p>
-            )}
-          </div>
-          <div className="fresh-start-actions-simple">
-            <button
-              className="hero-btn primary"
-              onClick={handleFreshStartMoveToday}
-              disabled={freshStartProcessing}
-            >
-              📋 Move to Today
-            </button>
-            <button
-              className="hero-btn secondary"
-              onClick={handleFreshStartBacklog}
-              disabled={freshStartProcessing}
-            >
-              🌊 Backlog
-            </button>
-          </div>
-        </div>
-      )
-    }
-
-    // PRIORITY 3: Just One Thing (recommendation or fallback)
+    // PRIORITY 2: Just One Thing (recommendation or fallback)
+    // Note: Fresh Start removed from hero hierarchy — now a non-blocking card below
     const just1 = recommendation
       ? { label: recommendation.suggestion, url: recommendation.url }
       : activeGoal
@@ -956,8 +986,19 @@ function DashboardContent() {
       <main className="main">
         {/* ===== "ONE THING" DASHBOARD =====
             Aggressive progressive disclosure: only ONE hero element at a time.
-            Strict hierarchy: 1. Recovery → 2. Fresh Start → 3. Just One Thing */}
+            Strict hierarchy: 1. Recovery → 2. Just One Thing */}
         {renderHero()}
+
+        {/* Gentle Tidy Up - non-blocking card for overdue tasks
+            Only shown: after user has checked in, if there are overdue tasks,
+            if not dismissed this session, and if not hidden permanently */}
+        {hasCheckedInToday && overduePlans.length > 0 && !tidyUpDismissed && !tidyUpHidden && (
+          <GentleTidyUp
+            overdueCount={overduePlans.length}
+            onDismiss={handleTidyUpDismiss}
+            onReview={handleTidyUpReview}
+          />
+        )}
 
         {/* Mode Override Selector */}
         <div className="mode-override-section">
@@ -1062,6 +1103,18 @@ function DashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Triage Modal (bulk-first overdue item handling) */}
+      <TriageModal
+        isOpen={triageModalOpen}
+        items={overduePlans}
+        tasksDueTomorrow={tasksDueTomorrow}
+        onClose={handleTriageClose}
+        onArchiveAll={handleTriageArchiveAll}
+        onArchiveSelected={handleTriageArchiveSelected}
+        onRescheduleSelected={handleTriageRescheduleSelected}
+        onSpreadTasks={handleTriageSpreadTasks}
+      />
 
       <style jsx>{styles}</style>
     </div>
