@@ -778,17 +778,22 @@ function DashboardContent() {
     )
   }
 
+  // Determine header mode (accounts for pre-check-in state)
+  const getHeaderMode = (): 'pre-checkin' | 'recovery' | 'maintenance' | 'growth' => {
+    if (!hasCheckedInToday && !welcomeSkipped) return 'pre-checkin'
+    return userMode
+  }
+
+  const headerMode = getHeaderMode()
+  const isReturningUser = insights ? insights.daysSinceLastCheckIn >= 3 : false
+
   return (
     <div className={`dashboard ${isRecoveryView ? 'recovery-dimmed zen-mode' : ''}`}>
       <AppHeader
-        onlineCount={onlineCount}
-        notificationBar={{
-          text: modeConfig.message,
-          color: modeConfig.color,
-          icon: modeConfig.icon,
-        }}
-        brakeVariant={brakeVariant}
-        userMode={userMode}
+        mode={headerMode}
+        isReturningUser={isReturningUser}
+        streakCount={insights?.currentStreak?.days || 0}
+        moodTrending={insights?.trend || undefined}
       />
 
       <main className="main">
