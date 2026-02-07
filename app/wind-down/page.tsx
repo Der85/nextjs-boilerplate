@@ -239,7 +239,7 @@ export default function WindDownPage() {
         )}
       </main>
 
-      <FABToolbox />
+      <FABToolbox mode="maintenance" />
 
       <style jsx>{styles}</style>
     </div>

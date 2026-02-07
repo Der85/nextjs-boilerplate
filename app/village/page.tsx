@@ -722,7 +722,7 @@ export default function VillagePage() {
         </div>
       </main>
 
-      <FABToolbox />
+      <FABToolbox mode="maintenance" />
 
       <style jsx>{styles}</style>
     </div>

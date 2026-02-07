@@ -465,7 +465,7 @@ export default function BurnoutPage() {
         )}
       </main>
 
-      <FABToolbox />
+      <FABToolbox mode="recovery" />
 
       <style jsx>{styles}</style>
     </div>

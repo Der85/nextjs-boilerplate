@@ -801,7 +801,7 @@ function GoalsPageContent() {
         <div className="xp-toast">+{xpToast.amount} XP</div>
       )}
 
-      <FABToolbox />
+      <FABToolbox mode="growth" />
 
       <style jsx>{styles}</style>
     </div>

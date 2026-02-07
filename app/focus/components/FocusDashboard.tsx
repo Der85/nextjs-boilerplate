@@ -2734,7 +2734,7 @@ export default function FocusDashboard({
         }
       `}</style>
 
-      <FABToolbox />
+      <FABToolbox mode="growth" />
     </div>
   )
 }

@@ -494,7 +494,7 @@ export default function HistoryPage() {
         )}
       </main>
 
-      <FABToolbox />
+      <FABToolbox mode="maintenance" />
 
       <style jsx>{styles}</style>
     </div>

@@ -590,7 +590,7 @@ export default function AllyPage() {
         onDismiss={handleDismiss}
       />
 
-      <FABToolbox />
+      <FABToolbox mode="recovery" />
 
       <style jsx>{styles}</style>
     </div>

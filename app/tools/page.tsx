@@ -230,7 +230,7 @@ export default function ToolsPage() {
         </button>
       </main>
 
-      <FABToolbox />
+      <FABToolbox mode="maintenance" />
 
       <style jsx>{globalStyles}</style>
     </div>

@@ -857,7 +857,12 @@ function DashboardContent() {
       </main>
 
       {/* FAB Toolbox */}
-      <FABToolbox energyParam={getEnergyParam(moodScore)} isRecoveryMode={isRecoveryView} />
+      <FABToolbox
+        mode={headerMode}
+        energyParam={getEnergyParam(moodScore)}
+        streakCount={insights?.currentStreak?.days || 0}
+        hasActiveGoalStep={!!activeGoal && activeGoal.progress_percent < 100}
+      />
 
       {/* Mode Override Toast (from Brake tool re-entry) */}
       {showOverrideToast && (
