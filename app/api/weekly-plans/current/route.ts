@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { weeklyPlanningRateLimiter } from '@/lib/rateLimiter'
+import { trackServerEvent } from '@/lib/analytics'
 import {
   type WeeklyPlanFull,
   type PreviousWeekSummary,
@@ -124,17 +125,12 @@ export async function GET(request: NextRequest) {
       plan = newPlan
       created = true
 
-      // Track analytics (fire and forget - don't fail if events table missing)
-      try {
-        await supabase.from('weekly_planning_events').insert({
-          user_id: user.id,
-          event_type: 'planning_started',
-          weekly_plan_id: plan.id,
-          metadata: { week_number: currentWeek.week_number, year: currentWeek.year },
-        })
-      } catch (analyticsError) {
-        console.warn('Failed to track planning event:', analyticsError)
-      }
+      // Track analytics using the existing analytics_events table (fire and forget)
+      trackServerEvent(supabase, user.id, 'weekly_plan_started', {
+        week_number: currentWeek.week_number,
+        year: currentWeek.year,
+        plan_id: plan.id,
+      })
     }
 
     // 6. Fetch plan outcomes (base data without joins - more robust)
