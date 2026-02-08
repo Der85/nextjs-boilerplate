@@ -47,9 +47,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
 
-    // 2. Rate limiting
-    if (weeklyPlanningRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    // 2. Rate limiting (wrapped in try/catch to prevent crashes if rate limiter fails)
+    try {
+      if (weeklyPlanningRateLimiter.isLimited(user.id)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      }
+    } catch (rateLimitError) {
+      console.warn('Rate limiter check failed, allowing request:', rateLimitError)
+      // Continue without rate limiting rather than crash
     }
 
     // 3. Get current week info
@@ -106,6 +111,14 @@ export async function GET(request: NextRequest) {
           }, { status: 500 })
         }
         return NextResponse.json({ error: createError.message }, { status: 500 })
+      }
+
+      // Strict null check - plan should always be returned if no error
+      if (!newPlan) {
+        console.error('Plan created but no data returned - check RLS policies')
+        return NextResponse.json({
+          error: 'Plan created but no data returned. Check RLS policies on weekly_plans table.',
+        }, { status: 500 })
       }
 
       plan = newPlan
