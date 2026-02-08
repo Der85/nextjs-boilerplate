@@ -12,6 +12,7 @@ import {
   calculateCapacityAnalysis,
 } from '@/lib/types/weekly-planning'
 import type { Outcome } from '@/lib/types/outcomes'
+import { trackWeeklyPlanCommitted } from '@/lib/analytics'
 
 // ===========================================
 // Types
@@ -306,6 +307,14 @@ export default function WeeklyPlanningWizard({
       if (res.ok) {
         const data = await res.json()
         setPlan(data.plan)
+
+        // Track analytics event
+        trackWeeklyPlanCommitted({
+          outcomes_count: data.plan.outcomes?.length || 0,
+          tasks_count: data.plan.tasks?.length || 0,
+          week_start: weekInfo?.week_start || new Date().toISOString(),
+        })
+
         setCurrentStep('summary')
       } else {
         const errorData = await res.json()

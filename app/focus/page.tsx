@@ -13,6 +13,7 @@ import {
   clearFocusFlowDraftFromDb,
 } from '@/lib/focusFlowState'
 import FocusSkeleton from '@/components/FocusSkeleton'
+import { trackFocusStarted } from '@/lib/analytics'
 
 // Step components
 import BrainDumpScreen from './components/BrainDumpScreen'
@@ -341,6 +342,12 @@ function FocusPageContent() {
 
     await supabase.from('focus_plans').insert(quickPlan)
 
+    // Track analytics event
+    trackFocusStarted({
+      task_name: 'Quick Focus Session',
+      duration_minutes: 25,
+    })
+
     // Clear any draft since we're completing the flow
     await clearFocusFlowDraftFromDb(supabase, user.id)
 
@@ -523,6 +530,12 @@ function FocusPageContent() {
       }
 
       await supabase.from('focus_plans').insert(insertData)
+
+      // Track analytics event for each focus session started
+      trackFocusStarted({
+        task_name: bd.taskName,
+        duration_minutes: stepsData.length * 10, // Estimate based on steps
+      })
     }
 
     // Flow completed successfully - clear the draft from database

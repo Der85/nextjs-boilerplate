@@ -7,6 +7,7 @@ import { calculateXP, checkAchievements, getXPForNextLevel, calculateLevel } fro
 import type { SessionData, Badge, UserStats } from '@/lib/gamification'
 import { getGreeting } from '@/lib/utils/ui-helpers'
 import UnifiedHeader from '@/components/UnifiedHeader'
+import { trackCheckinCompleted } from '@/lib/analytics'
 
 // Step components — "Snap Check-In" flow: vitals → coach → achievement → summary
 import VitalsCheck from './components/VitalsCheck'
@@ -264,6 +265,13 @@ export default function CheckInPage() {
       current_level: newLevel,
       achievements_unlocked: newAchievements,
       last_check_in_time: new Date().toISOString()
+    })
+
+    // Track analytics event
+    trackCheckinCompleted({
+      mood_score: sessionData.moodScore!,
+      has_note: sessionData.note.length > 0,
+      energy_level: sessionData.energyLevel ?? undefined,
     })
 
     // Move to achievement screen

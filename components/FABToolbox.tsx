@@ -27,8 +27,9 @@ const SUPPORT_TOOLS = [
 ]
 
 const PRODUCTIVITY_TOOLS = [
+  { id: 'now', icon: '🎯', label: 'Now', path: '/now-mode', description: 'Focus on 3 tasks' },
   { id: 'focus', icon: '⏱️', label: 'Focus', path: '/focus', description: 'Start a focus session' },
-  { id: 'goals', icon: '🎯', label: 'Goals', path: '/goals', description: 'Track your goals' },
+  { id: 'goals', icon: '🌱', label: 'Goals', path: '/goals', description: 'Track your goals' },
   { id: 'history', icon: '📊', label: 'History', path: '/history', description: 'Review patterns' },
 ]
 

@@ -1,21 +1,157 @@
 // Secured Coach API Route
 // Authentication + Rate Limiting to protect Gemini API key
+// Context-Aware Coaching: Fetches historical data for personalized responses
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { coachRateLimiter } from '@/lib/rateLimiter'
+import { trackServerEvent } from '@/lib/analytics'
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 // ===========================================
+// Types for User Context
+// ===========================================
+interface UserContext {
+  recentMoods: { mood_score: number; created_at: string }[]
+  recentFocus: { status: string; task_name: string; completed_at: string | null }[]
+  userStats: { current_level: number; total_xp: number } | null
+  avgMood: number | null
+  completedFocusCount: number
+  moodTrend: 'improving' | 'declining' | 'stable' | 'unknown'
+}
+
+// ===========================================
 // Supabase Client
 // ===========================================
-function getSupabaseClient() {
+function getSupabaseClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  
+
   if (!url || !anonKey) return null
   return createClient(url, anonKey)
+}
+
+// ===========================================
+// Fetch Historical Context (Parallel Queries)
+// ===========================================
+async function fetchUserContext(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<UserContext> {
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const sevenDaysAgoISO = sevenDaysAgo.toISOString()
+
+  // Run all queries in parallel for performance
+  const [moodsResult, focusResult, statsResult] = await Promise.all([
+    // Recent Moods: Last 7 entries
+    supabase
+      .from('mood_entries')
+      .select('mood_score, created_at')
+      .eq('user_id', userId)
+      .gte('created_at', sevenDaysAgoISO)
+      .order('created_at', { ascending: false })
+      .limit(7),
+
+    // Recent Focus: Last 5 sessions
+    supabase
+      .from('focus_plans')
+      .select('status, task_name, completed_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(5),
+
+    // User Stats: Level and XP
+    supabase
+      .from('user_stats')
+      .select('current_level, total_xp')
+      .eq('user_id', userId)
+      .single(),
+  ])
+
+  const recentMoods = moodsResult.data || []
+  const recentFocus = focusResult.data || []
+  const userStats = statsResult.data || null
+
+  // Calculate average mood
+  let avgMood: number | null = null
+  if (recentMoods.length > 0) {
+    const sum = recentMoods.reduce((acc, m) => acc + (m.mood_score || 0), 0)
+    avgMood = Math.round((sum / recentMoods.length) * 10) / 10
+  }
+
+  // Count completed focus sessions
+  const completedFocusCount = recentFocus.filter(f => f.status === 'completed').length
+
+  // Calculate mood trend (comparing first half vs second half of entries)
+  let moodTrend: 'improving' | 'declining' | 'stable' | 'unknown' = 'unknown'
+  if (recentMoods.length >= 4) {
+    const midpoint = Math.floor(recentMoods.length / 2)
+    const recentHalf = recentMoods.slice(0, midpoint)
+    const olderHalf = recentMoods.slice(midpoint)
+
+    const recentAvg = recentHalf.reduce((acc, m) => acc + (m.mood_score || 0), 0) / recentHalf.length
+    const olderAvg = olderHalf.reduce((acc, m) => acc + (m.mood_score || 0), 0) / olderHalf.length
+
+    const diff = recentAvg - olderAvg
+    if (diff > 0.5) moodTrend = 'improving'
+    else if (diff < -0.5) moodTrend = 'declining'
+    else moodTrend = 'stable'
+  }
+
+  return {
+    recentMoods,
+    recentFocus,
+    userStats,
+    avgMood,
+    completedFocusCount,
+    moodTrend,
+  }
+}
+
+// ===========================================
+// Build Context-Aware System Prompt
+// ===========================================
+function buildContextPrompt(context: UserContext): string {
+  const parts: string[] = []
+
+  // Mood trend context
+  if (context.avgMood !== null) {
+    const moodLabel = context.avgMood <= 4 ? 'lower' : context.avgMood <= 6 ? 'moderate' : 'good'
+    parts.push(`- Mood Trend (Last 7 days): ${context.avgMood}/10 average (${moodLabel})`)
+
+    if (context.moodTrend !== 'unknown') {
+      const trendLabel = {
+        improving: 'trending upward lately',
+        declining: 'has been dipping recently',
+        stable: 'has been consistent',
+      }[context.moodTrend]
+      parts.push(`- Mood Pattern: ${trendLabel}`)
+    }
+  }
+
+  // Focus session context
+  if (context.recentFocus.length > 0) {
+    parts.push(`- Recent Focus: ${context.completedFocusCount}/${context.recentFocus.length} sessions completed`)
+
+    // Mention recent task if completed
+    const recentCompleted = context.recentFocus.find(f => f.status === 'completed')
+    if (recentCompleted) {
+      parts.push(`- Last completed: "${recentCompleted.task_name}"`)
+    }
+  }
+
+  // Level context
+  if (context.userStats) {
+    parts.push(`- Level: ${context.userStats.current_level} (${context.userStats.total_xp} XP)`)
+  }
+
+  if (parts.length === 0) {
+    return '[USER CONTEXT]\n- New user or limited history available'
+  }
+
+  return `[USER CONTEXT]\n${parts.join('\n')}`
 }
 
 // ===========================================
@@ -143,7 +279,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ advice: getGenericAdvice(moodScore) })
     }
 
-    // 7. Build prompt for Gemini - map 1-10 to descriptive label
+    // 7. FETCH HISTORICAL CONTEXT (parallel queries for performance)
+    let userContext: UserContext | null = null
+    try {
+      userContext = await fetchUserContext(supabase, user.id)
+    } catch (contextError) {
+      console.warn('Failed to fetch user context, proceeding without it:', contextError)
+    }
+
+    // 8. Build context-aware prompt for Gemini
     const getEnergyLabel = (level: number): string => {
       if (level <= 2) return 'Depleted'
       if (level <= 4) return 'Low'
@@ -155,25 +299,52 @@ export async function POST(request: NextRequest) {
       ? `\n- Energy level: ${getEnergyLabel(energyLevel)} (${energyLevel}/10)`
       : ''
 
+    // Build the user context section
+    const contextSection = userContext
+      ? `\n\n${buildContextPrompt(userContext)}`
+      : ''
+
+    // Add context-aware insights for the prompt
+    let contextInsights = ''
+    if (userContext) {
+      if (userContext.moodTrend === 'declining' && moodScore <= 4) {
+        contextInsights = '\n\nNote: This user has had a rough few days. Be extra gentle and emphasize that dips are normal—not failure.'
+      } else if (userContext.moodTrend === 'improving') {
+        contextInsights = '\n\nNote: This user has been trending upward. Acknowledge their progress without making it feel fragile.'
+      }
+      if (userContext.completedFocusCount >= 3) {
+        contextInsights += '\n\nThis user has been completing tasks—reference this momentum if relevant.'
+      }
+    }
+
     const prompt = `You are a warm, experienced ADHD coach responding to a client's daily check-in.
+${contextSection}
 
 Current check-in:
 - Mood: ${moodScore}/10${energyContext}
 - What they shared: "${sanitizedNote}"
 
+CORE PHILOSOPHY - Normalization over Pathology:
+- ADHD is a brain difference, not a disorder to be fixed
+- Struggles are normal human experiences, not personal failures
+- Progress is non-linear—dips happen and that's okay
+- Every check-in is a win, regardless of the mood score
+
 Guidelines for your response:
 1. Be warm and validating - acknowledge their feelings first
 2. Keep it brief (2-3 sentences max)
-3. If mood is low (1-4), focus on compassion and one tiny doable step
-4. If mood is medium (5-7), acknowledge progress and suggest building on it
-5. If mood is high (8-10), celebrate and help them notice what's working
-6. Reference specific things they mentioned
-7. Use "you" language, not "I suggest" or "you should"
-8. End with something actionable but low-pressure
+3. If mood is low (1-4), focus on compassion and one tiny doable step—no toxic positivity
+4. If mood is medium (5-7), acknowledge steady presence and suggest building gently
+5. If mood is high (8-10), celebrate authentically and help them notice what's working
+6. Reference specific things they mentioned from their note
+7. If historical context is available, weave in relevant data naturally (e.g., "you've been showing up consistently" or "rough patch lately—totally normal")
+8. Use "you" language, avoid "I suggest" or "you should"
+9. End with something actionable but low-pressure
+10. Never shame, guilt, or imply they're behind${contextInsights}
 
 Respond directly as the coach (no intro like "Here's my response"):`
 
-    // 8. Call Gemini API
+    // 9. Call Gemini API with enriched context
     const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -204,6 +375,13 @@ Respond directly as the coach (no intro like "Here's my response"):`
       console.error('Unexpected Gemini response format')
       return NextResponse.json({ advice: getErrorAdvice() })
     }
+
+    // Track analytics event (fire and forget)
+    trackServerEvent(supabase, user.id, 'coach_queried', {
+      mood_score: moodScore,
+      has_note: !!sanitizedNote,
+      has_context: !!userContext,
+    })
 
     return NextResponse.json({ advice: advice.trim() })
 

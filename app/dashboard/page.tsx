@@ -988,6 +988,25 @@ function DashboardContent() {
           />
         )}
 
+        {/* Weekly Planning - only visible in maintenance/growth modes */}
+        {!isRecoveryView && hasCheckedInToday && (
+          <div className="weekly-planning-card">
+            <div className="weekly-planning-content">
+              <span className="weekly-planning-icon">📅</span>
+              <div className="weekly-planning-text">
+                <span className="weekly-planning-title">Plan Your Week</span>
+                <span className="weekly-planning-subtitle">Set outcomes and tasks for the week ahead</span>
+              </div>
+            </div>
+            <button
+              className="weekly-planning-btn"
+              onClick={() => router.push('/weekly-planning')}
+            >
+              Start →
+            </button>
+          </div>
+        )}
+
       </main>
 
       {/* Mode Override Toast (from Brake tool re-entry) */}
@@ -2469,6 +2488,101 @@ const styles = `
 
   .pulse-confirm-btn.no:hover {
     background: #e5e7eb;
+  }
+
+  /* ===== WEEKLY PLANNING CARD ===== */
+  .weekly-planning-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(12px, 3vw, 16px);
+    background: white;
+    border-radius: clamp(16px, 4vw, 20px);
+    padding: clamp(16px, 4vw, 20px);
+    margin-top: clamp(16px, 4vw, 20px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    border: 1px solid #eff3f4;
+    animation: fadeSlideIn 0.3s ease;
+  }
+
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .weekly-planning-content {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 16px);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .weekly-planning-icon {
+    font-size: clamp(28px, 7vw, 36px);
+    flex-shrink: 0;
+  }
+
+  .weekly-planning-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .weekly-planning-title {
+    font-size: clamp(15px, 4vw, 17px);
+    font-weight: 700;
+    color: #0f1419;
+  }
+
+  .weekly-planning-subtitle {
+    font-size: clamp(13px, 3.5vw, 14px);
+    color: #536471;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .weekly-planning-btn {
+    flex-shrink: 0;
+    background: #1D9BF0;
+    color: white;
+    border: none;
+    padding: clamp(10px, 2.5vw, 12px) clamp(18px, 4.5vw, 24px);
+    border-radius: clamp(10px, 2.5vw, 12px);
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .weekly-planning-btn:hover {
+    background: #1a8cd8;
+    transform: translateY(-1px);
+  }
+
+  .weekly-planning-btn:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 400px) {
+    .weekly-planning-card {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .weekly-planning-btn {
+      width: 100%;
+      text-align: center;
+    }
   }
 
   /* ===== FLOATING ACTION BUTTON (FAB) ===== */
