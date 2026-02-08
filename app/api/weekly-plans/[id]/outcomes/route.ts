@@ -138,29 +138,37 @@ export async function POST(
     }
 
     // 3. Verify plan ownership and status
-    const { data: plan } = await supabase
+    const { data: plan, error: planError } = await supabase
       .from('weekly_plans')
       .select('id, status')
       .eq('id', id)
       .eq('user_id', user.id)
       .single()
 
+    if (planError) {
+      console.error('Outcomes POST: plan lookup error:', planError.message, planError.code)
+    }
+
     if (!plan) {
-      return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Plan not found', details: planError?.message }, { status: 404 })
     }
 
     if (plan.status !== 'draft') {
       return NextResponse.json(
-        { error: 'Cannot modify committed plan' },
+        { error: `Cannot modify plan with status "${plan.status}"` },
         { status: 400 }
       )
     }
 
     // 4. Check current outcome count
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from('weekly_plan_outcomes')
       .select('*', { count: 'exact', head: true })
       .eq('weekly_plan_id', id)
+
+    if (countError) {
+      console.error('Outcomes POST: count error:', countError.message, countError.code)
+    }
 
     if (count !== null && count >= MAX_WEEKLY_OUTCOMES) {
       return NextResponse.json(
@@ -172,20 +180,26 @@ export async function POST(
     // 5. Parse body
     const body = await request.json() as AddOutcomeRequest
 
-    if (!isValidUUID(body.outcome_id)) {
-      return NextResponse.json({ error: 'Invalid outcome ID' }, { status: 400 })
+    console.log('Outcomes POST: received body:', JSON.stringify(body))
+
+    if (!body.outcome_id || !isValidUUID(body.outcome_id)) {
+      return NextResponse.json({ error: 'Invalid outcome ID', received: body.outcome_id }, { status: 400 })
     }
 
     // 6. Verify outcome exists and belongs to user
-    const { data: outcome } = await supabase
+    const { data: outcome, error: outcomeError } = await supabase
       .from('outcomes')
       .select('id')
       .eq('id', body.outcome_id)
       .eq('user_id', user.id)
       .single()
 
+    if (outcomeError) {
+      console.error('Outcomes POST: outcome lookup error:', outcomeError.message, outcomeError.code)
+    }
+
     if (!outcome) {
-      return NextResponse.json({ error: 'Outcome not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Outcome not found', outcome_id: body.outcome_id, details: outcomeError?.message }, { status: 404 })
     }
 
     // 7. Insert plan outcome
