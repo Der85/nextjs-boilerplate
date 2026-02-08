@@ -205,6 +205,18 @@ export default function AppHeader({
         {/* Spacer */}
         <div className="header-spacer" />
 
+        {/* Weekly Plan button - hidden in recovery mode */}
+        {!isRecovery && (
+          <button
+            onClick={() => router.push('/weekly-planning')}
+            className="weekly-plan-btn"
+            title="Weekly Planning"
+            aria-label="Weekly Planning"
+          >
+            <span className="weekly-plan-icon">📅</span>
+          </button>
+        )}
+
         {/* Brake button - always present, graduated states */}
         <button
           onClick={handleBrakePress}
@@ -286,6 +298,30 @@ export default function AppHeader({
 
         .header-spacer {
           flex: 1;
+        }
+
+        /* ===== Weekly Plan Button ===== */
+        .weekly-plan-btn {
+          width: clamp(36px, 9vw, 42px);
+          height: clamp(36px, 9vw, 42px);
+          border-radius: 50%;
+          border: none;
+          background: rgba(29, 155, 240, 0.08);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .weekly-plan-btn:hover {
+          background: rgba(29, 155, 240, 0.15);
+          transform: scale(1.05);
+        }
+
+        .weekly-plan-icon {
+          font-size: clamp(16px, 4vw, 18px);
         }
 
         /* ===== Brake Button - 3 States ===== */

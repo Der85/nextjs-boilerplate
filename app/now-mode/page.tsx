@@ -139,18 +139,10 @@ export default function NowModePage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
+      // Step 1: Fetch focus_plans without joins (more robust)
       const { data: tasks, error: fetchError } = await supabase
         .from('focus_plans')
-        .select(`
-          id,
-          task_name,
-          estimated_minutes,
-          due_date,
-          outcome_id,
-          commitment_id,
-          outcomes:outcome_id (title),
-          commitments:commitment_id (title)
-        `)
+        .select('id, task_name, estimated_minutes, due_date, outcome_id, commitment_id')
         .eq('user_id', session.user.id)
         .is('now_slot', null)
         .in('status', ['active', 'needs_linking'])
@@ -162,22 +154,69 @@ export default function NowModePage() {
         return
       }
 
-      const formattedTasks: BacklogTask[] = (tasks || []).map((t: Record<string, unknown>) => ({
-        id: t.id as string,
-        task_name: t.task_name as string,
-        estimated_minutes: t.estimated_minutes as number | null,
-        due_date: t.due_date as string | null,
-        outcome_title: Array.isArray(t.outcomes)
-          ? (t.outcomes as { title: string }[])[0]?.title || null
-          : (t.outcomes as { title: string } | null)?.title || null,
-        commitment_title: Array.isArray(t.commitments)
-          ? (t.commitments as { title: string }[])[0]?.title || null
-          : (t.commitments as { title: string } | null)?.title || null,
-      }))
+      if (!tasks || tasks.length === 0) {
+        setBacklogTasks([])
+        return
+      }
+
+      // Step 2: Collect unique outcome/commitment IDs
+      const outcomeIds = [...new Set(tasks.map(t => t.outcome_id).filter(Boolean))] as string[]
+      const commitmentIds = [...new Set(tasks.map(t => t.commitment_id).filter(Boolean))] as string[]
+
+      // Step 3: Fetch outcomes and commitments separately (if any exist)
+      let outcomesMap: Record<string, string> = {}
+      let commitmentsMap: Record<string, string> = {}
+
+      if (outcomeIds.length > 0) {
+        const { data: outcomes } = await supabase
+          .from('outcomes')
+          .select('id, title')
+          .in('id', outcomeIds)
+
+        if (outcomes) {
+          outcomesMap = Object.fromEntries(outcomes.map(o => [o.id, o.title]))
+        }
+      }
+
+      if (commitmentIds.length > 0) {
+        const { data: commitments } = await supabase
+          .from('commitments')
+          .select('id, title')
+          .in('id', commitmentIds)
+
+        if (commitments) {
+          commitmentsMap = Object.fromEntries(commitments.map(c => [c.id, c.title]))
+        }
+      }
+
+      // Step 4: Map tasks with safe property access
+      const formattedTasks: BacklogTask[] = tasks.map((task) => {
+        try {
+          return {
+            id: task.id,
+            task_name: task.task_name || 'Untitled Task',
+            estimated_minutes: task.estimated_minutes ?? null,
+            due_date: task.due_date ?? null,
+            outcome_title: task.outcome_id ? (outcomesMap[task.outcome_id] ?? null) : null,
+            commitment_title: task.commitment_id ? (commitmentsMap[task.commitment_id] ?? null) : null,
+          }
+        } catch {
+          // If any task fails to map, return a safe default
+          return {
+            id: task.id,
+            task_name: task.task_name || 'Untitled Task',
+            estimated_minutes: null,
+            due_date: null,
+            outcome_title: null,
+            commitment_title: null,
+          }
+        }
+      })
 
       setBacklogTasks(formattedTasks)
     } catch (err) {
       console.error('Error fetching backlog:', err)
+      setBacklogTasks([])
     }
   }
 
