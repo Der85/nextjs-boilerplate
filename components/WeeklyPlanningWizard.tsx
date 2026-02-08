@@ -1004,6 +1004,7 @@ const wizardStyles = `
   .wizard-container.error {
     padding: 60px;
     text-align: center;
+    color: #e4e4f0;
   }
 
   .loading-spinner {
@@ -1164,6 +1165,14 @@ const stepStyles = `
     margin: 20px 0 12px;
   }
 
+  p {
+    color: #a0a0be;
+  }
+
+  label {
+    color: #e4e4f0;
+  }
+
   .step-description {
     color: #8b8ba7;
     font-size: 14px;
@@ -1231,6 +1240,10 @@ const stepStyles = `
     font-size: 14px;
   }
 
+  .input-row input::placeholder {
+    color: #6b6b8e;
+  }
+
   .input-row input:focus {
     outline: none;
     border-color: #1D9BF0;
@@ -1245,6 +1258,10 @@ const stepStyles = `
     color: #e4e4f0;
     font-size: 14px;
     resize: vertical;
+  }
+
+  textarea::placeholder {
+    color: #6b6b8e;
   }
 
   textarea:focus {
@@ -1339,6 +1356,14 @@ const stepStyles = `
 
   .capacity-section {
     margin-bottom: 20px;
+  }
+
+  .capacity-section label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #e4e4f0;
+    margin-bottom: 8px;
   }
 
   .capacity-input {
@@ -1512,6 +1537,11 @@ const stepStyles = `
     color: #e4e4f0;
     font-size: 12px;
     cursor: pointer;
+  }
+
+  .task-row select option {
+    background: #1a1a2e;
+    color: #e4e4f0;
   }
 
   .commit-summary {
