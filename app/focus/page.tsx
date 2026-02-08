@@ -129,100 +129,117 @@ function FocusPageContent() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-      setUser(session.user)
-
-      const fetchedPlans = await fetchPlans(session.user.id)
-      const fetchedGoals = await fetchGoals(session.user.id)
-
-      // Check for resumable draft FIRST (prevents data loss on refresh)
-      // Priority: 1) Database draft (persists across sessions), 2) SessionStorage draft
-      let draft = await loadFocusFlowDraftFromDb(supabase, session.user.id)
-      if (!draft) {
-        draft = loadFocusFlowDraft()
-      }
-
-      if (draft && draft.step !== 'brain-dump' && draft.step !== 'dashboard') {
-        // Restore state from draft
-        if (draft.parsedTasks) setParsedTasks(draft.parsedTasks)
-        if (draft.tasksWithContext) setTasksWithContext(draft.tasksWithContext as TaskWithContext[])
-        if (draft.breakdowns) setBreakdowns(draft.breakdowns)
-        if (draft.handoffGoalId !== undefined) setHandoffGoalId(draft.handoffGoalId)
-        if (draft.handoffStepId !== undefined) setHandoffStepId(draft.handoffStepId)
-        if (draft.userMode) setUserMode(draft.userMode)
-        if (draft.energyLevel !== undefined) setEnergyLevel(draft.energyLevel)
-        setStep(draft.step)
-        setLoading(false)
-        return // Skip normal routing - we're resuming from draft
-      }
-
-      // Handle URL params from Goals handoff
-      const createParam = searchParams.get('create')
-      const taskNameParam = searchParams.get('taskName')
-      const goalIdParam = searchParams.get('goalId')
-      const stepIdParam = searchParams.get('stepId')
-
-      // Handle URL params from Check-in handoff (mode & energy)
-      const modeParam = searchParams.get('mode') as 'sprint' | 'gentle' | null
-      const energyParam = searchParams.get('energy') as 'high' | 'low' | null
-
-      // Derive userMode and energyLevel from URL params
-      if (modeParam === 'gentle') setUserMode('recovery')
-      else if (modeParam === 'sprint') setUserMode('growth')
-      if (energyParam) setEnergyLevel(energyParam)
-
-      if (createParam === 'true' && taskNameParam) {
-        // Goal handoff: skip to context with pre-filled task
-        const handoffTask: ParsedTask = {
-          id: 'handoff_1',
-          text: decodeURIComponent(taskNameParam),
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) {
+          console.error('Focus init: session error', sessionError)
         }
-        setParsedTasks([handoffTask])
-        setHandoffGoalId(goalIdParam || null)
-        setHandoffStepId(stepIdParam || null)
-        setStep('context')
-      } else if ((modeParam === 'gentle' && energyParam === 'low') || (!modeParam && energyParam === 'low')) {
-        // Gentle mode: skip brain-dump, go straight to breakdown with a low-demand task
-        setGentleMode(true)
-        const gentleTask: ParsedTask = {
-          id: 'gentle_1',
-          text: 'Just 5 minutes of low-demand work',
+        if (!session) {
+          router.push('/login')
+          return
         }
-        setParsedTasks([gentleTask])
-        setBreakdowns([{
-          taskName: gentleTask.text,
-          dueDate: 'Today',
-          energyLevel: 'low',
-          steps: [
-            { id: 'gentle_step_1', text: 'Pick the smallest thing on your list', dueBy: 'Now', timeEstimate: '1 min', completed: false },
-            { id: 'gentle_step_2', text: 'Set a 5-minute timer', dueBy: 'Next', timeEstimate: '1 min', completed: false },
-            { id: 'gentle_step_3', text: 'Work until the timer ends — then stop', dueBy: 'After that', timeEstimate: '5 min', completed: false },
-          ],
-        }])
-        setStep('breakdown')
-      } else if (modeParam === 'sprint' && energyParam === 'high') {
-        // Sprint mode: stay on brain-dump but flag it
-        setSprintMode(true)
-      } else if (fetchedPlans.length > 0) {
-        // Has existing plans: go to dashboard
-        setStep('dashboard')
-      } else if (fetchedGoals.length > 0) {
-        // Goal-aware skip: user has active goals, skip brain-dump/triage
-        // and land on ContextScreen with the top goal pre-selected
-        const topGoal = fetchedGoals[0]
-        const goalTask: ParsedTask = {
-          id: `goal_${topGoal.id}`,
-          text: topGoal.title,
+        setUser(session.user)
+
+        const fetchedPlans = await fetchPlans(session.user.id)
+        const fetchedGoals = await fetchGoals(session.user.id)
+
+        // Check for resumable draft FIRST (prevents data loss on refresh)
+        // Priority: 1) Database draft (persists across sessions), 2) SessionStorage draft
+        let draft: Awaited<ReturnType<typeof loadFocusFlowDraftFromDb>> = null
+        try {
+          draft = await loadFocusFlowDraftFromDb(supabase, session.user.id)
+        } catch (draftErr) {
+          console.warn('Focus init: draft load from DB failed', draftErr)
         }
-        setParsedTasks([goalTask])
-        setHandoffGoalId(topGoal.id)
-        setStep('context')
+        if (!draft) {
+          try {
+            draft = loadFocusFlowDraft()
+          } catch (draftErr) {
+            console.warn('Focus init: draft load from session failed', draftErr)
+          }
+        }
+
+        if (draft && draft.step !== 'brain-dump' && draft.step !== 'dashboard') {
+          // Restore state from draft
+          if (draft.parsedTasks) setParsedTasks(draft.parsedTasks)
+          if (draft.tasksWithContext) setTasksWithContext(draft.tasksWithContext as TaskWithContext[])
+          if (draft.breakdowns) setBreakdowns(draft.breakdowns)
+          if (draft.handoffGoalId !== undefined) setHandoffGoalId(draft.handoffGoalId)
+          if (draft.handoffStepId !== undefined) setHandoffStepId(draft.handoffStepId)
+          if (draft.userMode) setUserMode(draft.userMode)
+          if (draft.energyLevel !== undefined) setEnergyLevel(draft.energyLevel)
+          setStep(draft.step)
+          setLoading(false)
+          return // Skip normal routing - we're resuming from draft
+        }
+
+        // Handle URL params from Goals handoff
+        const createParam = searchParams.get('create')
+        const taskNameParam = searchParams.get('taskName')
+        const goalIdParam = searchParams.get('goalId')
+        const stepIdParam = searchParams.get('stepId')
+
+        // Handle URL params from Check-in handoff (mode & energy)
+        const modeParam = searchParams.get('mode') as 'sprint' | 'gentle' | null
+        const energyParam = searchParams.get('energy') as 'high' | 'low' | null
+
+        // Derive userMode and energyLevel from URL params
+        if (modeParam === 'gentle') setUserMode('recovery')
+        else if (modeParam === 'sprint') setUserMode('growth')
+        if (energyParam) setEnergyLevel(energyParam)
+
+        if (createParam === 'true' && taskNameParam) {
+          // Goal handoff: skip to context with pre-filled task
+          const handoffTask: ParsedTask = {
+            id: 'handoff_1',
+            text: decodeURIComponent(taskNameParam),
+          }
+          setParsedTasks([handoffTask])
+          setHandoffGoalId(goalIdParam || null)
+          setHandoffStepId(stepIdParam || null)
+          setStep('context')
+        } else if ((modeParam === 'gentle' && energyParam === 'low') || (!modeParam && energyParam === 'low')) {
+          // Gentle mode: skip brain-dump, go straight to breakdown with a low-demand task
+          setGentleMode(true)
+          const gentleTask: ParsedTask = {
+            id: 'gentle_1',
+            text: 'Just 5 minutes of low-demand work',
+          }
+          setParsedTasks([gentleTask])
+          setBreakdowns([{
+            taskName: gentleTask.text,
+            dueDate: 'Today',
+            energyLevel: 'low',
+            steps: [
+              { id: 'gentle_step_1', text: 'Pick the smallest thing on your list', dueBy: 'Now', timeEstimate: '1 min', completed: false },
+              { id: 'gentle_step_2', text: 'Set a 5-minute timer', dueBy: 'Next', timeEstimate: '1 min', completed: false },
+              { id: 'gentle_step_3', text: 'Work until the timer ends — then stop', dueBy: 'After that', timeEstimate: '5 min', completed: false },
+            ],
+          }])
+          setStep('breakdown')
+        } else if (modeParam === 'sprint' && energyParam === 'high') {
+          // Sprint mode: stay on brain-dump but flag it
+          setSprintMode(true)
+        } else if (fetchedPlans.length > 0) {
+          // Has existing plans: go to dashboard
+          setStep('dashboard')
+        } else if (fetchedGoals.length > 0) {
+          // Goal-aware skip: user has active goals, skip brain-dump/triage
+          // and land on ContextScreen with the top goal pre-selected
+          const topGoal = fetchedGoals[0]
+          const goalTask: ParsedTask = {
+            id: `goal_${topGoal.id}`,
+            text: topGoal.title,
+          }
+          setParsedTasks([goalTask])
+          setHandoffGoalId(topGoal.id)
+          setStep('context')
+        }
+        // Otherwise: starts at brain-dump (default)
+      } catch (error) {
+        console.error('Focus page init error:', error)
+        // Don't crash — fall through to brain-dump (default step)
       }
-      // Otherwise: starts at brain-dump (default)
 
       setLoading(false)
     }

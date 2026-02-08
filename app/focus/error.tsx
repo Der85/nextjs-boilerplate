@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface ErrorProps {
   error: Error & { digest?: string }
@@ -8,9 +8,34 @@ interface ErrorProps {
 }
 
 export default function FocusError({ error, reset }: ErrorProps) {
+  const [retryCount, setRetryCount] = useState(0)
+
   useEffect(() => {
     console.error('Focus error:', error)
   }, [error])
+
+  const handleResume = useCallback(() => {
+    if (retryCount >= 1) {
+      // Second attempt: clear any problematic state and hard reload
+      try {
+        // Clear focus flow draft that might contain corrupted data
+        sessionStorage.removeItem('focus-flow-draft')
+        // Clear any emergency states that might cause loops
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i)
+          if (key?.startsWith('emergency-state-FocusFlow')) {
+            localStorage.removeItem(key)
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      window.location.href = '/focus'
+    } else {
+      setRetryCount(prev => prev + 1)
+      reset()
+    }
+  }, [retryCount, reset])
 
   return (
     <div className="error-page">
@@ -31,8 +56,8 @@ export default function FocusError({ error, reset }: ErrorProps) {
           </p>
 
           <div className="error-actions">
-            <button onClick={reset} className="btn-hero-action">
-              Resume Focus
+            <button onClick={handleResume} className="btn-hero-action">
+              {retryCount >= 1 ? 'Fresh Start' : 'Resume Focus'}
             </button>
             <button
               onClick={() => window.location.href = '/dashboard'}
@@ -47,13 +72,12 @@ export default function FocusError({ error, reset }: ErrorProps) {
             <span>Take a breath while we sort this out</span>
           </div>
 
-          {process.env.NODE_ENV === 'development' && (
-            <details className="error-details">
-              <summary>Technical details</summary>
-              <pre>{error.message}</pre>
-              {error.digest && <p>Error ID: {error.digest}</p>}
-            </details>
-          )}
+          {/* Always show error message to help debugging */}
+          <details className="error-details">
+            <summary>What happened?</summary>
+            <pre>{error.message}</pre>
+            {error.digest && <p>Error ID: {error.digest}</p>}
+          </details>
         </div>
       </div>
 
