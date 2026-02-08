@@ -127,7 +127,7 @@ export async function GET(
 
     // 7. Fetch related tasks data separately (if we have task IDs)
     const taskIds = [...new Set((planTasks || []).map(pt => pt.task_id).filter(Boolean))]
-    let tasksMap: Record<string, { id: string; title: string; status: string; outcome_id: string | null; commitment_id: string | null }> = {}
+    let tasksMap: Record<string, { id: string; task_name: string; status: string; outcome_id: string | null; commitment_id: string | null }> = {}
 
     if (taskIds.length > 0) {
       const { data: tasksData } = await supabase
@@ -138,7 +138,7 @@ export async function GET(
       if (tasksData) {
         tasksMap = Object.fromEntries(tasksData.map(t => [t.id, {
           id: t.id,
-          title: t.task_name || 'Untitled',
+          task_name: t.task_name || 'Untitled',
           status: t.status || 'active',
           outcome_id: t.outcome_id ?? null,
           commitment_id: t.commitment_id ?? null,

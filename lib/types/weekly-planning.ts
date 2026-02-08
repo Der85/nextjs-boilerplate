@@ -68,7 +68,7 @@ export interface WeeklyPlanTask {
   // Joined fields
   task?: {
     id: string
-    title: string
+    task_name: string
     status: string
     outcome_id: string | null
     commitment_id: string | null
@@ -395,7 +395,7 @@ export function generatePlanSummary(
     if (day.totalMinutes > 0) {
       summary += `### ${day.dayName}\n`
       day.tasks.forEach(t => {
-        summary += `- ${t.task?.title || 'Unknown'} (${t.estimated_minutes}min)\n`
+        summary += `- ${t.task?.task_name || 'Unknown'} (${t.estimated_minutes}min)\n`
       })
       summary += `\n`
     }
@@ -406,7 +406,7 @@ export function generatePlanSummary(
   if (unscheduledTasks.length > 0) {
     summary += `### Flexible (Unscheduled)\n`
     unscheduledTasks.forEach(t => {
-      summary += `- ${t.task?.title || 'Unknown'} (${t.estimated_minutes}min)\n`
+      summary += `- ${t.task?.task_name || 'Unknown'} (${t.estimated_minutes}min)\n`
     })
     summary += `\n`
   }

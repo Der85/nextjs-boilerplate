@@ -25,7 +25,7 @@ interface WeeklyPlanningWizardProps {
 
 interface AvailableTask {
   id: string
-  title: string
+  task_name: string
   status: string
   outcome_id: string | null
   commitment_id: string | null
@@ -796,7 +796,7 @@ function CapacityStep({
             <div className="day-tasks">
               {day.tasks.map((t) => (
                 <span key={t.id} className="task-chip">
-                  {t.task?.title}
+                  {t.task?.task_name}
                 </span>
               ))}
             </div>
@@ -813,7 +813,7 @@ function CapacityStep({
           <div className="task-list">
             {unaddedTasks.slice(0, 10).map((task) => (
               <div key={task.id} className="task-row">
-                <span className="task-title">{task.title}</span>
+                <span className="task-title">{task.task_name}</span>
                 <span className="task-est">{task.estimated_minutes || 30}min</span>
                 <button
                   className="add-task-btn"
@@ -834,7 +834,7 @@ function CapacityStep({
           <div className="task-list">
             {plan.tasks.map((pt) => (
               <div key={pt.id} className="task-row planned">
-                <span className="task-title">{pt.task?.title}</span>
+                <span className="task-title">{pt.task?.task_name}</span>
                 <select
                   value={pt.scheduled_day ?? ''}
                   onChange={(e) =>
