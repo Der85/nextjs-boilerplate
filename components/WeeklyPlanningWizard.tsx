@@ -553,7 +553,7 @@ function ReviewStep({
 
   return (
     <div className="step-review">
-      <h3>How did last week go?</h3>
+      <h3 className="step-heading">How did last week go?</h3>
 
       {previousWeekSummary && (
         <div className="prev-week-stats">
@@ -573,7 +573,7 @@ function ReviewStep({
       )}
 
       <div className="form-section">
-        <label>Wins from last week</label>
+        <label className="form-label">Wins from last week</label>
         <p className="form-hint">What went well? Celebrate your progress!</p>
         {wins.map((win, index) => (
           <div key={index} className="input-row">
@@ -592,7 +592,7 @@ function ReviewStep({
       </div>
 
       <div className="form-section">
-        <label>Learnings</label>
+        <label className="form-label">Learnings</label>
         <p className="form-hint">What would you do differently?</p>
         {learnings.map((learning, index) => (
           <div key={index} className="input-row">
@@ -611,7 +611,7 @@ function ReviewStep({
       </div>
 
       <div className="form-section">
-        <label>Additional Reflection (optional)</label>
+        <label className="form-label">Additional Reflection (optional)</label>
         <textarea
           value={reflection}
           onChange={(e) => setReflection(e.target.value)}
@@ -645,13 +645,13 @@ function OutcomesStep({
 
   return (
     <div className="step-outcomes">
-      <h3>Choose your top 3 outcomes for this week</h3>
+      <h3 className="step-heading">Choose your top 3 outcomes for this week</h3>
       <p className="step-description">
         Focus on what matters most. You can select up to 3 outcomes.
       </p>
 
       <div className="outcomes-section">
-        <h4>Selected ({selectedOutcomes.length}/3)</h4>
+        <h4 className="section-heading">Selected ({selectedOutcomes.length}/3)</h4>
         {selectedOutcomes.length === 0 ? (
           <p className="empty-text">No outcomes selected yet</p>
         ) : (
@@ -677,7 +677,7 @@ function OutcomesStep({
 
       {unselectedOutcomes.length > 0 && selectedOutcomes.length < 3 && (
         <div className="outcomes-section">
-          <h4>Available Outcomes</h4>
+          <h4 className="section-heading">Available Outcomes</h4>
           <div className="outcome-list">
             {unselectedOutcomes.map((outcome) => (
               <div key={outcome.id} className="outcome-card available">
@@ -736,11 +736,11 @@ function CapacityStep({
 
   return (
     <div className="step-capacity">
-      <h3>Plan your capacity</h3>
+      <h3 className="step-heading">Plan your capacity</h3>
 
       {/* Capacity Setting */}
       <div className="capacity-section">
-        <label>Available hours this week</label>
+        <label className="form-label">Available hours this week</label>
         <div className="capacity-input">
           <input
             type="range"
@@ -781,7 +781,7 @@ function CapacityStep({
 
       {/* Day-by-day breakdown */}
       <div className="day-breakdown">
-        <h4>Tasks by Day</h4>
+        <h4 className="section-heading">Tasks by Day</h4>
         {analysis.dayBreakdown.map((day) => (
           <div key={day.day} className="day-row">
             <span className="day-name">{day.dayName}</span>
@@ -799,7 +799,7 @@ function CapacityStep({
 
       {/* Add tasks */}
       <div className="add-tasks-section">
-        <h4>Add Tasks</h4>
+        <h4 className="section-heading">Add Tasks</h4>
         {unaddedTasks.length === 0 ? (
           <p className="empty-text">All available tasks have been added</p>
         ) : (
@@ -823,7 +823,7 @@ function CapacityStep({
       {/* Current tasks */}
       {plan.tasks.length > 0 && (
         <div className="current-tasks-section">
-          <h4>Planned Tasks ({plan.tasks.length})</h4>
+          <h4 className="section-heading">Planned Tasks ({plan.tasks.length})</h4>
           <div className="task-list">
             {plan.tasks.map((pt) => (
               <div key={pt.id} className="task-row planned">
@@ -880,7 +880,7 @@ function CommitStep({
 
   return (
     <div className="step-commit">
-      <h3>Review and commit your plan</h3>
+      <h3 className="step-heading">Review and commit your plan</h3>
 
       <div className="commit-summary">
         <div className="summary-row">
@@ -909,7 +909,7 @@ function CommitStep({
 
       {analysis.warnings.length > 0 && (
         <div className="warnings">
-          <h4>Warnings</h4>
+          <h4 className="section-heading">Warnings</h4>
           {analysis.warnings.map((warning, index) => (
             <div key={index} className={`warning ${warning.severity}`}>
               <span>{warning.message}</span>
@@ -920,7 +920,7 @@ function CommitStep({
       )}
 
       <div className="commit-actions">
-        <p>
+        <p className="commit-note">
           Once committed, your plan will be locked. You can create a new version
           if you need to make changes later.
         </p>
@@ -946,8 +946,8 @@ function SummaryStep({
     <div className="step-summary">
       <div className="success-header">
         <span className="success-icon">✅</span>
-        <h3>Your week is planned!</h3>
-        <p>{weekInfo.range_label}</p>
+        <h3 className="step-heading">Your week is planned!</h3>
+        <p className="step-description">{weekInfo.range_label}</p>
       </div>
 
       {plan.summary_markdown && (
@@ -957,7 +957,7 @@ function SummaryStep({
       )}
 
       <div className="next-steps">
-        <h4>Next Steps</h4>
+        <h4 className="section-heading">Next Steps</h4>
         <ul>
           <li>Check your daily tasks in the Now Mode panel</li>
           <li>Complete your daily check-in to track energy levels</li>
@@ -1151,26 +1151,18 @@ const wizardStyles = `
 `
 
 const stepStyles = `
-  h3 {
+  .step-heading {
     font-size: 20px;
     font-weight: 600;
     color: #e4e4f0;
     margin: 0 0 8px;
   }
 
-  h4 {
+  .section-heading {
     font-size: 15px;
     font-weight: 600;
     color: #e4e4f0;
     margin: 20px 0 12px;
-  }
-
-  p {
-    color: #a0a0be;
-  }
-
-  label {
-    color: #e4e4f0;
   }
 
   .step-description {
@@ -1210,7 +1202,7 @@ const stepStyles = `
     margin-bottom: 20px;
   }
 
-  .form-section label {
+  .form-label {
     display: block;
     font-size: 14px;
     font-weight: 500;
@@ -1358,7 +1350,7 @@ const stepStyles = `
     margin-bottom: 20px;
   }
 
-  .capacity-section label {
+  .capacity-section .form-label {
     display: block;
     font-size: 14px;
     font-weight: 500;
@@ -1579,8 +1571,11 @@ const stepStyles = `
 
   .commit-actions {
     text-align: center;
-    color: #6b6b8e;
     font-size: 13px;
+  }
+
+  .commit-note {
+    color: #6b6b8e;
   }
 
   .success-header {
