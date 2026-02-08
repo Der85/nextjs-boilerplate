@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const currentWeek = getISOWeekInfo()
 
     // 4. Check for existing plan this week
-    const { data: existingPlans } = await supabase
+    const { data: existingPlans, error: fetchError } = await supabase
       .from('weekly_plans')
       .select('*')
       .eq('user_id', user.id)
@@ -64,6 +64,18 @@ export async function GET(request: NextRequest) {
       .eq('week_number', currentWeek.week_number)
       .order('version', { ascending: false })
       .limit(1)
+
+    // Handle missing table error gracefully
+    if (fetchError) {
+      console.error('Failed to fetch weekly_plans:', fetchError.message)
+      // If table doesn't exist, return a helpful error
+      if (fetchError.message.includes('does not exist') || fetchError.code === '42P01') {
+        return NextResponse.json({
+          error: 'Weekly planning tables not set up. Please run migration 010.',
+          details: fetchError.message,
+        }, { status: 500 })
+      }
+    }
 
     let plan = existingPlans && existingPlans.length > 0 ? existingPlans[0] : null
     let created = false
@@ -85,19 +97,31 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (createError) {
+        console.error('Failed to create weekly_plan:', createError.message)
+        // If table doesn't exist, return a helpful error
+        if (createError.message.includes('does not exist') || createError.code === '42P01') {
+          return NextResponse.json({
+            error: 'Weekly planning tables not set up. Please run migration 010.',
+            details: createError.message,
+          }, { status: 500 })
+        }
         return NextResponse.json({ error: createError.message }, { status: 500 })
       }
 
       plan = newPlan
       created = true
 
-      // Track analytics
-      await supabase.from('weekly_planning_events').insert({
-        user_id: user.id,
-        event_type: 'planning_started',
-        weekly_plan_id: plan.id,
-        metadata: { week_number: currentWeek.week_number, year: currentWeek.year },
-      })
+      // Track analytics (fire and forget - don't fail if events table missing)
+      try {
+        await supabase.from('weekly_planning_events').insert({
+          user_id: user.id,
+          event_type: 'planning_started',
+          weekly_plan_id: plan.id,
+          metadata: { week_number: currentWeek.week_number, year: currentWeek.year },
+        })
+      } catch (analyticsError) {
+        console.warn('Failed to track planning event:', analyticsError)
+      }
     }
 
     // 6. Fetch plan outcomes (base data without joins - more robust)
