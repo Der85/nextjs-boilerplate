@@ -626,11 +626,7 @@ function FocusPageContent() {
     }
   }
 
-  if (loading) {
-    return <FocusSkeleton />
-  }
-
-  // Error recovery handler
+  // Error recovery handler — MUST be before the loading early-return (Rules of Hooks)
   const handleErrorRecovery = useCallback((recoveredState?: unknown) => {
     if (recoveredState && typeof recoveredState === 'object') {
       const state = recoveredState as ReturnType<typeof getFocusFlowState>
@@ -643,6 +639,10 @@ function FocusPageContent() {
       if (state.energyLevel !== undefined) setEnergyLevel(state.energyLevel)
     }
   }, [])
+
+  if (loading) {
+    return <FocusSkeleton />
+  }
 
   return (
     <>
