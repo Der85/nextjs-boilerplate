@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
 import WeeklyPlanningWizard from '@/components/WeeklyPlanningWizard'
+import StateSavingErrorBoundary from '@/components/StateSavingErrorBoundary'
+import { cleanupExpiredEmergencyStates } from '@/lib/emergencyState'
 import type { WeeklyPlanFull } from '@/lib/types/weekly-planning'
 
 export default function WeeklyPlanningPage() {
@@ -13,6 +15,16 @@ export default function WeeklyPlanningPage() {
   const [loading, setLoading] = useState(true)
   const [showSuccessToast, setShowSuccessToast] = useState(false)
   const [completedPlan, setCompletedPlan] = useState<WeeklyPlanFull | null>(null)
+
+  // Cleanup expired emergency states on mount
+  useEffect(() => {
+    cleanupExpiredEmergencyStates()
+  }, [])
+
+  // Get current state for emergency saving
+  const getWeeklyPlanningState = useCallback(() => ({
+    completedPlan,
+  }), [completedPlan])
 
   // Check authentication
   useEffect(() => {
@@ -89,10 +101,18 @@ export default function WeeklyPlanningPage() {
       <UnifiedHeader subtitle="Weekly Planning" />
 
       <main className="main-content">
-        <WeeklyPlanningWizard
-          onClose={handleClose}
-          onComplete={handleComplete}
-        />
+        <StateSavingErrorBoundary
+          componentName="WeeklyPlanningWizard"
+          getState={getWeeklyPlanningState}
+          onDismiss={handleClose}
+          fallbackTitle="Weekly planning hit a snag"
+          fallbackMessage="Your planning progress is safe. Let's try again."
+        >
+          <WeeklyPlanningWizard
+            onClose={handleClose}
+            onComplete={handleComplete}
+          />
+        </StateSavingErrorBoundary>
       </main>
 
       {/* Success Toast */}

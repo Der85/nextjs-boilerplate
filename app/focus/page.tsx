@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
@@ -14,6 +14,8 @@ import {
 } from '@/lib/focusFlowState'
 import FocusSkeleton from '@/components/FocusSkeleton'
 import { trackFocusStarted } from '@/lib/analytics'
+import StateSavingErrorBoundary from '@/components/StateSavingErrorBoundary'
+import { cleanupExpiredEmergencyStates } from '@/lib/emergencyState'
 
 // Step components
 import BrainDumpScreen from './components/BrainDumpScreen'
@@ -107,6 +109,23 @@ function FocusPageContent() {
 
   // Presence
   const { onlineCount } = usePresenceWithFallback({ isFocusing: true })
+
+  // Cleanup expired emergency states on mount
+  useEffect(() => {
+    cleanupExpiredEmergencyStates()
+  }, [])
+
+  // Get current state for emergency saving - memoized to avoid recreating on every render
+  const getFocusFlowState = useCallback(() => ({
+    step,
+    parsedTasks,
+    tasksWithContext,
+    breakdowns,
+    handoffGoalId,
+    handoffStepId,
+    userMode,
+    energyLevel,
+  }), [step, parsedTasks, tasksWithContext, breakdowns, handoffGoalId, handoffStepId, userMode, energyLevel])
 
   useEffect(() => {
     const init = async () => {
@@ -594,92 +613,146 @@ function FocusPageContent() {
     return <FocusSkeleton />
   }
 
+  // Error recovery handler
+  const handleErrorRecovery = useCallback((recoveredState?: unknown) => {
+    if (recoveredState && typeof recoveredState === 'object') {
+      const state = recoveredState as ReturnType<typeof getFocusFlowState>
+      if (state.parsedTasks) setParsedTasks(state.parsedTasks)
+      if (state.tasksWithContext) setTasksWithContext(state.tasksWithContext as TaskWithContext[])
+      if (state.breakdowns) setBreakdowns(state.breakdowns)
+      if (state.handoffGoalId !== undefined) setHandoffGoalId(state.handoffGoalId)
+      if (state.handoffStepId !== undefined) setHandoffStepId(state.handoffStepId)
+      if (state.userMode) setUserMode(state.userMode)
+      if (state.energyLevel !== undefined) setEnergyLevel(state.energyLevel)
+    }
+  }, [])
+
   return (
     <>
       {step === 'brain-dump' && (
-        <>
-          {sprintMode && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 100,
-              background: 'linear-gradient(135deg, #00ba7c 0%, #059669 100%)',
-              color: 'white',
-              padding: '10px 16px',
-              textAlign: 'center',
-              fontSize: '14px',
-              fontWeight: 700,
-              letterSpacing: '0.3px',
-              boxShadow: '0 2px 12px rgba(0, 186, 124, 0.3)',
-            }}>
-              ⚡ Sprint Mode Active: Let&apos;s go!
-            </div>
-          )}
-          <BrainDumpScreen
-            onSubmit={handleBrainDumpSubmit}
-            onSkip={handleBrainDumpSkip}
-            onQuickStart={handleQuickStart}
-          />
-        </>
+        <StateSavingErrorBoundary
+          componentName="FocusFlow-BrainDump"
+          getState={getFocusFlowState}
+          onRetry={handleErrorRecovery}
+          fallbackTitle="Brain dump hit a snag"
+          fallbackMessage="Your thoughts are safe. Let's try again."
+        >
+          <>
+            {sprintMode && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                background: 'linear-gradient(135deg, #00ba7c 0%, #059669 100%)',
+                color: 'white',
+                padding: '10px 16px',
+                textAlign: 'center',
+                fontSize: '14px',
+                fontWeight: 700,
+                letterSpacing: '0.3px',
+                boxShadow: '0 2px 12px rgba(0, 186, 124, 0.3)',
+              }}>
+                ⚡ Sprint Mode Active: Let&apos;s go!
+              </div>
+            )}
+            <BrainDumpScreen
+              onSubmit={handleBrainDumpSubmit}
+              onSkip={handleBrainDumpSkip}
+              onQuickStart={handleQuickStart}
+            />
+          </>
+        </StateSavingErrorBoundary>
       )}
       {step === 'triage' && (
-        <TriageScreen
-          tasks={parsedTasks}
-          loading={triageLoading}
-          energyLevel={energyLevel}
-          parseInfo={parseInfo}
-          onConfirm={handleTriageConfirm}
-          onBack={handleTriageBack}
-        />
+        <StateSavingErrorBoundary
+          componentName="FocusFlow-Triage"
+          getState={getFocusFlowState}
+          onRetry={handleErrorRecovery}
+          fallbackTitle="Triage hit a snag"
+          fallbackMessage="Your tasks are safe. Let's try again."
+        >
+          <TriageScreen
+            tasks={parsedTasks}
+            loading={triageLoading}
+            energyLevel={energyLevel}
+            parseInfo={parseInfo}
+            onConfirm={handleTriageConfirm}
+            onBack={handleTriageBack}
+          />
+        </StateSavingErrorBoundary>
       )}
       {step === 'context' && (
-        <ContextScreen
-          tasks={parsedTasks}
-          onComplete={handleContextComplete}
-          onBack={handleContextBack}
-        />
+        <StateSavingErrorBoundary
+          componentName="FocusFlow-Context"
+          getState={getFocusFlowState}
+          onRetry={handleErrorRecovery}
+          fallbackTitle="Context screen hit a snag"
+          fallbackMessage="Your task details are safe. Let's try again."
+        >
+          <ContextScreen
+            tasks={parsedTasks}
+            onComplete={handleContextComplete}
+            onBack={handleContextBack}
+          />
+        </StateSavingErrorBoundary>
       )}
       {step === 'breakdown' && (
-        <>
-          {gentleMode && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 100,
-              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
-              color: 'white',
-              padding: '10px 16px',
-              textAlign: 'center',
-              fontSize: '14px',
-              fontWeight: 700,
-              letterSpacing: '0.3px',
-              boxShadow: '0 2px 12px rgba(99, 102, 241, 0.3)',
-            }}>
-              🌙 Gentle Mode: Energy is low, so we kept it simple.
-            </div>
-          )}
-          <BreakdownScreen
-            breakdowns={breakdowns}
-            loading={breakdownLoading}
-            onStartFocusing={handleStartFocusing}
-            onBack={handleBreakdownBack}
-          />
-        </>
+        <StateSavingErrorBoundary
+          componentName="FocusFlow-Breakdown"
+          getState={getFocusFlowState}
+          onRetry={handleErrorRecovery}
+          fallbackTitle="Breakdown screen hit a snag"
+          fallbackMessage="Your micro-steps are safe. Let's try again."
+        >
+          <>
+            {gentleMode && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+                color: 'white',
+                padding: '10px 16px',
+                textAlign: 'center',
+                fontSize: '14px',
+                fontWeight: 700,
+                letterSpacing: '0.3px',
+                boxShadow: '0 2px 12px rgba(99, 102, 241, 0.3)',
+              }}>
+                🌙 Gentle Mode: Energy is low, so we kept it simple.
+              </div>
+            )}
+            <BreakdownScreen
+              breakdowns={breakdowns}
+              loading={breakdownLoading}
+              onStartFocusing={handleStartFocusing}
+              onBack={handleBreakdownBack}
+            />
+          </>
+        </StateSavingErrorBoundary>
       )}
       {step === 'dashboard' && (
-        <FocusDashboard
-          plans={plans}
-          goals={goals}
-          user={user}
-          onlineCount={onlineCount}
-          userMode={userMode}
-          onNewBrainDump={handleNewBrainDump}
-          onPlansUpdate={handlePlansUpdate}
-        />
+        <StateSavingErrorBoundary
+          componentName="FocusFlow-Dashboard"
+          getState={getFocusFlowState}
+          onRetry={handleErrorRecovery}
+          fallbackTitle="Dashboard hit a snag"
+          fallbackMessage="Your focus plans are safe in the database. Let's try again."
+        >
+          <FocusDashboard
+            plans={plans}
+            goals={goals}
+            user={user}
+            onlineCount={onlineCount}
+            userMode={userMode}
+            onNewBrainDump={handleNewBrainDump}
+            onPlansUpdate={handlePlansUpdate}
+          />
+        </StateSavingErrorBoundary>
       )}
     </>
   )

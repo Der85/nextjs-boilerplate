@@ -6,6 +6,8 @@ import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
 import FABToolbox from '@/components/FABToolbox'
 import ParentSelector from '@/components/ParentSelector'
+import StateSavingErrorBoundary from '@/components/StateSavingErrorBoundary'
+import { cleanupExpiredEmergencyStates } from '@/lib/emergencyState'
 import {
   type InboxItemWithAge,
   type TriageAction,
@@ -69,6 +71,20 @@ function TriagePageContent() {
 
   // Current item
   const currentItem = items[currentIndex]
+
+  // Cleanup expired emergency states on mount
+  useEffect(() => {
+    cleanupExpiredEmergencyStates()
+  }, [])
+
+  // Get current state for emergency saving
+  const getTriageState = useCallback(() => ({
+    items,
+    currentIndex,
+    selectedOutcomeId,
+    selectedCommitmentId,
+    pendingAction,
+  }), [items, currentIndex, selectedOutcomeId, selectedCommitmentId, pendingAction])
 
   // ============================================
   // Initialize
@@ -258,10 +274,16 @@ function TriagePageContent() {
   }
 
   return (
-    <div className="triage-page">
-      <UnifiedHeader subtitle="Inbox triage" />
+    <StateSavingErrorBoundary
+      componentName="Triage"
+      getState={getTriageState}
+      fallbackTitle="Triage hit a snag"
+      fallbackMessage="Your inbox items are safe. Let's try again."
+    >
+      <div className="triage-page">
+        <UnifiedHeader subtitle="Inbox triage" />
 
-      <main className="main-content">
+        <main className="main-content">
         {/* Progress Header */}
         <div className="progress-header">
           <h1 className="page-title">Triage</h1>
@@ -807,6 +829,7 @@ function TriagePageContent() {
           to { transform: rotate(360deg); }
         }
       `}</style>
-    </div>
+      </div>
+    </StateSavingErrorBoundary>
   )
 }

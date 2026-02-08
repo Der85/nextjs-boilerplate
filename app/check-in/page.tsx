@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { calculateXP, checkAchievements, getXPForNextLevel, calculateLevel } from '@/lib/gamification'
@@ -8,6 +8,8 @@ import type { SessionData, Badge, UserStats } from '@/lib/gamification'
 import { getGreeting } from '@/lib/utils/ui-helpers'
 import UnifiedHeader from '@/components/UnifiedHeader'
 import { trackCheckinCompleted } from '@/lib/analytics'
+import StateSavingErrorBoundary from '@/components/StateSavingErrorBoundary'
+import { cleanupExpiredEmergencyStates } from '@/lib/emergencyState'
 
 // Step components — "Snap Check-In" flow: vitals → coach → achievement → summary
 import VitalsCheck from './components/VitalsCheck'
@@ -58,6 +60,21 @@ export default function CheckInPage() {
   const [coachAdvice, setCoachAdvice] = useState<string>('')
   const [newBadges, setNewBadges] = useState<Badge[]>([])
   const [xpEarned, setXpEarned] = useState(0)
+
+  // Cleanup expired emergency states on mount
+  useEffect(() => {
+    cleanupExpiredEmergencyStates()
+  }, [])
+
+  // Get current state for emergency saving
+  const getCheckInState = useCallback(() => ({
+    step,
+    sessionData,
+    currentStreak,
+    userMode,
+    coachAdvice,
+    xpEarned,
+  }), [step, sessionData, currentStreak, userMode, coachAdvice, xpEarned])
 
   useEffect(() => {
     const init = async () => {
@@ -323,36 +340,64 @@ export default function CheckInPage() {
 
       {/* "Snap Check-In" flow: vitals → coach → achievement → summary */}
       {step === 'vitals' && (
-        <VitalsCheck
-          onSubmit={handleVitalsSubmit}
-          greeting={getGreeting()}
-          currentStreak={currentStreak}
-        />
+        <StateSavingErrorBoundary
+          componentName="CheckIn-Vitals"
+          getState={getCheckInState}
+          fallbackTitle="Check-in hit a snag"
+          fallbackMessage="Your progress is safe. Let's try again."
+        >
+          <VitalsCheck
+            onSubmit={handleVitalsSubmit}
+            greeting={getGreeting()}
+            currentStreak={currentStreak}
+          />
+        </StateSavingErrorBoundary>
       )}
       {step === 'coach' && (
-        <CoachProcessing
-          energyLevel={sessionData.energyLevel}
-          moodScore={sessionData.moodScore}
-        />
+        <StateSavingErrorBoundary
+          componentName="CheckIn-Coach"
+          getState={getCheckInState}
+          fallbackTitle="Coach processing hit a snag"
+          fallbackMessage="Your check-in data is safe. Let's try again."
+        >
+          <CoachProcessing
+            energyLevel={sessionData.energyLevel}
+            moodScore={sessionData.moodScore}
+          />
+        </StateSavingErrorBoundary>
       )}
       {step === 'achievement' && (
-        <AchievementScreen
-          coachAdvice={coachAdvice}
-          xpEarned={xpEarned}
-          newBadges={newBadges}
-          currentXP={userStats.total_xp + xpEarned}
-          xpForNextLevel={getXPForNextLevel(userStats.current_level)}
-          currentLevel={userStats.current_level}
-          onContinue={handleAchievementContinue}
-        />
+        <StateSavingErrorBoundary
+          componentName="CheckIn-Achievement"
+          getState={getCheckInState}
+          fallbackTitle="Achievement screen hit a snag"
+          fallbackMessage="Your XP and badges are safe. Let's try again."
+        >
+          <AchievementScreen
+            coachAdvice={coachAdvice}
+            xpEarned={xpEarned}
+            newBadges={newBadges}
+            currentXP={userStats.total_xp + xpEarned}
+            xpForNextLevel={getXPForNextLevel(userStats.current_level)}
+            currentLevel={userStats.current_level}
+            onContinue={handleAchievementContinue}
+          />
+        </StateSavingErrorBoundary>
       )}
       {step === 'summary' && (
-        <SummaryScreen
-          energyLevel={sessionData.energyLevel}
-          moodScore={sessionData.moodScore}
-          currentStreak={currentStreak + 1}
-          userMode={userMode}
-        />
+        <StateSavingErrorBoundary
+          componentName="CheckIn-Summary"
+          getState={getCheckInState}
+          fallbackTitle="Summary screen hit a snag"
+          fallbackMessage="Your check-in was saved. Let's try again."
+        >
+          <SummaryScreen
+            energyLevel={sessionData.energyLevel}
+            moodScore={sessionData.moodScore}
+            currentStreak={currentStreak + 1}
+            userMode={userMode}
+          />
+        </StateSavingErrorBoundary>
       )}
     </>
   )
