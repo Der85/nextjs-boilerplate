@@ -87,7 +87,8 @@ export default function WeeklyPlanningWizard({
       })
 
       if (!res.ok) {
-        throw new Error('Failed to load weekly plan')
+        const errBody = await res.json().catch(() => null)
+        throw new Error(errBody?.error || 'Failed to load weekly plan')
       }
 
       const data = await res.json()

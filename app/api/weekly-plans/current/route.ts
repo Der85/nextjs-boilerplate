@@ -18,10 +18,17 @@ import {
 // ===========================================
 // Supabase Client
 // ===========================================
-function getSupabaseClient(): SupabaseClient | null {
+function getSupabaseClient(accessToken?: string): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) return null
+  // When an access token is provided, create a client that sends it
+  // as the Authorization header so RLS policies see auth.uid()
+  if (accessToken) {
+    return createClient(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    })
+  }
   return createClient(url, anonKey)
 }
 
@@ -29,24 +36,28 @@ function getSupabaseClient(): SupabaseClient | null {
 // GET /api/weekly-plans/current - Get current week's plan
 // ===========================================
 export async function GET(request: NextRequest) {
-  const supabase = getSupabaseClient()
-  if (!supabase) {
+  const authHeader = request.headers.get('authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  // Create client with anon key first to validate the token
+  const anonClient = getSupabaseClient()
+  if (!anonClient) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
   try {
-    // 1. Authentication
-    const authHeader = request.headers.get('authorization') ?? ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // 1. Authentication - validate the token
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
+
+    // Create an authenticated client so RLS policies see auth.uid()
+    const supabase = getSupabaseClient(token)!
 
     // 2. Rate limiting (wrapped in try/catch to prevent crashes if rate limiter fails)
     try {
@@ -71,9 +82,9 @@ export async function GET(request: NextRequest) {
       .order('version', { ascending: false })
       .limit(1)
 
-    // Handle missing table error gracefully
+    // Handle fetch error gracefully
     if (fetchError) {
-      console.error('Failed to fetch weekly_plans:', fetchError.message)
+      console.error('Failed to fetch weekly_plans:', fetchError.message, fetchError.code)
       // If table doesn't exist, return a helpful error
       if (fetchError.message.includes('does not exist') || fetchError.code === '42P01') {
         return NextResponse.json({
@@ -81,6 +92,11 @@ export async function GET(request: NextRequest) {
           details: fetchError.message,
         }, { status: 500 })
       }
+      // Return error for any other fetch failure (RLS, permissions, etc.)
+      return NextResponse.json({
+        error: `Failed to load weekly plans: ${fetchError.message}`,
+        code: fetchError.code,
+      }, { status: 500 })
     }
 
     let plan = existingPlans && existingPlans.length > 0 ? existingPlans[0] : null
@@ -318,12 +334,15 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    // Improved error logging with full Supabase error details
-    if (error && typeof error === 'object') {
-      console.error('Current weekly plan GET error:', JSON.stringify(error, null, 2))
-    } else {
-      console.error('Current weekly plan GET error:', error)
+    // Improved error logging with full details
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('Current weekly plan GET error:', errorMessage)
+    if (errorStack) {
+      console.error('Stack trace:', errorStack)
     }
-    return NextResponse.json({ error: 'Failed to fetch current plan' }, { status: 500 })
+    return NextResponse.json({
+      error: `Failed to fetch current plan: ${errorMessage}`,
+    }, { status: 500 })
   }
 }

@@ -18,10 +18,15 @@ import {
 // ===========================================
 // Supabase Client
 // ===========================================
-function getSupabaseClient(): SupabaseClient | null {
+function getSupabaseClient(accessToken?: string): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) return null
+  if (accessToken) {
+    return createClient(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    })
+  }
   return createClient(url, anonKey)
 }
 
@@ -39,8 +44,15 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = getSupabaseClient()
-  if (!supabase) {
+  const authHeader = request.headers.get('authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  const anonClient = getSupabaseClient()
+  if (!anonClient) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
@@ -52,17 +64,12 @@ export async function GET(
     }
 
     // 1. Authentication
-    const authHeader = request.headers.get('authorization') ?? ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
+
+    const supabase = getSupabaseClient(token)!
 
     // 2. Rate limiting
     if (weeklyPlanningRateLimiter.isLimited(user.id)) {
@@ -179,8 +186,15 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = getSupabaseClient()
-  if (!supabase) {
+  const authHeader = request.headers.get('authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  const anonClient = getSupabaseClient()
+  if (!anonClient) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
@@ -192,17 +206,12 @@ export async function PUT(
     }
 
     // 1. Authentication
-    const authHeader = request.headers.get('authorization') ?? ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
+
+    const supabase = getSupabaseClient(token)!
 
     // 2. Rate limiting
     if (weeklyPlanningRateLimiter.isLimited(user.id)) {
@@ -264,8 +273,15 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = getSupabaseClient()
-  if (!supabase) {
+  const authHeader = request.headers.get('authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  const anonClient = getSupabaseClient()
+  if (!anonClient) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
@@ -277,17 +293,12 @@ export async function DELETE(
     }
 
     // 1. Authentication
-    const authHeader = request.headers.get('authorization') ?? ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
+
+    const supabase = getSupabaseClient(token)!
 
     // 2. Rate limiting
     if (weeklyPlanningRateLimiter.isLimited(user.id)) {
