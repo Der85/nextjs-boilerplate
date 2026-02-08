@@ -109,16 +109,18 @@ export async function POST(
       .order('priority_rank', { ascending: true })
 
     // 6. Validate plan has minimum content
+    console.log('Commit POST: outcomes count:', outcomes?.length, 'tasks count:', tasks?.length)
+
     if (!outcomes || outcomes.length === 0) {
       return NextResponse.json(
-        { error: 'Please select at least one outcome before committing' },
+        { error: 'Please select at least one outcome before committing', outcomes_count: 0 },
         { status: 400 }
       )
     }
 
     if (!tasks || tasks.length === 0) {
       return NextResponse.json(
-        { error: 'Please add at least one task before committing' },
+        { error: 'Please add at least one task before committing', tasks_count: 0, outcomes_count: outcomes.length },
         { status: 400 }
       )
     }

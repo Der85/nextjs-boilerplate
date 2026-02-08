@@ -162,20 +162,26 @@ export async function POST(
     // 4. Parse body
     const body = await request.json() as AddTaskRequest
 
-    if (!isValidUUID(body.task_id)) {
-      return NextResponse.json({ error: 'Invalid task ID' }, { status: 400 })
+    console.log('Tasks POST: received body:', JSON.stringify(body))
+
+    if (!body.task_id || !isValidUUID(body.task_id)) {
+      return NextResponse.json({ error: 'Invalid task ID', received: body.task_id }, { status: 400 })
     }
 
     // 5. Verify task exists and belongs to user
-    const { data: task } = await supabase
+    const { data: task, error: taskError } = await supabase
       .from('focus_plans')
       .select('id, estimated_minutes')
       .eq('id', body.task_id)
       .eq('user_id', user.id)
       .single()
 
+    if (taskError) {
+      console.error('Tasks POST: task lookup error:', taskError.message, taskError.code)
+    }
+
     if (!task) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Task not found', task_id: body.task_id, details: taskError?.message }, { status: 404 })
     }
 
     // 6. Validate scheduled_day
@@ -208,13 +214,14 @@ export async function POST(
       .single()
 
     if (insertError) {
+      console.error('Tasks POST: insert error:', insertError.message, insertError.code, insertError.details)
       if (insertError.code === '23505') {
         return NextResponse.json(
           { error: 'Task already added to this plan' },
           { status: 400 }
         )
       }
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      return NextResponse.json({ error: insertError.message, code: insertError.code }, { status: 500 })
     }
 
     // 8. Update plan's planned capacity

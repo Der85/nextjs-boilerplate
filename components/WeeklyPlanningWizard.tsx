@@ -169,6 +169,10 @@ export default function WeeklyPlanningWizard({
 
       if (res.ok) {
         await fetchPlanData()
+      } else {
+        const errBody = await res.json().catch(() => null)
+        console.error('Error adding outcome:', res.status, errBody)
+        setError(errBody?.error || `Failed to add outcome (${res.status})`)
       }
     } catch (err) {
       console.error('Error adding outcome:', err)
@@ -216,6 +220,10 @@ export default function WeeklyPlanningWizard({
 
       if (res.ok) {
         await fetchPlanData()
+      } else {
+        const errBody = await res.json().catch(() => null)
+        console.error('Error adding task:', res.status, errBody)
+        setError(errBody?.error || `Failed to add task (${res.status})`)
       }
     } catch (err) {
       console.error('Error adding task:', err)
