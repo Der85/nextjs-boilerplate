@@ -250,7 +250,7 @@ export default function WinsPage() {
 
   return (
     <div className="wins-page">
-      <UnifiedHeader subtitle="Celebrate your progress" />
+      <UnifiedHeader subtitle="Celebrate your progress" backPath="/dashboard" />
 
       <main className="main">
         {/* Header Section */}

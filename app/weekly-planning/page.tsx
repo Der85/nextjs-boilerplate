@@ -86,7 +86,7 @@ export default function WeeklyPlanningPage() {
 
   return (
     <div className="weekly-planning-page">
-      <UnifiedHeader subtitle="Weekly Planning" />
+      <UnifiedHeader subtitle="Weekly Planning" backPath="/dashboard" />
 
       <main className="main-content">
         <WeeklyPlanningWizard

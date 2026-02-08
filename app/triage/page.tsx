@@ -259,7 +259,7 @@ function TriagePageContent() {
 
   return (
     <div className="triage-page">
-      <UnifiedHeader subtitle="Inbox triage" />
+      <UnifiedHeader subtitle="Inbox triage" backPath="/focus" />
 
       <main className="main-content">
         {/* Progress Header */}

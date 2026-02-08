@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client'
 interface UnifiedHeaderProps {
   subtitle?: string
   showMenu?: boolean
+  backPath?: string
 }
 
 type UserMode = 'recovery' | 'maintenance' | 'growth'
@@ -17,18 +18,37 @@ const MODE_CONFIG: Record<UserMode, { icon: string; label: string; description: 
   growth: { icon: '🚀', label: 'Growth', description: 'High energy, push harder' },
 }
 
-// Navigation items for the menu
-const NAV_ITEMS = [
-  { id: 'dashboard', icon: '🏠', label: 'Home', path: '/dashboard' },
-  { id: 'focus', icon: '⏱️', label: 'Focus', path: '/focus' },
-  { id: 'goals', icon: '🎯', label: 'Goals', path: '/goals' },
-  { id: 'history', icon: '📊', label: 'History', path: '/history' },
-  { id: 'village', icon: '💜', label: 'Village', path: '/village' },
-  { id: 'brake', icon: '🫁', label: 'Breathe', path: '/brake' },
-  { id: 'winddown', icon: '🌙', label: 'Wind Down', path: '/wind-down' },
+// Navigation items grouped for ADHD-friendly scanning
+const NAV_SECTIONS = [
+  {
+    label: null, // Core section has no label — always visible at top
+    items: [
+      { id: 'dashboard', icon: '🏠', label: 'Home', path: '/dashboard' },
+      { id: 'focus', icon: '⏱️', label: 'Focus', path: '/focus' },
+      { id: 'now-mode', icon: '🎯', label: 'Now Mode', path: '/now-mode' },
+      { id: 'goals', icon: '🌱', label: 'Goals', path: '/goals' },
+    ],
+  },
+  {
+    label: 'Plan & Organize',
+    items: [
+      { id: 'weekly-plan', icon: '📋', label: 'Weekly Plan', path: '/weekly-planning' },
+      { id: 'triage', icon: '🔀', label: 'Triage', path: '/triage' },
+      { id: 'history', icon: '📊', label: 'History', path: '/history' },
+    ],
+  },
+  {
+    label: 'Wellbeing',
+    items: [
+      { id: 'brake', icon: '🫁', label: 'Breathe', path: '/brake' },
+      { id: 'winddown', icon: '🌙', label: 'Wind Down', path: '/wind-down' },
+      { id: 'village', icon: '💜', label: 'Village', path: '/village' },
+      { id: 'wins', icon: '🏆', label: 'Wins', path: '/wins' },
+    ],
+  },
 ]
 
-export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHeaderProps) {
+export default function UnifiedHeader({ subtitle, showMenu = true, backPath }: UnifiedHeaderProps) {
   const router = useRouter()
   const supabase = createClient()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -69,6 +89,13 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
   return (
     <>
       <header className="unified-header">
+        {/* Back button for contextual navigation */}
+        {backPath && (
+          <button onClick={() => router.push(backPath)} className="header-back-btn" aria-label="Go back">
+            ←
+          </button>
+        )}
+
         {/* Logo */}
         <button onClick={() => router.push('/dashboard')} className="header-logo">
           adhder.io
@@ -106,15 +133,22 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
             </div>
 
             <nav className="menu-nav">
-              {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  className="menu-nav-item"
-                  onClick={() => navigateTo(item.path)}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  <span className="nav-label">{item.label}</span>
-                </button>
+              {NAV_SECTIONS.map((section, sectionIdx) => (
+                <div key={sectionIdx} className="nav-section">
+                  {section.label && (
+                    <div className="nav-section-label">{section.label}</div>
+                  )}
+                  {section.items.map((item) => (
+                    <button
+                      key={item.id}
+                      className="menu-nav-item"
+                      onClick={() => navigateTo(item.path)}
+                    >
+                      <span className="nav-icon">{item.icon}</span>
+                      <span className="nav-label">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
             </nav>
 
@@ -155,6 +189,23 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
           align-items: center;
           gap: clamp(8px, 2vw, 12px);
           z-index: 100;
+        }
+
+        .header-back-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: clamp(18px, 4.5vw, 22px);
+          color: #1D9BF0;
+          padding: 4px 8px;
+          margin-right: -4px;
+          transition: opacity 0.15s ease;
+          flex-shrink: 0;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .header-back-btn:hover {
+          opacity: 0.7;
         }
 
         .header-logo {
@@ -304,6 +355,27 @@ export default function UnifiedHeader({ subtitle, showMenu = true }: UnifiedHead
           flex-direction: column;
           gap: clamp(4px, 1vw, 8px);
           overflow-y: auto;
+        }
+
+        .nav-section {
+          display: flex;
+          flex-direction: column;
+          gap: clamp(2px, 0.5vw, 4px);
+        }
+
+        .nav-section + .nav-section {
+          margin-top: clamp(8px, 2vw, 12px);
+          padding-top: clamp(8px, 2vw, 12px);
+          border-top: 1px solid #eff3f4;
+        }
+
+        .nav-section-label {
+          font-size: 11px;
+          font-weight: 600;
+          color: #8899a6;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          padding: 4px 16px 2px;
         }
 
         .menu-nav-item {
