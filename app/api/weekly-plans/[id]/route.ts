@@ -91,7 +91,7 @@ export async function GET(
     // 5. Fetch plan tasks (base data without joins)
     const { data: planTasks, error: tasksError } = await supabase
       .from('weekly_plan_tasks')
-      .select('id, weekly_plan_id, task_id, estimated_minutes, priority_rank, created_at')
+      .select('id, weekly_plan_id, task_id, estimated_minutes, priority_rank, scheduled_day, created_at')
       .eq('weekly_plan_id', id)
       .order('priority_rank', { ascending: true })
 
@@ -120,7 +120,7 @@ export async function GET(
 
     // 7. Fetch related tasks data separately (if we have task IDs)
     const taskIds = [...new Set((planTasks || []).map(pt => pt.task_id).filter(Boolean))]
-    let tasksMap: Record<string, { id: string; title?: string; task_name?: string; status?: string; outcome_id?: string; commitment_id?: string }> = {}
+    let tasksMap: Record<string, { id: string; title: string; status: string; outcome_id: string | null; commitment_id: string | null }> = {}
 
     if (taskIds.length > 0) {
       const { data: tasksData } = await supabase
@@ -129,20 +129,26 @@ export async function GET(
         .in('id', taskIds)
 
       if (tasksData) {
-        tasksMap = Object.fromEntries(tasksData.map(t => [t.id, { ...t, title: t.task_name }]))
+        tasksMap = Object.fromEntries(tasksData.map(t => [t.id, {
+          id: t.id,
+          title: t.task_name || 'Untitled',
+          status: t.status || 'active',
+          outcome_id: t.outcome_id ?? null,
+          commitment_id: t.commitment_id ?? null,
+        }]))
       }
     }
 
     // 8. Map outcomes with their related data
     const outcomes = (planOutcomes || []).map(po => ({
       ...po,
-      outcome: po.outcome_id ? outcomesMap[po.outcome_id] || null : null,
+      outcome: po.outcome_id ? outcomesMap[po.outcome_id] || undefined : undefined,
     }))
 
-    // 9. Map tasks with their related data
+    // 9. Map tasks with their related data (use undefined instead of null for optional task)
     const tasks = (planTasks || []).map(pt => ({
       ...pt,
-      task: pt.task_id ? tasksMap[pt.task_id] || null : null,
+      task: pt.task_id && tasksMap[pt.task_id] ? tasksMap[pt.task_id] : undefined,
     }))
 
     // 10. Calculate capacity analysis
