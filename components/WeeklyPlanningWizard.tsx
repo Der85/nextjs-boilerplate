@@ -994,6 +994,7 @@ const wizardStyles = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    color: #e4e4f0;
   }
 
   .wizard-container.loading,
