@@ -502,6 +502,7 @@ export default function WeeklyPlanningWizard({
         </div>
       </div>
       <style jsx>{wizardStyles}</style>
+      <style jsx global>{stepStyles}</style>
     </div>
   )
 }
@@ -620,7 +621,6 @@ function ReviewStep({
         />
       </div>
 
-      <style jsx>{stepStyles}</style>
     </div>
   )
 }
@@ -697,7 +697,6 @@ function OutcomesStep({
         </div>
       )}
 
-      <style jsx>{stepStyles}</style>
     </div>
   )
 }
@@ -858,7 +857,6 @@ function CapacityStep({
         </div>
       )}
 
-      <style jsx>{stepStyles}</style>
     </div>
   )
 }
@@ -926,7 +924,6 @@ function CommitStep({
         </p>
       </div>
 
-      <style jsx>{stepStyles}</style>
     </div>
   )
 }
@@ -965,7 +962,6 @@ function SummaryStep({
         </ul>
       </div>
 
-      <style jsx>{stepStyles}</style>
     </div>
   )
 }
