@@ -281,7 +281,7 @@ function TriagePageContent() {
       fallbackMessage="Your inbox items are safe. Let's try again."
     >
       <div className="triage-page">
-        <UnifiedHeader subtitle="Inbox triage" />
+        <UnifiedHeader subtitle="Inbox triage" backPath="/focus" />
 
         <main className="main-content">
         {/* Progress Header */}

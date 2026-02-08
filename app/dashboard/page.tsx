@@ -97,6 +97,9 @@ function DashboardContent() {
   // "Today's Wins" section
   const [todaysWins, setTodaysWins] = useState<Array<{ text: string; icon: string }>>([])
 
+  // Stray thoughts (parking lot) count
+  const [strayThoughtsCount, setStrayThoughtsCount] = useState(0)
+
   // Welcome Hero (Value-First Dashboard)
   const [welcomeSkipped, setWelcomeSkipped] = useState(false)
   const [yesterdayWinsCount, setYesterdayWinsCount] = useState(0)
@@ -345,7 +348,7 @@ function DashboardContent() {
     yesterdayEnd.setHours(23, 59, 59, 999)
 
     // CONCURRENT FETCH: Run all independent queries in parallel
-    const [moodRes, goalRes, winsRes, yesterdayWinsRes] = await Promise.all([
+    const [moodRes, goalRes, winsRes, yesterdayWinsRes, strayThoughtsRes] = await Promise.all([
       // Mood entries (last 14)
       supabase
         .from('mood_entries')
@@ -378,6 +381,14 @@ function DashboardContent() {
         .eq('user_id', userId)
         .gte('created_at', yesterdayStart.toISOString())
         .lte('created_at', yesterdayEnd.toISOString()),
+
+      // Stray thoughts (parking lot) - uncompleted "no_rush" tasks
+      supabase
+        .from('focus_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('due_date', 'no_rush')
+        .eq('is_completed', false),
     ])
 
     const data = moodRes.data
@@ -482,6 +493,9 @@ function DashboardContent() {
 
     // Process yesterday's wins
     setYesterdayWinsCount(yesterdayWinsData?.length || 0)
+
+    // Process stray thoughts count
+    setStrayThoughtsCount(strayThoughtsRes.count || 0)
 
     // SECOND BATCH: Auto-archive tasks, then fetch archived + tomorrow count
     // These have a dependency: archive must run before fetching archived tasks
@@ -933,8 +947,19 @@ function DashboardContent() {
     // Note: Fresh Start removed from hero hierarchy — now a non-blocking card below
 
     // Build suggestions array from recommendations or fallback to activeGoal
-    const suggestionsToShow: EnhancedSuggestion[] = recommendations.length > 0
-      ? recommendations
+    // In growth mode, prioritize high-effort suggestions first
+    // (Recovery mode never reaches here — it returns SoftLandingHero above)
+    const filteredRecommendations = recommendations.length > 0
+      ? (userMode === 'growth'
+          ? [...recommendations].sort((a, b) => {
+              const order: Record<string, number> = { high: 0, medium: 1, low: 2 }
+              return (order[a.effortLevel] ?? 1) - (order[b.effortLevel] ?? 1)
+            })
+          : recommendations)
+      : []
+
+    const suggestionsToShow: EnhancedSuggestion[] = filteredRecommendations.length > 0
+      ? filteredRecommendations
       : activeGoal
         ? [{
             goalId: activeGoal.id,
@@ -1005,6 +1030,25 @@ function DashboardContent() {
               Start →
             </button>
           </div>
+        )}
+
+        {/* Parking Lot - stray thoughts that need a home */}
+        {strayThoughtsCount > 0 && hasCheckedInToday && (
+          <button
+            className="parking-lot-card"
+            onClick={() => router.push('/focus')}
+          >
+            <div className="parking-lot-content">
+              <span className="parking-lot-icon">💡</span>
+              <div className="parking-lot-text">
+                <span className="parking-lot-title">
+                  {strayThoughtsCount} stray thought{strayThoughtsCount !== 1 ? 's' : ''} parked
+                </span>
+                <span className="parking-lot-subtitle">Tap to review on Focus page</span>
+              </div>
+            </div>
+            <span className="parking-lot-arrow">→</span>
+          </button>
         )}
 
       </main>
@@ -2583,6 +2627,76 @@ const styles = `
       width: 100%;
       text-align: center;
     }
+  }
+
+  /* ===== PARKING LOT (STRAY THOUGHTS) CARD ===== */
+  .parking-lot-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(12px, 3vw, 16px);
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-radius: clamp(16px, 4vw, 20px);
+    padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+    margin-top: clamp(12px, 3vw, 16px);
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    animation: fadeSlideIn 0.3s ease 0.1s both;
+  }
+
+  .parking-lot-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+  }
+
+  .parking-lot-content {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 2.5vw, 14px);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .parking-lot-icon {
+    font-size: clamp(24px, 6vw, 30px);
+    flex-shrink: 0;
+  }
+
+  .parking-lot-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .parking-lot-title {
+    font-size: clamp(14px, 3.8vw, 16px);
+    font-weight: 600;
+    color: #92400e;
+  }
+
+  .parking-lot-subtitle {
+    font-size: clamp(12px, 3.2vw, 13px);
+    color: #b45309;
+    opacity: 0.7;
+  }
+
+  .parking-lot-arrow {
+    font-size: clamp(16px, 4vw, 20px);
+    color: #b45309;
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: transform 0.15s ease;
+  }
+
+  .parking-lot-card:hover .parking-lot-arrow {
+    transform: translateX(3px);
+    opacity: 1;
   }
 
   /* ===== FLOATING ACTION BUTTON (FAB) ===== */

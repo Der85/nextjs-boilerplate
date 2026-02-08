@@ -24,11 +24,14 @@ const SUPPORT_TOOLS = [
   { id: 'brake', icon: '🫁', label: 'Breathe', path: '/brake', description: 'Take a calming breath' },
   { id: 'village', icon: '💜', label: 'Village', path: '/village', description: 'Connect with support' },
   { id: 'wins', icon: '🏆', label: 'Wins', path: '/wins', description: 'Celebrate progress' },
+  { id: 'ally', icon: '🤝', label: 'Ally', path: '/ally', description: 'AI support companion' },
 ]
 
 const PRODUCTIVITY_TOOLS = [
   { id: 'now', icon: '🎯', label: 'Now', path: '/now-mode', description: 'Focus on 3 tasks' },
   { id: 'focus', icon: '⏱️', label: 'Focus', path: '/focus', description: 'Start a focus session' },
+  { id: 'weekly-plan', icon: '📋', label: 'Plan Week', path: '/weekly-planning', description: 'Plan your week' },
+  { id: 'triage', icon: '🔀', label: 'Triage', path: '/triage', description: 'Sort through overwhelm' },
   { id: 'goals', icon: '🌱', label: 'Goals', path: '/goals', description: 'Track your goals' },
   { id: 'history', icon: '📊', label: 'History', path: '/history', description: 'Review patterns' },
 ]
@@ -85,9 +88,23 @@ const getPromotedTool = (
     return { id: 'goals', label: 'Continue your goal' }
   }
 
-  // Evening (7pm-11pm): Promote Wind Down
-  if (currentHour >= 19 && currentHour < 23) {
+  // Evening (9pm+): Always promote Wind Down regardless of mode
+  if (currentHour >= 21 && currentHour < 24) {
     return { id: 'winddown', label: 'Ready to wind down?' }
+  }
+
+  // Evening (7pm-9pm): Suggest wind down
+  if (currentHour >= 19 && currentHour < 21) {
+    return { id: 'winddown', label: 'Ready to wind down?' }
+  }
+
+  // Mode-aware promotions
+  if (mode === 'recovery') {
+    return { id: 'brake', label: 'Take a breather' }
+  }
+
+  if (mode === 'growth') {
+    return { id: 'weekly-plan', label: 'Plan your week' }
   }
 
   return null
@@ -111,6 +128,36 @@ export default function FABToolbox({
   const [animatingOut, setAnimatingOut] = useState(false)
   const [isIdle, setIsIdle] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Quick capture state
+  const [quickCaptureText, setQuickCaptureText] = useState('')
+  const [quickCaptureSaving, setQuickCaptureSaving] = useState(false)
+  const [quickCaptureToast, setQuickCaptureToast] = useState(false)
+
+  const handleQuickCapture = async () => {
+    const text = quickCaptureText.trim()
+    if (!text || quickCaptureSaving) return
+    setQuickCaptureSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await supabase.from('focus_plans').insert({
+        user_id: session.user.id,
+        task_name: text,
+        steps: [],
+        due_date: 'no_rush',
+        energy_required: 'low',
+        is_completed: false,
+      })
+      setQuickCaptureText('')
+      setQuickCaptureToast(true)
+      setTimeout(() => setQuickCaptureToast(false), 2500)
+    } catch {
+      // Silently fail
+    } finally {
+      setQuickCaptureSaving(false)
+    }
+  }
 
   // Idle detection: Show pulse animation after 10s of no interaction
   useEffect(() => {
@@ -473,6 +520,32 @@ export default function FABToolbox({
               </button>
             )}
 
+            {/* Quick Capture */}
+            <div className="quick-capture-section">
+              <div className="quick-capture-row">
+                <input
+                  type="text"
+                  className="quick-capture-input"
+                  placeholder="Capture a stray thought..."
+                  value={quickCaptureText}
+                  onChange={(e) => setQuickCaptureText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCapture() }}
+                  disabled={quickCaptureSaving}
+                />
+                <button
+                  className="quick-capture-btn"
+                  onClick={handleQuickCapture}
+                  disabled={!quickCaptureText.trim() || quickCaptureSaving}
+                  aria-label="Save thought"
+                >
+                  {quickCaptureSaving ? '...' : '💡'}
+                </button>
+              </div>
+              {quickCaptureToast && (
+                <div className="quick-capture-toast">Thought captured!</div>
+              )}
+            </div>
+
             {/* Support Tools Section */}
             <div className="tool-section">
               <span className="section-label">Support</span>
@@ -813,6 +886,74 @@ export default function FABToolbox({
           font-size: clamp(16px, 4vw, 18px);
           color: #f59e0b;
           font-weight: 600;
+        }
+
+        /* ===== Quick Capture ===== */
+        .quick-capture-section {
+          padding: clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 16px);
+          border-bottom: 1px solid #eff3f4;
+        }
+
+        .quick-capture-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .quick-capture-input {
+          flex: 1;
+          padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 14px);
+          border: 1px solid #e1e8ed;
+          border-radius: 12px;
+          font-size: clamp(13px, 3.5vw, 14px);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #f7f9fa;
+          color: #0f1419;
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .quick-capture-input:focus {
+          outline: none;
+          border-color: #1D9BF0;
+          background: white;
+        }
+
+        .quick-capture-input::placeholder {
+          color: #8899a6;
+        }
+
+        .quick-capture-btn {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          border: none;
+          background: #f7f9fa;
+          cursor: pointer;
+          font-size: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
+        }
+
+        .quick-capture-btn:hover:not(:disabled) {
+          background: #fef9c3;
+          transform: scale(1.05);
+        }
+
+        .quick-capture-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .quick-capture-toast {
+          font-size: clamp(12px, 3.2vw, 13px);
+          color: #059669;
+          font-weight: 500;
+          margin-top: 6px;
+          padding-left: 4px;
+          animation: fadeSlideIn 0.2s ease;
         }
 
         /* ===== Tool Sections ===== */

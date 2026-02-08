@@ -374,7 +374,7 @@ export default function NowModePage() {
 
   return (
     <div className="now-mode-page">
-      <UnifiedHeader subtitle="Now Mode" />
+      <UnifiedHeader subtitle="Now Mode" backPath="/focus" />
 
       <main className="main-content">
         {loading ? (
