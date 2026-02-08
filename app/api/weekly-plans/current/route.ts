@@ -100,34 +100,84 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 6. Fetch outcomes (simplified join - no alias prefix)
-    const { data: outcomes } = await supabase
+    // 6. Fetch plan outcomes (base data without joins - more robust)
+    const { data: planOutcomes, error: outcomesError } = await supabase
       .from('weekly_plan_outcomes')
-      .select(`
-        *,
-        outcomes(id, title, description, horizon, status)
-      `)
+      .select('id, weekly_plan_id, outcome_id, priority_rank, created_at')
       .eq('weekly_plan_id', plan.id)
       .order('priority_rank', { ascending: true })
 
-    // 7. Fetch tasks (simplified join - no alias prefix)
-    const { data: tasks } = await supabase
+    // 7. Fetch plan tasks (base data without joins - more robust)
+    const { data: planTasks, error: tasksError } = await supabase
       .from('weekly_plan_tasks')
-      .select(`
-        *,
-        focus_plans(id, title, status, outcome_id, commitment_id)
-      `)
+      .select('id, weekly_plan_id, task_id, estimated_minutes, priority_rank, scheduled_day, created_at')
       .eq('weekly_plan_id', plan.id)
       .order('scheduled_day', { ascending: true, nullsFirst: false })
       .order('priority_rank', { ascending: true })
 
-    // 8. Calculate capacity analysis
+    // Log errors but don't fail - tables may not exist yet
+    if (outcomesError) {
+      console.warn('Failed to fetch plan outcomes:', outcomesError.message)
+    }
+    if (tasksError) {
+      console.warn('Failed to fetch plan tasks:', tasksError.message)
+    }
+
+    // 8. Fetch related outcomes data separately (if we have outcome IDs)
+    const outcomeIds = [...new Set((planOutcomes || []).map(po => po.outcome_id).filter(Boolean))]
+    let outcomesMap: Record<string, { id: string; title: string; description?: string; horizon?: string; status?: string }> = {}
+
+    if (outcomeIds.length > 0) {
+      const { data: outcomesData } = await supabase
+        .from('outcomes')
+        .select('id, title, description, horizon, status')
+        .in('id', outcomeIds)
+
+      if (outcomesData) {
+        outcomesMap = Object.fromEntries(outcomesData.map(o => [o.id, o]))
+      }
+    }
+
+    // 9. Fetch related tasks data separately (if we have task IDs)
+    const taskIds = [...new Set((planTasks || []).map(pt => pt.task_id).filter(Boolean))]
+    let tasksMap: Record<string, { id: string; title: string; status: string; outcome_id: string | null; commitment_id: string | null }> = {}
+
+    if (taskIds.length > 0) {
+      const { data: tasksData } = await supabase
+        .from('focus_plans')
+        .select('id, task_name, status, outcome_id, commitment_id')
+        .in('id', taskIds)
+
+      if (tasksData) {
+        tasksMap = Object.fromEntries(tasksData.map(t => [t.id, {
+          id: t.id,
+          title: t.task_name || 'Untitled',
+          status: t.status || 'active',
+          outcome_id: t.outcome_id ?? null,
+          commitment_id: t.commitment_id ?? null,
+        }]))
+      }
+    }
+
+    // 10. Map outcomes with their related data
+    const outcomes = (planOutcomes || []).map(po => ({
+      ...po,
+      outcome: po.outcome_id ? outcomesMap[po.outcome_id] || undefined : undefined,
+    }))
+
+    // 11. Map tasks with their related data (use undefined instead of null for optional task)
+    const tasks = (planTasks || []).map(pt => ({
+      ...pt,
+      task: pt.task_id && tasksMap[pt.task_id] ? tasksMap[pt.task_id] : undefined,
+    }))
+
+    // 12. Calculate capacity analysis
     const capacityAnalysis = calculateCapacityAnalysis(
       tasks || [],
       plan.available_capacity_minutes
     )
 
-    // 9. Get previous week summary
+    // 13. Get previous week summary
     let previousWeekSummary: PreviousWeekSummary | null = null
 
     // Calculate previous week
@@ -151,21 +201,31 @@ export async function GET(request: NextRequest) {
     } else {
       const prevPlanId = prevPlans[0].id
 
-      // Get task stats (simplified join - no alias prefix)
-      const { data: prevTasks } = await supabase
+      // Get task stats (base data without joins - more robust)
+      const { data: prevPlanTasks } = await supabase
         .from('weekly_plan_tasks')
-        .select(`
-          estimated_minutes,
-          focus_plans(status)
-        `)
+        .select('task_id, estimated_minutes')
         .eq('weekly_plan_id', prevPlanId)
 
-      if (prevTasks && prevTasks.length > 0) {
-        const completedTasks = prevTasks.filter(t => {
-          if (!t.focus_plans) return false
-          // Supabase joins may return array or single object
-          const taskData = Array.isArray(t.focus_plans) ? t.focus_plans[0] : t.focus_plans
-          return taskData && (taskData as { status: string }).status === 'completed'
+      if (prevPlanTasks && prevPlanTasks.length > 0) {
+        // Fetch task statuses separately
+        const prevTaskIds = [...new Set(prevPlanTasks.map(pt => pt.task_id).filter(Boolean))]
+        let prevTaskStatusMap: Record<string, string> = {}
+
+        if (prevTaskIds.length > 0) {
+          const { data: prevTasksData } = await supabase
+            .from('focus_plans')
+            .select('id, status')
+            .in('id', prevTaskIds)
+
+          if (prevTasksData) {
+            prevTaskStatusMap = Object.fromEntries(prevTasksData.map(t => [t.id, t.status]))
+          }
+        }
+
+        const completedTasks = prevPlanTasks.filter(t => {
+          if (!t.task_id) return false
+          return prevTaskStatusMap[t.task_id] === 'completed'
         })
         const totalMinutesCompleted = completedTasks.reduce(
           (sum, t) => sum + (t.estimated_minutes || 0),
@@ -174,17 +234,17 @@ export async function GET(request: NextRequest) {
 
         previousWeekSummary = {
           completed_tasks: completedTasks.length,
-          total_planned_tasks: prevTasks.length,
+          total_planned_tasks: prevPlanTasks.length,
           total_minutes_completed: totalMinutesCompleted,
           top_outcomes: [], // Simplified - could be expanded
-          completion_rate: prevTasks.length > 0
-            ? Math.round((completedTasks.length / prevTasks.length) * 100)
+          completion_rate: prevPlanTasks.length > 0
+            ? Math.round((completedTasks.length / prevPlanTasks.length) * 100)
             : 0,
         }
       }
     }
 
-    // 10. Get user's active outcomes for selection
+    // 14. Get user's active outcomes for selection
     const { data: availableOutcomes } = await supabase
       .from('outcomes')
       .select('id, title, description, horizon, status')
@@ -192,10 +252,10 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active')
       .order('priority_rank', { ascending: true })
 
-    // 11. Get user's available tasks for selection
+    // 15. Get user's available tasks for selection
     const { data: availableTasks } = await supabase
       .from('focus_plans')
-      .select('id, title, status, outcome_id, commitment_id, estimated_minutes')
+      .select('id, task_name, status, outcome_id, commitment_id, estimated_minutes')
       .eq('user_id', user.id)
       .in('status', ['active', 'needs_linking'])
       .order('created_at', { ascending: false })
