@@ -81,27 +81,71 @@ export async function GET(
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
     }
 
-    // 4. Fetch outcomes with joined outcome data
-    const { data: outcomes } = await supabase
+    // 4. Fetch plan outcomes (base data without joins)
+    const { data: planOutcomes, error: outcomesError } = await supabase
       .from('weekly_plan_outcomes')
-      .select(`
-        *,
-        outcome:outcomes(id, title, description, horizon, status)
-      `)
+      .select('id, weekly_plan_id, outcome_id, priority_rank, created_at')
       .eq('weekly_plan_id', id)
       .order('priority_rank', { ascending: true })
 
-    // 5. Fetch tasks with joined task data
-    const { data: tasks } = await supabase
+    // 5. Fetch plan tasks (base data without joins)
+    const { data: planTasks, error: tasksError } = await supabase
       .from('weekly_plan_tasks')
-      .select(`
-        *,
-        task:focus_plans(id, title, status, outcome_id, commitment_id)
-      `)
+      .select('id, weekly_plan_id, task_id, estimated_minutes, priority_rank, created_at')
       .eq('weekly_plan_id', id)
       .order('priority_rank', { ascending: true })
 
-    // 6. Calculate capacity analysis
+    // Log errors but don't fail - tables may not exist yet
+    if (outcomesError) {
+      console.warn('Failed to fetch plan outcomes:', outcomesError.message)
+    }
+    if (tasksError) {
+      console.warn('Failed to fetch plan tasks:', tasksError.message)
+    }
+
+    // 6. Fetch related outcomes data separately (if we have outcome IDs)
+    const outcomeIds = [...new Set((planOutcomes || []).map(po => po.outcome_id).filter(Boolean))]
+    let outcomesMap: Record<string, { id: string; title: string; description?: string; horizon?: string; status?: string }> = {}
+
+    if (outcomeIds.length > 0) {
+      const { data: outcomesData } = await supabase
+        .from('outcomes')
+        .select('id, title, description, horizon, status')
+        .in('id', outcomeIds)
+
+      if (outcomesData) {
+        outcomesMap = Object.fromEntries(outcomesData.map(o => [o.id, o]))
+      }
+    }
+
+    // 7. Fetch related tasks data separately (if we have task IDs)
+    const taskIds = [...new Set((planTasks || []).map(pt => pt.task_id).filter(Boolean))]
+    let tasksMap: Record<string, { id: string; title?: string; task_name?: string; status?: string; outcome_id?: string; commitment_id?: string }> = {}
+
+    if (taskIds.length > 0) {
+      const { data: tasksData } = await supabase
+        .from('focus_plans')
+        .select('id, task_name, status, outcome_id, commitment_id')
+        .in('id', taskIds)
+
+      if (tasksData) {
+        tasksMap = Object.fromEntries(tasksData.map(t => [t.id, { ...t, title: t.task_name }]))
+      }
+    }
+
+    // 8. Map outcomes with their related data
+    const outcomes = (planOutcomes || []).map(po => ({
+      ...po,
+      outcome: po.outcome_id ? outcomesMap[po.outcome_id] || null : null,
+    }))
+
+    // 9. Map tasks with their related data
+    const tasks = (planTasks || []).map(pt => ({
+      ...pt,
+      task: pt.task_id ? tasksMap[pt.task_id] || null : null,
+    }))
+
+    // 10. Calculate capacity analysis
     const capacityAnalysis = calculateCapacityAnalysis(
       tasks || [],
       plan.available_capacity_minutes

@@ -100,22 +100,22 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 6. Fetch outcomes
+    // 6. Fetch outcomes (simplified join - no alias prefix)
     const { data: outcomes } = await supabase
       .from('weekly_plan_outcomes')
       .select(`
         *,
-        outcome:outcomes(id, title, description, horizon, status)
+        outcomes(id, title, description, horizon, status)
       `)
       .eq('weekly_plan_id', plan.id)
       .order('priority_rank', { ascending: true })
 
-    // 7. Fetch tasks
+    // 7. Fetch tasks (simplified join - no alias prefix)
     const { data: tasks } = await supabase
       .from('weekly_plan_tasks')
       .select(`
         *,
-        task:focus_plans(id, title, status, outcome_id, commitment_id)
+        focus_plans(id, title, status, outcome_id, commitment_id)
       `)
       .eq('weekly_plan_id', plan.id)
       .order('scheduled_day', { ascending: true, nullsFirst: false })
@@ -145,27 +145,30 @@ export async function GET(request: NextRequest) {
       .order('version', { ascending: false })
       .limit(1)
 
-    if (prevPlans && prevPlans.length > 0) {
+    // Early exit if no previous plan exists
+    if (!prevPlans || prevPlans.length === 0) {
+      // No previous week plan - skip summary calculation
+    } else {
       const prevPlanId = prevPlans[0].id
 
-      // Get task stats
+      // Get task stats (simplified join - no alias prefix)
       const { data: prevTasks } = await supabase
         .from('weekly_plan_tasks')
         .select(`
           estimated_minutes,
-          task:focus_plans(status)
+          focus_plans(status)
         `)
         .eq('weekly_plan_id', prevPlanId)
 
-      if (prevTasks) {
+      if (prevTasks && prevTasks.length > 0) {
         const completedTasks = prevTasks.filter(t => {
-          if (!t.task) return false
+          if (!t.focus_plans) return false
           // Supabase joins may return array or single object
-          const taskData = Array.isArray(t.task) ? t.task[0] : t.task
+          const taskData = Array.isArray(t.focus_plans) ? t.focus_plans[0] : t.focus_plans
           return taskData && (taskData as { status: string }).status === 'completed'
         })
         const totalMinutesCompleted = completedTasks.reduce(
-          (sum, t) => sum + t.estimated_minutes,
+          (sum, t) => sum + (t.estimated_minutes || 0),
           0
         )
 
@@ -222,7 +225,12 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Current weekly plan GET error:', error)
+    // Improved error logging with full Supabase error details
+    if (error && typeof error === 'object') {
+      console.error('Current weekly plan GET error:', JSON.stringify(error, null, 2))
+    } else {
+      console.error('Current weekly plan GET error:', error)
+    }
     return NextResponse.json({ error: 'Failed to fetch current plan' }, { status: 500 })
   }
 }
