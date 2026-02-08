@@ -103,7 +103,7 @@ export async function POST(
       .from('weekly_plan_tasks')
       .select(`
         *,
-        task:focus_plans(id, title, status, outcome_id, commitment_id)
+        task:focus_plans(id, task_name, status, outcome_id, commitment_id)
       `)
       .eq('weekly_plan_id', id)
       .order('priority_rank', { ascending: true })

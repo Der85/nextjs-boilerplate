@@ -83,7 +83,7 @@ export async function GET(
       .from('weekly_plan_tasks')
       .select(`
         *,
-        task:focus_plans(id, title, status, outcome_id, commitment_id, estimated_minutes)
+        task:focus_plans(id, task_name, status, outcome_id, commitment_id, estimated_minutes)
       `)
       .eq('weekly_plan_id', id)
       .order('scheduled_day', { ascending: true, nullsFirst: false })
@@ -209,7 +209,7 @@ export async function POST(
       })
       .select(`
         *,
-        task:focus_plans(id, title, status, outcome_id, commitment_id)
+        task:focus_plans(id, task_name, status, outcome_id, commitment_id)
       `)
       .single()
 
@@ -329,7 +329,7 @@ export async function PUT(
       .eq('task_id', taskId)
       .select(`
         *,
-        task:focus_plans(id, title, status, outcome_id, commitment_id)
+        task:focus_plans(id, task_name, status, outcome_id, commitment_id)
       `)
       .single()
 
