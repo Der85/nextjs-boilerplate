@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 
 interface ContactLog {
   id: string
@@ -715,8 +714,6 @@ export default function VillagePage() {
           </p>
         </div>
       </main>
-
-      <FABToolbox mode="maintenance" />
 
       <style jsx>{styles}</style>
     </div>

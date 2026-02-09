@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { usePresenceWithFallback } from '@/hooks/usePresence'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 import { useUserStats } from '@/context/UserStatsContext'
 import { XP_VALUES } from '@/lib/gamification'
 import { useGamificationPrefsSafe } from '@/context/GamificationPrefsContext'
@@ -792,8 +791,6 @@ function GoalsPageContent() {
         <div className="xp-toast">+{xpToast.amount} XP</div>
       )}
 
-      <FABToolbox mode="growth" />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -872,7 +869,7 @@ const styles = `
   /* ===== ENERGY MODE BANNERS ===== */
   .energy-banner {
     padding: clamp(10px, 2.5vw, 14px) clamp(14px, 3.5vw, 18px);
-    border-radius: clamp(10px, 2.5vw, 14px);
+    border-radius: var(--card-radius);
     font-size: clamp(13px, 3.5vw, 15px);
     font-weight: 600;
     margin-bottom: clamp(12px, 3.5vw, 16px);
@@ -897,7 +894,7 @@ const styles = `
     margin-bottom: clamp(14px, 4vw, 20px);
     background: white;
     padding: clamp(4px, 1vw, 6px);
-    border-radius: clamp(10px, 2.5vw, 14px);
+    border-radius: var(--card-radius);
   }
 
   .tab {
@@ -921,7 +918,7 @@ const styles = `
 
   .card {
     background: white;
-    border-radius: clamp(14px, 4vw, 20px);
+    border-radius: var(--card-radius);
     padding: clamp(16px, 4.5vw, 24px);
     margin-bottom: clamp(12px, 3.5vw, 18px);
   }
@@ -985,7 +982,7 @@ const styles = `
   .celebration-box {
     background: linear-gradient(135deg, rgba(0, 186, 124, 0.1), rgba(255, 215, 0, 0.1));
     padding: 16px;
-    border-radius: 12px;
+    border-radius: var(--card-radius);
     text-align: center;
     margin-bottom: 20px;
   }
@@ -1015,7 +1012,7 @@ const styles = `
     gap: 12px;
     padding: 12px;
     margin-bottom: 8px;
-    border-radius: 12px;
+    border-radius: var(--card-radius);
     background: var(--bg-gray);
     align-items: flex-start;
     transition: all 0.15s;
@@ -1177,7 +1174,7 @@ const styles = `
     gap: 12px;
     padding: 12px;
     margin-bottom: 8px;
-    border-radius: 12px;
+    border-radius: var(--card-radius);
     background: var(--bg-gray);
   }
 

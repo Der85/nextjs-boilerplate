@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 
 // ===========================================
 // Types
@@ -351,8 +350,6 @@ export default function WinsPage() {
         )}
       </main>
 
-      <FABToolbox mode="maintenance" />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -366,7 +363,7 @@ const styles = `
   .wins-page {
     min-height: 100vh;
     min-height: 100dvh;
-    background: linear-gradient(180deg, #0c4a1f 0%, #14532d 40%, #1a2e05 100%);
+    background: var(--bg-gray, #f5f8fa);
   }
 
   .main {
@@ -392,13 +389,13 @@ const styles = `
   .hero-title {
     font-size: clamp(28px, 7vw, 36px);
     font-weight: 700;
-    color: white;
+    color: #0f1419;
     margin: 0 0 clamp(8px, 2vw, 12px) 0;
   }
 
   .hero-subtitle {
     font-size: clamp(14px, 3.8vw, 16px);
-    color: rgba(255, 255, 255, 0.65);
+    color: #536471;
     margin: 0;
     line-height: 1.5;
   }
@@ -418,28 +415,27 @@ const styles = `
 
   .stat-card {
     flex: 1;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: clamp(12px, 3vw, 16px);
+    background: white;
+    border-radius: var(--card-radius);
     padding: clamp(16px, 4vw, 20px);
     text-align: center;
   }
 
   .stat-card.streak {
-    background: rgba(255, 165, 0, 0.15);
+    background: rgba(255, 165, 0, 0.08);
   }
 
   .stat-value {
     display: block;
     font-size: clamp(28px, 7vw, 36px);
     font-weight: 700;
-    color: white;
+    color: #0f1419;
     margin-bottom: 4px;
   }
 
   .stat-label {
     font-size: clamp(11px, 3vw, 13px);
-    color: rgba(255, 255, 255, 0.55);
+    color: #8899a6;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -447,8 +443,8 @@ const styles = `
   /* Range Picker */
   .range-picker {
     display: flex;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: clamp(10px, 2.5vw, 12px);
+    background: white;
+    border-radius: var(--card-radius);
     padding: 4px;
     margin-bottom: clamp(24px, 6vw, 32px);
     animation: fadeIn 0.5s ease 0.2s both;
@@ -462,19 +458,19 @@ const styles = `
     border-radius: clamp(8px, 2vw, 10px);
     font-size: clamp(13px, 3.5vw, 14px);
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
+    color: #8899a6;
     cursor: pointer;
     transition: all 0.2s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   .range-btn.active {
-    background: rgba(255, 255, 255, 0.15);
+    background: #1D9BF0;
     color: white;
   }
 
   .range-btn:hover:not(.active) {
-    color: rgba(255, 255, 255, 0.75);
+    color: #0f1419;
   }
 
   /* Loading */
@@ -491,7 +487,7 @@ const styles = `
   }
 
   .loading-state p {
-    color: rgba(255, 255, 255, 0.6);
+    color: #536471;
     font-size: clamp(14px, 3.8vw, 16px);
   }
 
@@ -504,8 +500,8 @@ const styles = `
   .empty-state {
     text-align: center;
     padding: clamp(32px, 8vw, 48px) clamp(16px, 4vw, 24px);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: clamp(16px, 4vw, 24px);
+    background: white;
+    border-radius: var(--card-radius);
     animation: fadeIn 0.5s ease 0.3s both;
   }
 
@@ -517,22 +513,22 @@ const styles = `
   .empty-title {
     font-size: clamp(18px, 5vw, 22px);
     font-weight: 600;
-    color: white;
+    color: #0f1419;
     margin: 0 0 clamp(8px, 2vw, 12px) 0;
   }
 
   .empty-subtitle {
     font-size: clamp(14px, 3.8vw, 16px);
-    color: rgba(255, 255, 255, 0.55);
+    color: #536471;
     margin: 0 0 clamp(20px, 5vw, 28px) 0;
     line-height: 1.5;
   }
 
   .empty-cta {
     padding: clamp(12px, 3vw, 16px) clamp(24px, 6vw, 32px);
-    background: rgba(255, 255, 255, 0.15);
-    border: 2px solid rgba(255, 255, 255, 0.25);
-    border-radius: clamp(10px, 2.5vw, 12px);
+    background: #1D9BF0;
+    border: 2px solid #1D9BF0;
+    border-radius: var(--card-radius);
     color: white;
     font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 600;
@@ -542,8 +538,8 @@ const styles = `
   }
 
   .empty-cta:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: #0d8ae0;
+    border-color: #0d8ae0;
   }
 
   /* Day Groups */
@@ -555,7 +551,7 @@ const styles = `
   .day-label {
     font-size: clamp(13px, 3.5vw, 14px);
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
+    color: #8899a6;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0 0 clamp(10px, 2.5vw, 14px) 0;
@@ -572,15 +568,14 @@ const styles = `
     align-items: center;
     gap: clamp(10px, 2.5vw, 14px);
     padding: clamp(14px, 3.5vw, 18px);
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: clamp(12px, 3vw, 16px);
-    backdrop-filter: blur(10px);
+    background: white;
+    border-radius: var(--card-radius);
     transition: transform 0.15s ease, background 0.15s ease;
   }
 
   .win-card:hover {
     transform: translateX(4px);
-    background: rgba(255, 255, 255, 0.12);
+    background: #f0f2f5;
   }
 
   .win-icon {
@@ -591,7 +586,7 @@ const styles = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
+    background: #f0f2f5;
     border-radius: 50%;
   }
 
@@ -604,7 +599,7 @@ const styles = `
     display: block;
     font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 500;
-    color: white;
+    color: #0f1419;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -613,7 +608,7 @@ const styles = `
   .win-detail {
     display: block;
     font-size: clamp(11px, 3vw, 13px);
-    color: rgba(255, 255, 255, 0.45);
+    color: #8899a6;
     margin-top: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -622,7 +617,7 @@ const styles = `
 
   .win-time {
     font-size: clamp(11px, 3vw, 12px);
-    color: rgba(255, 255, 255, 0.35);
+    color: #8899a6;
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -636,7 +631,7 @@ const styles = `
 
   .motivation-text {
     font-size: clamp(14px, 3.8vw, 16px);
-    color: rgba(255, 255, 255, 0.5);
+    color: #536471;
     font-style: italic;
     margin: 0;
     line-height: 1.5;

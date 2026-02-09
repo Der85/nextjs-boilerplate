@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 import ParentSelector from '@/components/ParentSelector'
 import StateSavingErrorBoundary from '@/components/StateSavingErrorBoundary'
 import { cleanupExpiredEmergencyStates } from '@/lib/emergencyState'
@@ -460,8 +459,6 @@ function TriagePageContent() {
           </div>
         </div>
       )}
-
-      <FABToolbox mode="maintenance" />
 
       <style jsx>{`
         .triage-page {
