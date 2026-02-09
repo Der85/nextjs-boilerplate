@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 
 type UserMode = 'recovery' | 'maintenance' | 'growth'
 
@@ -222,8 +221,6 @@ export default function ToolsPage() {
           <span className="secondary-arrow">→</span>
         </button>
       </main>
-
-      <FABToolbox mode="maintenance" />
 
       <style jsx>{globalStyles}</style>
     </div>

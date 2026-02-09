@@ -27,8 +27,8 @@ function NowModeSkeleton() {
       </div>
       <style jsx>{`
         .skeleton-container {
-          background: #12121f;
-          border-radius: 20px;
+          background: white;
+          border-radius: var(--card-radius);
           padding: 24px;
         }
         .skeleton-header {
@@ -39,7 +39,7 @@ function NowModeSkeleton() {
         }
         .skeleton-line {
           height: 20px;
-          background: #2a2a4e;
+          background: #e5e7eb;
           border-radius: 8px;
           animation: pulse 1.5s ease-in-out infinite;
         }
@@ -52,8 +52,8 @@ function NowModeSkeleton() {
         }
         .skeleton-slot {
           height: 160px;
-          background: #2a2a4e;
-          border-radius: 16px;
+          background: #e5e7eb;
+          border-radius: var(--card-radius);
           animation: pulse 1.5s ease-in-out infinite;
         }
         @keyframes pulse {
@@ -482,7 +482,7 @@ export default function NowModePage() {
         .now-mode-page {
           min-height: 100vh;
           min-height: 100dvh;
-          background: linear-gradient(180deg, #0a0a14 0%, #12121f 100%);
+          background: var(--bg-gray, #f5f8fa);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
@@ -500,20 +500,20 @@ export default function NowModePage() {
         .page-title {
           font-size: clamp(24px, 6vw, 32px);
           font-weight: 700;
-          color: #e4e4f0;
+          color: #0f1419;
           margin: 0 0 8px 0;
         }
 
         .page-subtitle {
           font-size: clamp(14px, 3.8vw, 16px);
-          color: #8b8ba7;
+          color: #536471;
           margin: 0;
           line-height: 1.5;
         }
 
         .error-card {
-          background: #1a1a2e;
-          border-radius: 16px;
+          background: white;
+          border-radius: var(--card-radius);
           padding: clamp(32px, 8vw, 48px);
           text-align: center;
         }
@@ -525,7 +525,7 @@ export default function NowModePage() {
         }
 
         .error-card p {
-          color: #8b8ba7;
+          color: #536471;
           margin: 0 0 24px 0;
           font-size: 16px;
         }
@@ -548,8 +548,8 @@ export default function NowModePage() {
 
         /* Backlog Panel */
         .backlog-panel {
-          background: #1a1a2e;
-          border-radius: 16px;
+          background: white;
+          border-radius: var(--card-radius);
           margin-top: 24px;
           overflow: hidden;
           animation: slideUp 0.2s ease;
@@ -565,13 +565,13 @@ export default function NowModePage() {
           justify-content: space-between;
           align-items: center;
           padding: 16px 20px;
-          border-bottom: 1px solid #2a2a4e;
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .backlog-title {
           font-size: 16px;
           font-weight: 600;
-          color: #e4e4f0;
+          color: #0f1419;
           margin: 0;
         }
 
@@ -580,8 +580,8 @@ export default function NowModePage() {
           height: 28px;
           border-radius: 50%;
           border: none;
-          background: #2a2a4e;
-          color: #8b8ba7;
+          background: #e5e7eb;
+          color: #536471;
           font-size: 18px;
           cursor: pointer;
           display: flex;
@@ -591,8 +591,8 @@ export default function NowModePage() {
         }
 
         .backlog-close:hover {
-          background: #3a3a5e;
-          color: #e4e4f0;
+          background: #d1d5db;
+          color: #0f1419;
         }
 
         .backlog-empty {
@@ -607,14 +607,14 @@ export default function NowModePage() {
         }
 
         .backlog-empty p {
-          color: #8b8ba7;
+          color: #536471;
           margin: 0 0 20px 0;
         }
 
         .btn-create-task {
           background: transparent;
-          border: 1px solid #3a3a5e;
-          color: #a0a0be;
+          border: 1px solid #d1d5db;
+          color: #536471;
           padding: 10px 20px;
           border-radius: 8px;
           font-size: 14px;
@@ -641,7 +641,7 @@ export default function NowModePage() {
           padding: 14px 20px;
           background: transparent;
           border: none;
-          border-bottom: 1px solid #2a2a4e;
+          border-bottom: 1px solid #e5e7eb;
           cursor: pointer;
           text-align: left;
           transition: background 0.15s ease;
@@ -669,7 +669,7 @@ export default function NowModePage() {
           display: block;
           font-size: 15px;
           font-weight: 500;
-          color: #e4e4f0;
+          color: #0f1419;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -678,7 +678,7 @@ export default function NowModePage() {
         .task-parent {
           display: block;
           font-size: 13px;
-          color: #8b8ba7;
+          color: #536471;
           margin-top: 2px;
           white-space: nowrap;
           overflow: hidden;
@@ -702,11 +702,11 @@ export default function NowModePage() {
           gap: 8px;
           margin-top: 32px;
           font-size: 12px;
-          color: #5a5a7e;
+          color: #8899a6;
         }
 
         .shortcuts-hint kbd {
-          background: #2a2a4e;
+          background: #e5e7eb;
           padding: 3px 8px;
           border-radius: 4px;
           font-family: monospace;

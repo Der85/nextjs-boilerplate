@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import MoodHistoryViz from '@/components/MoodHistoryViz'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 import ProgressiveCard from '@/components/adhd/ProgressiveCard'
 import { useUserStats, getLevelProgress } from '@/context/UserStatsContext'
 import { getMoodEmoji } from '@/lib/utils/ui-helpers'
@@ -481,8 +480,6 @@ export default function HistoryPage() {
         )}
       </main>
 
-      <FABToolbox mode="maintenance" />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -697,7 +694,7 @@ const styles = `
 
   .card {
     background: white;
-    border-radius: clamp(12px, 3vw, 18px);
+    border-radius: var(--card-radius);
     overflow: hidden;
   }
 
@@ -707,7 +704,7 @@ const styles = `
     align-items: center;
     gap: clamp(8px, 2vw, 12px);
     background: white;
-    border-radius: clamp(12px, 3vw, 16px);
+    border-radius: var(--card-radius);
     padding: clamp(12px, 3.5vw, 16px) clamp(16px, 4.5vw, 22px);
     margin-bottom: clamp(14px, 4vw, 20px);
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -750,7 +747,7 @@ const styles = `
   /* ===== PHASE 2: NARRATIVE CARD ===== */
   .narrative-card {
     background: white;
-    border-radius: clamp(14px, 4vw, 20px);
+    border-radius: var(--card-radius);
     padding: clamp(18px, 5vw, 26px);
     margin-bottom: clamp(14px, 4vw, 22px);
     border: 1px solid;
@@ -820,7 +817,7 @@ const styles = `
     flex-direction: column;
     align-items: center;
     background: white;
-    border-radius: clamp(10px, 2.5vw, 14px);
+    border-radius: var(--card-radius);
     padding: clamp(8px, 2.5vw, 12px) clamp(12px, 3.5vw, 18px);
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
@@ -904,7 +901,7 @@ const styles = `
 
   .empty-state-card {
     background: white;
-    border-radius: clamp(14px, 4vw, 20px);
+    border-radius: var(--card-radius);
     padding: clamp(30px, 8vw, 50px) clamp(16px, 4vw, 24px);
     text-align: center;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -938,7 +935,7 @@ const styles = `
     gap: clamp(12px, 3.5vw, 16px);
     padding: clamp(16px, 4.5vw, 22px);
     background: white;
-    border-radius: clamp(14px, 4vw, 20px);
+    border-radius: var(--card-radius);
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     border: 1px solid rgba(0,0,0,0.04);
   }
@@ -1028,7 +1025,7 @@ const styles = `
     gap: clamp(10px, 3vw, 14px);
     background: linear-gradient(135deg, rgba(0, 186, 124, 0.08) 0%, rgba(0, 186, 124, 0.03) 100%);
     border: 1px solid rgba(0, 186, 124, 0.2);
-    border-radius: clamp(12px, 3vw, 16px);
+    border-radius: var(--card-radius);
     padding: clamp(14px, 4vw, 18px);
     margin-bottom: clamp(14px, 4vw, 20px);
   }
@@ -1073,7 +1070,7 @@ const styles = `
 
   .gf-goal-card {
     background: white;
-    border-radius: clamp(10px, 2.5vw, 14px);
+    border-radius: var(--card-radius);
     border: 1px solid rgba(0, 0, 0, 0.06);
     overflow: hidden;
   }

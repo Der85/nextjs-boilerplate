@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 
 interface TodayWin {
   id: string
@@ -240,8 +239,6 @@ export default function WindDownPage() {
         )}
       </main>
 
-      <FABToolbox mode="maintenance" />
-
       <style jsx>{styles}</style>
     </div>
   )
@@ -251,7 +248,7 @@ const styles = `
   .wind-down {
     min-height: 100vh;
     min-height: 100dvh;
-    background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+    background: var(--bg-gray, #f5f8fa);
   }
 
   .loading-container {
@@ -260,7 +257,7 @@ const styles = `
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    color: white;
+    color: #536471;
   }
 
   .loading-moon {
@@ -299,13 +296,13 @@ const styles = `
   .step-title {
     font-size: clamp(24px, 6.5vw, 32px);
     font-weight: 700;
-    color: white;
+    color: #0f1419;
     margin: 0 0 clamp(8px, 2vw, 12px) 0;
   }
 
   .step-subtitle {
     font-size: clamp(15px, 4vw, 18px);
-    color: rgba(255, 255, 255, 0.7);
+    color: #536471;
     margin: 0 0 clamp(28px, 7vw, 40px) 0;
     line-height: 1.5;
   }
@@ -318,7 +315,7 @@ const styles = `
   .wins-header {
     font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.6);
+    color: #8899a6;
     margin: 0 0 clamp(12px, 3vw, 16px) 0;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -335,9 +332,8 @@ const styles = `
     align-items: center;
     gap: clamp(10px, 2.5vw, 14px);
     padding: clamp(14px, 3.5vw, 18px);
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: clamp(12px, 3vw, 16px);
-    backdrop-filter: blur(10px);
+    background: white;
+    border-radius: var(--card-radius);
   }
 
   .win-check {
@@ -356,26 +352,26 @@ const styles = `
 
   .win-label {
     font-size: clamp(14px, 3.8vw, 16px);
-    color: white;
+    color: #0f1419;
     text-align: left;
   }
 
   .no-wins {
     padding: clamp(24px, 6vw, 32px);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: clamp(16px, 4vw, 24px);
+    background: white;
+    border-radius: var(--card-radius);
     margin-bottom: clamp(28px, 7vw, 40px);
   }
 
   .no-wins p {
     font-size: clamp(15px, 4vw, 17px);
-    color: rgba(255, 255, 255, 0.8);
+    color: #0f1419;
     margin: 0;
   }
 
   .no-wins-subtext {
     font-size: clamp(13px, 3.5vw, 15px);
-    color: rgba(255, 255, 255, 0.5);
+    color: #536471;
     margin-top: 8px !important;
   }
 
@@ -383,11 +379,11 @@ const styles = `
   .tomorrow-input {
     width: 100%;
     padding: clamp(16px, 4vw, 20px);
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    border-radius: clamp(12px, 3vw, 16px);
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: var(--card-radius);
     font-size: clamp(15px, 4vw, 17px);
-    color: white;
+    color: #0f1419;
     resize: none;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     margin-bottom: clamp(20px, 5vw, 28px);
@@ -395,11 +391,11 @@ const styles = `
 
   .tomorrow-input:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.5);
+    border-color: #1D9BF0;
   }
 
   .tomorrow-input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+    color: #8899a6;
   }
 
   .tomorrow-actions {
@@ -412,10 +408,10 @@ const styles = `
   .continue-btn {
     width: 100%;
     padding: clamp(16px, 4.5vw, 20px);
-    background: white;
-    color: #312e81;
+    background: #1D9BF0;
+    color: white;
     border: none;
-    border-radius: clamp(12px, 3vw, 16px);
+    border-radius: var(--card-radius);
     font-size: clamp(16px, 4.5vw, 18px);
     font-weight: 700;
     cursor: pointer;
@@ -441,7 +437,7 @@ const styles = `
     width: clamp(180px, 45vw, 240px);
     height: clamp(180px, 45vw, 240px);
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(139, 92, 246, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -451,37 +447,37 @@ const styles = `
 
   .breathe-circle.inhale {
     transform: scale(1.2);
-    background: rgba(100, 200, 255, 0.2);
+    background: rgba(139, 92, 246, 0.15);
   }
 
   .breathe-circle.hold {
     transform: scale(1.2);
-    background: rgba(150, 200, 255, 0.25);
+    background: rgba(139, 92, 246, 0.2);
   }
 
   .breathe-circle.exhale {
     transform: scale(1);
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(139, 92, 246, 0.08);
   }
 
   .breathe-text {
     font-size: clamp(18px, 5vw, 24px);
     font-weight: 600;
-    color: white;
+    color: #6d28d9;
   }
 
   .breathe-subtitle {
     font-size: clamp(14px, 3.8vw, 16px);
-    color: rgba(255, 255, 255, 0.6);
+    color: #536471;
     margin-bottom: clamp(32px, 8vw, 48px);
   }
 
   .skip-breathe {
     background: transparent;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    color: rgba(255, 255, 255, 0.8);
+    border: 2px solid #d1d5db;
+    color: #536471;
     padding: clamp(14px, 3.5vw, 18px) clamp(24px, 6vw, 32px);
-    border-radius: clamp(12px, 3vw, 16px);
+    border-radius: var(--card-radius);
     font-size: clamp(14px, 3.8vw, 16px);
     font-weight: 600;
     cursor: pointer;
@@ -490,8 +486,8 @@ const styles = `
   }
 
   .skip-breathe:hover {
-    border-color: rgba(255, 255, 255, 0.6);
-    color: white;
+    border-color: #1D9BF0;
+    color: #0f1419;
   }
 
   /* Done Step */
@@ -506,10 +502,10 @@ const styles = `
   .done-btn {
     margin-top: clamp(24px, 6vw, 32px);
     padding: clamp(14px, 3.5vw, 18px) clamp(48px, 12vw, 64px);
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: #1D9BF0;
+    border: 2px solid #1D9BF0;
     color: white;
-    border-radius: clamp(12px, 3vw, 16px);
+    border-radius: var(--card-radius);
     font-size: clamp(15px, 4vw, 17px);
     font-weight: 600;
     cursor: pointer;
@@ -518,7 +514,7 @@ const styles = `
   }
 
   .done-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: #0d8ae0;
+    border-color: #0d8ae0;
   }
 `

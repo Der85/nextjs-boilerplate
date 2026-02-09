@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 import { useImplicitOverwhelmLogger } from '@/hooks/useImplicitOverwhelmLogger'
 import OverwhelmNotification from '@/components/OverwhelmNotification'
 
@@ -585,8 +584,6 @@ export default function AllyPage() {
         onConfirm={handleConfirm}
         onDismiss={handleDismiss}
       />
-
-      <FABToolbox mode="recovery" />
 
       <style jsx>{styles}</style>
     </div>

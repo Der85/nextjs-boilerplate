@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 import OutcomeChip from '@/components/OutcomeChip'
 import NeedsLinkingView from '@/components/NeedsLinkingView'
 import RelinkModal from '@/components/RelinkModal'
@@ -580,8 +579,6 @@ function OutcomesPageContent() {
           </div>
         )}
       </main>
-
-      <FABToolbox mode="maintenance" />
 
       {/* Relink Modal */}
       <RelinkModal

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import UnifiedHeader from '@/components/UnifiedHeader'
-import FABToolbox from '@/components/FABToolbox'
 
 interface BurnoutLog {
   id: string
@@ -455,8 +454,6 @@ export default function BurnoutPage() {
           </div>
         )}
       </main>
-
-      <FABToolbox mode="recovery" />
 
       <style jsx>{styles}</style>
     </div>

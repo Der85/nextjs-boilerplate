@@ -377,7 +377,7 @@ const styles = `
     --extra-light-gray: #eff3f4;
     --text-dark: #0f1419;
 
-    background: linear-gradient(180deg, #fef2f2 0%, #fff 50%);
+    background: var(--bg-gray);
     min-height: 100vh;
     min-height: 100dvh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -389,7 +389,7 @@ const styles = `
     max-width: clamp(320px, 90vw, 440px);
     margin: 0 auto;
     background: white;
-    border-radius: clamp(20px, 5vw, 28px);
+    border-radius: var(--card-radius);
     box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     padding: clamp(24px, 6vw, 36px);
     margin-top: clamp(20px, 5vw, 40px);
@@ -607,7 +607,7 @@ const styles = `
     padding: clamp(16px, 4.5vw, 22px) clamp(12px, 3vw, 16px);
     background: var(--emotion-bg);
     border: 2px solid transparent;
-    border-radius: clamp(14px, 4vw, 20px);
+    border-radius: var(--card-radius);
     cursor: pointer;
     transition: all 0.2s ease;
   }
@@ -730,7 +730,7 @@ const styles = `
     padding: clamp(14px, 4vw, 20px);
     background: white;
     border: 2px solid var(--extra-light-gray);
-    border-radius: clamp(14px, 4vw, 20px);
+    border-radius: var(--card-radius);
     cursor: pointer;
     text-align: left;
     transition: all 0.2s ease;
