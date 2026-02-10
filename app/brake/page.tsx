@@ -380,6 +380,7 @@ const styles = `
     background: var(--bg-gray);
     min-height: 100vh;
     min-height: 100dvh;
+    padding-bottom: 80px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 

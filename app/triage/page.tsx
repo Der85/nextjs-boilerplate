@@ -463,6 +463,7 @@ function TriagePageContent() {
       <style jsx>{`
         .triage-page {
           min-height: 100vh;
+          padding-bottom: 80px;
           background: #f7f9fa;
         }
 

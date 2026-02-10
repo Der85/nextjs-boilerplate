@@ -767,7 +767,7 @@ const styles = `
   /* ===== MAIN CONTENT ===== */
   .main {
     padding: clamp(12px, 4vw, 20px);
-    padding-bottom: clamp(16px, 4vw, 24px);
+    padding-bottom: 80px;
     max-width: 600px;
     margin: 0 auto;
   }
@@ -1588,7 +1588,7 @@ const styles = `
   @media (min-width: 768px) {
     .main {
       padding: 24px;
-      padding-bottom: 24px;
+      padding-bottom: 80px;
     }
 
     .avatars-grid {

@@ -35,6 +35,9 @@ const SECTIONS = [
     items: [
       { icon: '📝', label: 'Check In', path: '/check-in' },
       { icon: '🤝', label: 'Ally', path: '/ally' },
+      { icon: '🧰', label: 'Tools', path: '/tools' },
+      { icon: '🔥', label: 'Burnout Check', path: '/burnout' },
+      { icon: '🎯', label: 'Outcomes', path: '/outcomes' },
     ],
   },
 ]

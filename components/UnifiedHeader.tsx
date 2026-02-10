@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 
 interface UnifiedHeaderProps {
   subtitle?: string
-  showMenu?: boolean
   backPath?: string
 }
 

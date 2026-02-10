@@ -135,6 +135,7 @@ export default function WeeklyPlanningPage() {
         .weekly-planning-page {
           min-height: 100vh;
           min-height: 100dvh;
+          padding-bottom: 80px;
           background: linear-gradient(180deg, #f7f9fa 0%, #fff 100%);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
