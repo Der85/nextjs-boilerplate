@@ -264,7 +264,7 @@ const globalStyles = `
 
   .main {
     padding: clamp(16px, 4vw, 24px);
-    padding-bottom: clamp(16px, 4vw, 24px);
+    padding-bottom: 80px;
     max-width: 680px;
     margin: 0 auto;
   }
@@ -455,12 +455,14 @@ const globalStyles = `
 
     .main {
       padding: 24px;
+      padding-bottom: 80px;
     }
   }
 
   @media (min-width: 1024px) {
     .main {
       padding: 32px;
+      padding-bottom: 80px;
     }
   }
 `

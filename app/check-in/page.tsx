@@ -335,7 +335,7 @@ export default function CheckInPage() {
   }
 
   return (
-    <>
+    <div className="check-in-page">
       <UnifiedHeader subtitle="Daily check-in" />
 
       {/* "Snap Check-In" flow: vitals → coach → achievement → summary */}
@@ -399,6 +399,12 @@ export default function CheckInPage() {
           />
         </StateSavingErrorBoundary>
       )}
-    </>
+
+      <style jsx>{`
+        .check-in-page {
+          padding-bottom: 80px;
+        }
+      `}</style>
+    </div>
   )
 }

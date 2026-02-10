@@ -593,6 +593,7 @@ function OutcomesPageContent() {
       <style jsx>{`
         .outcomes-page {
           min-height: 100vh;
+          padding-bottom: 80px;
           background: #f7f9fa;
         }
 

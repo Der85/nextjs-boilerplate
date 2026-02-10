@@ -248,6 +248,7 @@ const styles = `
   .wind-down {
     min-height: 100vh;
     min-height: 100dvh;
+    padding-bottom: 80px;
     background: var(--bg-gray, #f5f8fa);
   }
 
