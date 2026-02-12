@@ -118,35 +118,22 @@ class RateLimiter {
   }
 }
 
-// Singleton instances for different use cases
-// Coach API: 20 requests per minute
-export const coachRateLimiter = new RateLimiter(60_000, 20)
+// v2 API Rate Limiters
 
-// Goals API: 30 requests per minute (more actions)
-export const goalsRateLimiter = new RateLimiter(60_000, 30)
+// Dump API: 10 requests per minute (AI calls)
+export const dumpRateLimiter = new RateLimiter(60_000, 10)
 
-// Stuck/Ally API: 20 requests per minute
-export const stuckRateLimiter = new RateLimiter(60_000, 20)
+// Tasks API: 60 requests per minute (frequent CRUD)
+export const tasksRateLimiter = new RateLimiter(60_000, 60)
 
-// Focus API: 30 requests per minute (parse + breakdown actions)
-export const focusRateLimiter = new RateLimiter(60_000, 30)
+// Categories API: 30 requests per minute
+export const categoriesRateLimiter = new RateLimiter(60_000, 30)
 
-// Insights API: 10 requests per minute (heavy Gemini calls)
-export const insightsRateLimiter = new RateLimiter(60_000, 10)
+// AI API: 10 requests per minute (Gemini calls)
+export const aiRateLimiter = new RateLimiter(60_000, 10)
 
-// Outcomes API: 30 requests per minute (CRUD operations)
-export const outcomesRateLimiter = new RateLimiter(60_000, 30)
-
-// Weekly Planning API: 30 requests per minute (wizard steps + CRUD)
-export const weeklyPlanningRateLimiter = new RateLimiter(60_000, 30)
-
-// Renegotiation API: 30 requests per minute (modal interactions + CRUD)
-export const renegotiationRateLimiter = new RateLimiter(60_000, 30)
-
-// Generic helper for backwards compatibility
-export function createRateLimiter(windowMs?: number, maxRequests?: number): RateLimiter {
-  return new RateLimiter(windowMs, maxRequests)
-}
+// Insights API: 15 requests per minute
+export const insightsRateLimiter = new RateLimiter(60_000, 15)
 
 // Export the class for custom instances
 export { RateLimiter }
