@@ -1,34 +1,37 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
-import Providers from "./providers";
-import AppShell from "@/components/AppShell";
+import type { Metadata, Viewport } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+})
 
 export const metadata: Metadata = {
   title: {
-    default: "ADHDer.io",
-    template: "%s / ADHDer.io",
+    default: 'ADHDer.io',
+    template: '%s | ADHDer.io',
   },
-  description: "Tools for ADHD minds - check-ins, getting unstuck, and impulse control.",
-  applicationName: "ADHDer.io",
-};
+  description: 'Brain dump. Get tasks. Check them off. See your progress.',
+  applicationName: 'ADHDer.io',
+}
 
 export const viewport: Viewport = {
-  themeColor: "#1da1f2",
-};
+  themeColor: '#3B82F6',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body>
-        <Providers>
-          {children}
-          <AppShell />
-        </Providers>
-      </body>
+    <html lang="en" className={inter.variable}>
+      <body>{children}</body>
     </html>
-  );
+  )
 }

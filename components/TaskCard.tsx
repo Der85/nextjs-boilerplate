@@ -1,0 +1,252 @@
+'use client'
+
+import { useState, useRef, useEffect } from 'react'
+import type { TaskWithCategory } from '@/lib/types'
+import { formatRelativeDate, isOverdue, isToday } from '@/lib/utils/dates'
+import CategoryChip from './CategoryChip'
+import DatePicker from './DatePicker'
+
+interface TaskCardProps {
+  task: TaskWithCategory
+  onToggle: (id: string, done: boolean) => void
+  onUpdate: (id: string, updates: Partial<TaskWithCategory>) => void
+  onDrop: (id: string) => void
+}
+
+const PRIORITY_BORDER: Record<string, string> = {
+  high: 'var(--color-warning)',
+  medium: 'var(--color-accent)',
+  low: 'transparent',
+}
+
+export default function TaskCard({ task, onToggle, onUpdate, onDrop }: TaskCardProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(task.title)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [justCompleted, setJustCompleted] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing) inputRef.current?.focus()
+  }, [isEditing])
+
+  const handleToggle = () => {
+    const newDone = task.status !== 'done'
+    if (newDone) {
+      setJustCompleted(true)
+      setTimeout(() => setJustCompleted(false), 500)
+    }
+    onToggle(task.id, newDone)
+  }
+
+  const handleTitleSave = () => {
+    const trimmed = editTitle.trim()
+    if (trimmed && trimmed !== task.title) {
+      onUpdate(task.id, { title: trimmed })
+    } else {
+      setEditTitle(task.title)
+    }
+    setIsEditing(false)
+  }
+
+  const isDone = task.status === 'done'
+  const dateColor = task.due_date && isOverdue(task.due_date) && !isDone
+    ? 'var(--color-danger)'
+    : task.due_date && isToday(task.due_date)
+      ? 'var(--color-accent)'
+      : 'var(--color-text-tertiary)'
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '12px',
+      padding: '12px 0',
+      borderLeft: `3px solid ${!isDone && task.priority ? PRIORITY_BORDER[task.priority] || 'transparent' : 'transparent'}`,
+      paddingLeft: '12px',
+      opacity: isDone ? 0.6 : 1,
+      transition: 'opacity 0.2s',
+    }}>
+      {/* Checkbox */}
+      <button
+        onClick={handleToggle}
+        aria-label={isDone ? 'Mark as active' : 'Mark as done'}
+        aria-checked={isDone}
+        role="checkbox"
+        style={{
+          width: '44px',
+          height: '44px',
+          borderRadius: 'var(--radius-full)',
+          border: 'none',
+          background: 'transparent',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          padding: 0,
+          margin: '-10px -10px -10px 0',
+        }}
+      >
+        <span style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: 'var(--radius-full)',
+          border: isDone ? 'none' : '2px solid var(--color-border)',
+          background: isDone ? 'var(--color-success)' : 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.15s',
+          animation: justCompleted ? 'check-pop 0.3s ease' : 'none',
+        }}>
+          {isDone && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </span>
+      </button>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleTitleSave()
+              if (e.key === 'Escape') { setEditTitle(task.title); setIsEditing(false) }
+            }}
+            style={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              fontSize: 'var(--text-body)',
+              color: 'var(--color-text-primary)',
+              background: 'var(--color-surface)',
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-sm)',
+              fontFamily: 'inherit',
+            }}
+          />
+        ) : (
+          <p
+            onClick={() => !isDone && setIsEditing(true)}
+            style={{
+              fontSize: 'var(--text-body)',
+              color: 'var(--color-text-primary)',
+              textDecoration: isDone ? 'line-through' : 'none',
+              cursor: isDone ? 'default' : 'text',
+              lineHeight: 1.4,
+              wordBreak: 'break-word',
+            }}
+          >
+            {task.title}
+          </p>
+        )}
+
+        {/* Metadata row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+          {task.due_date && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => !isDone && setShowDatePicker(!showDatePicker)}
+                style={{
+                  fontSize: 'var(--text-small)',
+                  color: dateColor,
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 4px',
+                  margin: '-8px -4px',
+                  cursor: isDone ? 'default' : 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                {formatRelativeDate(task.due_date)}
+                {task.due_time ? ` ${task.due_time}` : ''}
+              </button>
+              {showDatePicker && (
+                <DatePicker
+                  value={task.due_date}
+                  onChange={(date) => onUpdate(task.id, { due_date: date })}
+                  onClose={() => setShowDatePicker(false)}
+                />
+              )}
+            </div>
+          )}
+
+          {!task.due_date && !isDone && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                style={{
+                  fontSize: 'var(--text-small)',
+                  color: 'var(--color-text-tertiary)',
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 4px',
+                  margin: '-8px -4px',
+                  cursor: 'pointer',
+                }}
+              >
+                + date
+              </button>
+              {showDatePicker && (
+                <DatePicker
+                  value={null}
+                  onChange={(date) => onUpdate(task.id, { due_date: date })}
+                  onClose={() => setShowDatePicker(false)}
+                />
+              )}
+            </div>
+          )}
+
+          {task.category && (
+            <CategoryChip
+              name={task.category.name}
+              color={task.category.color}
+              icon={task.category.icon}
+              size="small"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Drop (soft delete) button */}
+      {!isDone && (
+        <button
+          onClick={() => onDrop(task.id)}
+          aria-label="Drop task"
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-full)',
+            border: 'none',
+            background: 'none',
+            color: 'var(--color-text-tertiary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            margin: '-10px -10px -10px 0',
+            padding: 0,
+            opacity: 0.4,
+            transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
