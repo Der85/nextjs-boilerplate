@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import EmptyState from '@/components/EmptyState'
-import type { InsightSummary, WeeklyTrend, CategoryBreakdown } from '@/lib/types'
+import InsightCard from '@/components/InsightCard'
+import type { InsightSummary, WeeklyTrend, CategoryBreakdown, InsightRow } from '@/lib/types'
 
 // Lazy load charts to keep bundle size small
 const InsightCharts = dynamic(() => import('@/components/InsightCharts'), { ssr: false })
@@ -12,6 +13,7 @@ export default function InsightsPage() {
   const [summary, setSummary] = useState<InsightSummary | null>(null)
   const [weeklyTrend, setWeeklyTrend] = useState<WeeklyTrend[]>([])
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([])
+  const [generatedInsight, setGeneratedInsight] = useState<InsightRow | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -29,6 +31,22 @@ export default function InsightsPage() {
           const trendData = await trendRes.json()
           setWeeklyTrend(trendData.weekly_trend || [])
           setCategoryBreakdown(trendData.category_breakdown || [])
+        }
+
+        // Fetch AI-generated insight (POST to generate if needed)
+        try {
+          const generateRes = await fetch('/api/insights/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          if (generateRes.ok) {
+            const data = await generateRes.json()
+            if (data.insight && !data.insight.is_dismissed) {
+              setGeneratedInsight(data.insight)
+            }
+          }
+        } catch {
+          // Silently fail - insight generation is non-critical
         }
       } catch (err) {
         console.error('Failed to fetch insights:', err)
@@ -83,6 +101,14 @@ export default function InsightsPage() {
       }}>
         Insights
       </h1>
+
+      {/* AI-Generated Insight Card */}
+      {generatedInsight && (
+        <InsightCard
+          insight={generatedInsight}
+          onDismiss={() => setGeneratedInsight(null)}
+        />
+      )}
 
       {/* Stats grid */}
       <div style={{

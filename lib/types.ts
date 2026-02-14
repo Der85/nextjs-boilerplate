@@ -144,3 +144,57 @@ export interface CategoryBreakdown {
   category_color: string
   count: number
 }
+
+// ============================
+// Sherlock Insight Engine Types
+// ============================
+
+export type InsightType = 'correlation' | 'streak' | 'warning' | 'praise' | 'category'
+
+export interface Insight {
+  type: InsightType
+  title: string
+  message: string
+  icon: string
+  // Category-specific fields
+  category_id?: string
+  category_color?: string
+}
+
+export interface InsightRow extends Insight {
+  id: string
+  user_id: string
+  is_dismissed: boolean
+  is_helpful: boolean | null
+  data_window_start: string
+  data_window_end: string
+  created_at: string
+}
+
+// Per-category statistics for Sherlock analysis
+export interface CategoryStats {
+  categoryId: string
+  categoryName: string
+  categoryIcon: string
+  categoryColor: string
+  totalTasks: number
+  completedTasks: number
+  completionRate: number // 0.0 to 1.0
+  droppedCount: number
+  skippedCount: number
+  avgDaysToComplete: number | null // average days from created to completed
+}
+
+// Cross-category analysis patterns
+export interface CategoryPatterns {
+  // Category balance: % of tasks per category
+  balance: Array<{ name: string; icon: string; color: string; percentage: number }>
+  // Categories with completion streaks
+  streaks: Array<{ name: string; icon: string; days: number }>
+  // Categories with no completions in 14 days
+  gaps: Array<{ name: string; icon: string; lastCompleted: string | null }>
+  // Total categorized tasks
+  totalCategorizedTasks: number
+  // Total categories with tasks
+  activeCategoryCount: number
+}
