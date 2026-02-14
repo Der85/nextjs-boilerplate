@@ -6,6 +6,8 @@ import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import TemplatePicker from '@/components/TemplatePicker'
+import PriorityPrompt from '@/components/PriorityPrompt'
+import PrioritySummary from '@/components/PrioritySummary'
 import type { TaskWithCategory, Category, TaskTemplateWithCategory } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
 import {
@@ -414,6 +416,10 @@ function TasksPageContent() {
         totalCount={tasks.length}
         filteredCount={filteredTasks.length}
       />
+
+      {/* Priority prompt or summary */}
+      <PriorityPrompt taskCount={tasks.length} variant="banner" />
+      <PrioritySummary />
 
       {/* Task list or empty state */}
       {hasActiveTasks ? (

@@ -244,3 +244,77 @@ export interface CreateTaskFromTemplateRequest {
   due_date?: string
   due_time?: string
 }
+
+// ============================
+// User Priorities
+// ============================
+
+export type PriorityDomain =
+  | 'Work'
+  | 'Health'
+  | 'Home'
+  | 'Finance'
+  | 'Social'
+  | 'Personal Growth'
+  | 'Admin'
+  | 'Family'
+
+export const PRIORITY_DOMAINS: PriorityDomain[] = [
+  'Work',
+  'Health',
+  'Home',
+  'Finance',
+  'Social',
+  'Personal Growth',
+  'Admin',
+  'Family',
+]
+
+export type PriorityReviewTrigger = 'onboarding' | 'quarterly_prompt' | 'manual' | 'life_event'
+
+export interface UserPriority {
+  id: string
+  user_id: string
+  domain: PriorityDomain
+  rank: number // 1-8, 1 = highest
+  importance_score: number // 1-10
+  aspirational_note: string | null
+  last_reviewed_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PriorityReview {
+  id: string
+  user_id: string
+  previous_rankings: PriorityRankingSnapshot[]
+  new_rankings: PriorityRankingSnapshot[]
+  trigger: PriorityReviewTrigger
+  created_at: string
+}
+
+export interface PriorityRankingSnapshot {
+  domain: PriorityDomain
+  rank: number
+  importance_score: number
+  aspirational_note: string | null
+}
+
+// API Request/Response types for priorities
+export interface PriorityInput {
+  domain: PriorityDomain
+  rank: number
+  importance_score: number
+  aspirational_note?: string
+}
+
+export interface SetPrioritiesRequest {
+  priorities: PriorityInput[]
+  trigger?: PriorityReviewTrigger
+}
+
+export interface PriorityReviewDueResponse {
+  isDue: boolean
+  lastReviewedAt: string | null
+  daysSinceReview: number | null
+}

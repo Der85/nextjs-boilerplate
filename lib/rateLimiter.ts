@@ -138,5 +138,8 @@ export const insightsRateLimiter = new RateLimiter(60_000, 15)
 // Templates API: 30 requests per minute
 export const templatesRateLimiter = new RateLimiter(60_000, 30)
 
+// Priorities API: 20 requests per minute (low frequency, questionnaire-based)
+export const prioritiesRateLimiter = new RateLimiter(60_000, 20)
+
 // Export the class for custom instances
 export { RateLimiter }

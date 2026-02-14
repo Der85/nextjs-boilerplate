@@ -320,6 +320,51 @@ export default function SettingsPage() {
         />
       </div>
 
+      {/* Priorities Section */}
+      <div style={sectionStyle}>
+        <h2 style={{
+          fontSize: 'var(--text-body)',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+          marginBottom: '8px',
+        }}>
+          Life Priorities
+        </h2>
+        <p style={{
+          fontSize: 'var(--text-caption)',
+          color: 'var(--color-text-tertiary)',
+          marginBottom: '16px',
+        }}>
+          Rank what matters most to you. Helps us suggest tasks and track balance.
+        </p>
+
+        <button
+          onClick={() => router.push('/priorities')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            padding: '12px 14px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--color-bg)',
+            color: 'var(--color-text-primary)',
+            fontSize: 'var(--text-body)',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>🎯</span>
+            Set Priorities
+          </span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="2">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+
       {/* Templates Section */}
       <div style={sectionStyle}>
         <h2 style={{
