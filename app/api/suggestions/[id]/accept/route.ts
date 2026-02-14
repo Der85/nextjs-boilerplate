@@ -73,18 +73,22 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     // Increment template use_count if from a template
     if (suggestion.source_template_id) {
-      await supabase.rpc('increment_template_use_count', {
-        template_id: suggestion.source_template_id,
-      }).catch(() => {
-        // If RPC doesn't exist, do a manual update
-        supabase
+      // Fetch current use_count and increment
+      const { data: template } = await supabase
+        .from('task_templates')
+        .select('use_count')
+        .eq('id', suggestion.source_template_id)
+        .single()
+
+      if (template) {
+        await supabase
           .from('task_templates')
           .update({
-            use_count: supabase.rpc('increment', { x: 1 }),
+            use_count: (template.use_count || 0) + 1,
             last_used_at: new Date().toISOString(),
           })
           .eq('id', suggestion.source_template_id)
-      })
+      }
     }
 
     return NextResponse.json({
