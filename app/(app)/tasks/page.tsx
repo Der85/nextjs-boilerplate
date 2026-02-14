@@ -1,12 +1,19 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import TaskList, { type SortMode } from '@/components/TaskList'
-import CategoryChip from '@/components/CategoryChip'
+import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import type { TaskWithCategory, Category } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
+import {
+  type TaskFilters,
+  DEFAULT_FILTERS,
+  applyFilters,
+  searchParamsToFilters,
+  filtersToSearchParams,
+} from '@/lib/utils/filters'
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'manual', label: 'Manual' },
@@ -14,13 +21,48 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'created_date', label: 'Created' },
 ]
 
+// Wrapper to provide Suspense boundary for useSearchParams
 export default function TasksPage() {
+  return (
+    <Suspense fallback={<TasksPageSkeleton />}>
+      <TasksPageContent />
+    </Suspense>
+  )
+}
+
+function TasksPageSkeleton() {
+  return (
+    <div style={{ paddingTop: '24px' }}>
+      <div className="skeleton" style={{ height: '28px', width: '100px', marginBottom: '24px' }} />
+      {[1, 2, 3].map(i => (
+        <div key={i} style={{ padding: '12px 0', borderBottom: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className="skeleton" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+            <div style={{ flex: 1 }}>
+              <div className="skeleton" style={{ height: '18px', width: `${60 + i * 15}%`, marginBottom: '6px' }} />
+              <div className="skeleton" style={{ height: '14px', width: '80px' }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TasksPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<TaskWithCategory[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [filters, setFilters] = useState<TaskFilters>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(true)
   const [sortMode, setSortMode] = useState<SortMode>('manual')
+
+  // Load filters from URL on mount
+  useEffect(() => {
+    const urlFilters = searchParamsToFilters(searchParams)
+    setFilters(urlFilters)
+  }, [searchParams])
 
   // Load sort preference from localStorage on mount
   useEffect(() => {
@@ -30,13 +72,19 @@ export default function TasksPage() {
     }
   }, [])
 
+  // Update URL when filters change
+  const handleFilterChange = useCallback((newFilters: TaskFilters) => {
+    setFilters(newFilters)
+    const params = filtersToSearchParams(newFilters)
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    window.history.replaceState({}, '', newUrl)
+  }, [])
+
   const fetchData = useCallback(async () => {
     try {
-      const params = new URLSearchParams()
-      if (selectedCategory) params.set('category_id', selectedCategory)
-
+      // Fetch all tasks (filtering happens client-side)
       const [tasksRes, catsRes] = await Promise.all([
-        fetch(`/api/tasks?${params.toString()}`),
+        fetch('/api/tasks'),
         fetch('/api/categories'),
       ])
 
@@ -53,7 +101,7 @@ export default function TasksPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCategory])
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -226,7 +274,9 @@ export default function TasksPage() {
     }
   }
 
-  const groups = groupTasks(tasks).map(g => ({ ...g, tasks: sortTasks(g.tasks) }))
+  // Apply filters then group
+  const filteredTasks = applyFilters(tasks, filters)
+  const groups = groupTasks(filteredTasks).map(g => ({ ...g, tasks: sortTasks(g.tasks) }))
   const hasActiveTasks = groups.some(g => g.tasks.length > 0)
 
   if (loading) {
@@ -309,34 +359,14 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Category filter chips */}
-      {categories.length > 0 && (
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          overflowX: 'auto',
-          paddingBottom: '12px',
-          marginBottom: '8px',
-          WebkitOverflowScrolling: 'touch',
-        }}>
-          <CategoryChip
-            name="All"
-            color="var(--color-text-secondary)"
-            selected={!selectedCategory}
-            onClick={() => setSelectedCategory(null)}
-          />
-          {categories.map(cat => (
-            <CategoryChip
-              key={cat.id}
-              name={cat.name}
-              color={cat.color}
-              icon={cat.icon}
-              selected={selectedCategory === cat.id}
-              onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
-            />
-          ))}
-        </div>
-      )}
+      {/* Filter Bar */}
+      <FilterBar
+        categories={categories}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        totalCount={tasks.length}
+        filteredCount={filteredTasks.length}
+      />
 
       {/* Task list or empty state */}
       {hasActiveTasks ? (
@@ -349,7 +379,17 @@ export default function TasksPage() {
           onReorder={handleReorder}
           sortMode={sortMode}
         />
+      ) : tasks.length > 0 ? (
+        // Has tasks but filters return no results
+        <EmptyState
+          icon={String.fromCodePoint(0x1F50D)}
+          title="No matching tasks"
+          message="Try adjusting your filters to see more tasks."
+          actionLabel="Clear filters"
+          onAction={() => handleFilterChange(DEFAULT_FILTERS)}
+        />
       ) : (
+        // No tasks at all
         <EmptyState
           icon={String.fromCodePoint(0x1F4AD)}
           title="No tasks yet"
