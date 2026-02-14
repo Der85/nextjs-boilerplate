@@ -129,26 +129,31 @@ export function useReminders(): UseRemindersReturn {
     }
   }, [fetchReminders])
 
-  // Complete task (mark as done)
+  // Complete task (mark as done) - uses optimized endpoint that handles
+  // both task completion and reminder dismissal in a single transaction
   const completeTask = useCallback(async (taskId: string) => {
+    // Optimistic update: remove reminders for this task from local state
+    const taskReminders = reminders.filter(r => r.task_id === taskId)
+    const unreadTaskReminders = taskReminders.filter(r => !r.read_at)
+
+    setReminders(prev => prev.filter(r => r.task_id !== taskId))
+    setUnreadCount(prev => Math.max(0, prev - unreadTaskReminders.length))
+
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'done' }),
+      const res = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: 'POST',
       })
 
-      if (res.ok) {
-        // Dismiss all reminders for this task
-        const taskReminders = reminders.filter(r => r.task_id === taskId)
-        for (const reminder of taskReminders) {
-          await dismiss(reminder.id)
-        }
+      if (!res.ok) {
+        // Revert optimistic update on failure
+        await fetchReminders()
       }
     } catch (err) {
       console.error('Failed to complete task:', err)
+      // Revert optimistic update on error
+      await fetchReminders()
     }
-  }, [reminders, dismiss])
+  }, [reminders, fetchReminders])
 
   // Handle visibility change
   useEffect(() => {
