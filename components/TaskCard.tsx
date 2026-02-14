@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { TaskWithCategory, Category } from '@/lib/types'
 import { formatRelativeDate, isOverdue, isToday } from '@/lib/utils/dates'
 import { getRecurrenceDescription } from '@/lib/utils/recurrence'
+import { getTaskPriorityBorder } from '@/lib/theme'
 import CategoryChip from './CategoryChip'
 import CategoryDropdown from './CategoryDropdown'
 import DatePicker from './DatePicker'
@@ -15,12 +16,6 @@ interface TaskCardProps {
   onToggle: (id: string, done: boolean) => void
   onUpdate: (id: string, updates: Partial<TaskWithCategory>) => void
   onDrop: (id: string) => void
-}
-
-const PRIORITY_BORDER: Record<string, string> = {
-  high: 'var(--color-warning)',
-  medium: 'var(--color-accent)',
-  low: 'transparent',
 }
 
 export default function TaskCard({ task, categories = [], onToggle, onUpdate, onDrop }: TaskCardProps) {
@@ -67,7 +62,7 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
       alignItems: 'flex-start',
       gap: '12px',
       padding: '12px 0',
-      borderLeft: `3px solid ${!isDone && task.priority ? PRIORITY_BORDER[task.priority] || 'transparent' : 'transparent'}`,
+      borderLeft: `3px solid ${!isDone ? getTaskPriorityBorder(task.priority) : 'transparent'}`,
       paddingLeft: '12px',
       opacity: isDone ? 0.6 : 1,
       transition: 'opacity 0.2s',

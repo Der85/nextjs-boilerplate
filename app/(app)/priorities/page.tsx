@@ -19,12 +19,23 @@ const DOMAINS: DomainInfo[] = DEFAULT_CATEGORIES.map(c => ({
   color: c.color,
 }))
 
+const DRAFT_STORAGE_KEY = 'adhder-priorities-draft'
+
+interface WizardDraft {
+  step: WizardStep
+  rankedDomains: DomainInfo[]
+  importanceScores: Record<string, number>
+  aspirationalNotes: Record<string, string>
+  timestamp: number
+}
+
 export default function PrioritiesPage() {
   const router = useRouter()
   const [step, setStep] = useState<WizardStep>('intro')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [existingPriorities, setExistingPriorities] = useState<UserPriority[]>([])
+  const [draftRestored, setDraftRestored] = useState(false)
 
   // Ranking state
   const [rankedDomains, setRankedDomains] = useState<DomainInfo[]>([])
@@ -36,7 +47,7 @@ export default function PrioritiesPage() {
   // Aspirational notes (indexed by domain name)
   const [aspirationalNotes, setAspirationalNotes] = useState<Record<string, string>>({})
 
-  // Load existing priorities
+  // Load existing priorities (from API) or restore draft (from localStorage)
   useEffect(() => {
     async function loadPriorities() {
       try {
@@ -44,6 +55,7 @@ export default function PrioritiesPage() {
         if (res.ok) {
           const data = await res.json()
           if (data.priorities && data.priorities.length > 0) {
+            // User has saved priorities - use those (not draft)
             setExistingPriorities(data.priorities)
 
             // Pre-fill with existing data
@@ -67,16 +79,73 @@ export default function PrioritiesPage() {
             })
             setImportanceScores(scores)
             setAspirationalNotes(notes)
+
+            // Clear any stale draft since we have saved data
+            localStorage.removeItem(DRAFT_STORAGE_KEY)
+          } else {
+            // No saved priorities - check for draft
+            restoreDraft()
           }
+        } else {
+          // API error - try to restore draft anyway
+          restoreDraft()
         }
       } catch (err) {
         console.error('Failed to load priorities:', err)
+        // Try to restore draft on error
+        restoreDraft()
       } finally {
         setLoading(false)
       }
     }
+
+    function restoreDraft() {
+      try {
+        const saved = localStorage.getItem(DRAFT_STORAGE_KEY)
+        if (saved) {
+          const draft: WizardDraft = JSON.parse(saved)
+          // Only restore if draft is less than 24 hours old
+          const maxAge = 24 * 60 * 60 * 1000
+          if (Date.now() - draft.timestamp < maxAge) {
+            setStep(draft.step)
+            setRankedDomains(draft.rankedDomains)
+            setUnrankedDomains(DOMAINS.filter(
+              d => !draft.rankedDomains.some(r => r.name === d.name)
+            ))
+            setImportanceScores(draft.importanceScores)
+            setAspirationalNotes(draft.aspirationalNotes)
+            setDraftRestored(true)
+          } else {
+            // Draft too old, clear it
+            localStorage.removeItem(DRAFT_STORAGE_KEY)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to restore draft:', err)
+        localStorage.removeItem(DRAFT_STORAGE_KEY)
+      }
+    }
+
     loadPriorities()
   }, [])
+
+  // Persist draft to localStorage when wizard state changes
+  useEffect(() => {
+    // Don't save draft during initial load or if we have existing priorities
+    if (loading || existingPriorities.length > 0) return
+    // Don't save if we're on intro step with no progress
+    if (step === 'intro' && rankedDomains.length === 0) return
+
+    const draft: WizardDraft = {
+      step,
+      rankedDomains,
+      importanceScores,
+      aspirationalNotes,
+      timestamp: Date.now(),
+    }
+
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft))
+  }, [step, rankedDomains, importanceScores, aspirationalNotes, loading, existingPriorities.length])
 
   const handleSelectDomain = (domain: DomainInfo) => {
     setRankedDomains(prev => [...prev, domain])
@@ -140,6 +209,8 @@ export default function PrioritiesPage() {
       })
 
       if (res.ok) {
+        // Clear draft on successful save
+        localStorage.removeItem(DRAFT_STORAGE_KEY)
         // Show success and redirect
         router.push('/tasks')
       } else {
@@ -152,6 +223,16 @@ export default function PrioritiesPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY)
+    setDraftRestored(false)
+    setStep('intro')
+    setRankedDomains([])
+    setUnrankedDomains([...DOMAINS])
+    setImportanceScores({})
+    setAspirationalNotes({})
   }
 
   const goToStep = (newStep: WizardStep) => {
@@ -175,6 +256,41 @@ export default function PrioritiesPage() {
 
   return (
     <div style={{ paddingTop: '20px', paddingBottom: '100px', minHeight: '100vh' }}>
+      {/* Draft restored banner */}
+      {draftRestored && step !== 'intro' && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          padding: '10px 14px',
+          marginBottom: '16px',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--color-accent-light)',
+          border: '1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)',
+        }}>
+          <span style={{
+            fontSize: 'var(--text-small)',
+            color: 'var(--color-accent)',
+          }}>
+            Continuing where you left off
+          </span>
+          <button
+            onClick={handleDiscardDraft}
+            style={{
+              fontSize: 'var(--text-small)',
+              color: 'var(--color-text-tertiary)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+          >
+            Start over
+          </button>
+        </div>
+      )}
+
       {/* Progress indicator */}
       {step !== 'intro' && (
         <div style={{

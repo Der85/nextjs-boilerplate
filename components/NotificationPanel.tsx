@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { ReminderWithTask, SnoozeDuration, ReminderPriority } from '@/lib/types'
+import { getReminderPriorityColor } from '@/lib/theme'
 
 interface NotificationPanelProps {
   reminders: ReminderWithTask[]
@@ -21,18 +23,6 @@ const SNOOZE_OPTIONS: { value: SnoozeDuration; label: string }[] = [
   { value: 'tomorrow_morning', label: 'Tomorrow morning' },
 ]
 
-function getPriorityColor(priority: ReminderPriority): string {
-  switch (priority) {
-    case 'gentle':
-      return 'var(--color-accent)' // Blue - soft
-    case 'normal':
-      return 'var(--color-warning)' // Yellow
-    case 'important':
-      return 'var(--color-danger)' // Red
-    default:
-      return 'var(--color-warning)'
-  }
-}
 
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr)
@@ -54,17 +44,33 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
+// Pending action type for exit animation callback
+type PendingAction =
+  | { type: 'dismiss'; id: string }
+  | { type: 'snooze'; id: string; duration: SnoozeDuration }
+  | { type: 'complete'; taskId: string }
+
 interface ReminderItemProps {
   reminder: ReminderWithTask
   onMarkAsRead: (id: string) => Promise<void>
   onDismiss: (id: string) => Promise<void>
   onSnooze: (id: string, duration: SnoozeDuration) => Promise<void>
   onCompleteTask: (taskId: string) => Promise<void>
+  onStartExit: (id: string) => void
+  isExiting: boolean
 }
 
-function ReminderItem({ reminder, onMarkAsRead, onDismiss, onSnooze, onCompleteTask }: ReminderItemProps) {
+function ReminderItem({
+  reminder,
+  onMarkAsRead,
+  onDismiss,
+  onSnooze,
+  onCompleteTask,
+  onStartExit,
+  isExiting,
+}: ReminderItemProps) {
   const [showSnoozeOptions, setShowSnoozeOptions] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
+  const pendingActionRef = useRef<PendingAction | null>(null)
 
   const categoryIcon = reminder.task?.category?.icon || '📋'
   const categoryColor = reminder.task?.category?.color || 'var(--color-accent)'
@@ -79,36 +85,51 @@ function ReminderItem({ reminder, onMarkAsRead, onDismiss, onSnooze, onCompleteT
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setDismissed(true)
-    setTimeout(() => onDismiss(reminder.id), 200)
+    pendingActionRef.current = { type: 'dismiss', id: reminder.id }
+    onStartExit(reminder.id)
   }
 
   const handleSnooze = (duration: SnoozeDuration) => {
     setShowSnoozeOptions(false)
-    setDismissed(true)
-    setTimeout(() => onSnooze(reminder.id, duration), 200)
+    pendingActionRef.current = { type: 'snooze', id: reminder.id, duration }
+    onStartExit(reminder.id)
   }
 
   const handleComplete = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setDismissed(true)
-    setTimeout(() => onCompleteTask(reminder.task_id), 200)
+    pendingActionRef.current = { type: 'complete', taskId: reminder.task_id }
+    onStartExit(reminder.id)
   }
 
-  if (dismissed) {
-    return (
-      <div style={{
-        opacity: 0,
-        transform: 'translateX(20px)',
-        height: 0,
-        overflow: 'hidden',
-        transition: 'all 0.2s ease',
-      }} />
-    )
+  // Called by AnimatePresence when exit animation completes
+  const handleExitComplete = () => {
+    const action = pendingActionRef.current
+    if (!action) return
+
+    switch (action.type) {
+      case 'dismiss':
+        onDismiss(action.id)
+        break
+      case 'snooze':
+        onSnooze(action.id, action.duration)
+        break
+      case 'complete':
+        onCompleteTask(action.taskId)
+        break
+    }
+    pendingActionRef.current = null
   }
 
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 1, x: 0, height: 'auto' }}
+      animate={{ opacity: isExiting ? 0 : 1, x: isExiting ? 20 : 0 }}
+      exit={{ opacity: 0, x: 20, height: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      onAnimationComplete={() => {
+        if (isExiting) handleExitComplete()
+      }}
       onClick={handleClick}
       style={{
         padding: '12px',
@@ -116,7 +137,7 @@ function ReminderItem({ reminder, onMarkAsRead, onDismiss, onSnooze, onCompleteT
         background: isUnread ? `${categoryColor}08` : 'transparent',
         cursor: 'pointer',
         opacity: isSnoozed ? 0.6 : 1,
-        transition: 'background 0.15s ease',
+        overflow: 'hidden',
       }}
     >
       <div style={{ display: 'flex', gap: '10px' }}>
@@ -131,7 +152,7 @@ function ReminderItem({ reminder, onMarkAsRead, onDismiss, onSnooze, onCompleteT
             width: '8px',
             height: '8px',
             borderRadius: '50%',
-            background: getPriorityColor(reminder.priority),
+            background: getReminderPriorityColor(reminder.priority),
             flexShrink: 0,
           }} />
           <span style={{
@@ -310,7 +331,7 @@ function ReminderItem({ reminder, onMarkAsRead, onDismiss, onSnooze, onCompleteT
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -323,6 +344,13 @@ export default function NotificationPanel({
   onClearAll,
   onCompleteTask,
 }: NotificationPanelProps) {
+  // Track which items are in the process of exiting
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
+
+  const handleStartExit = (id: string) => {
+    setExitingIds(prev => new Set(prev).add(id))
+  }
+
   const handleClearAll = async () => {
     await onClearAll()
     onClose()
@@ -387,16 +415,20 @@ export default function NotificationPanel({
         overflowY: 'auto',
       }}>
         {reminders.length > 0 ? (
-          reminders.map(reminder => (
-            <ReminderItem
-              key={reminder.id}
-              reminder={reminder}
-              onMarkAsRead={onMarkAsRead}
-              onDismiss={onDismiss}
-              onSnooze={onSnooze}
-              onCompleteTask={onCompleteTask}
-            />
-          ))
+          <AnimatePresence mode="popLayout">
+            {reminders.map(reminder => (
+              <ReminderItem
+                key={reminder.id}
+                reminder={reminder}
+                onMarkAsRead={onMarkAsRead}
+                onDismiss={onDismiss}
+                onSnooze={onSnooze}
+                onCompleteTask={onCompleteTask}
+                onStartExit={handleStartExit}
+                isExiting={exitingIds.has(reminder.id)}
+              />
+            ))}
+          </AnimatePresence>
         ) : (
           <div style={{
             padding: '40px 24px',
