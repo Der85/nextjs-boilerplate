@@ -510,3 +510,68 @@ export function getBalanceScoreColor(score: number): string {
   if (score <= 80) return '#10B981' // green
   return '#22C55E' // bright green
 }
+
+// ============================
+// Weekly Review
+// ============================
+
+export type BalanceScoreTrendDirection = 'improving' | 'declining' | 'stable'
+
+export interface WeeklyReview {
+  id: string
+  user_id: string
+  week_start: string // date
+  week_end: string // date
+
+  // AI-generated content
+  summary_markdown: string
+  wins: string[]
+  gaps: string[]
+  patterns: string[]
+  suggested_focus: string[]
+
+  // Stats snapshot
+  tasks_completed: number
+  tasks_created: number
+  tasks_dropped: number
+  tasks_rescheduled: number
+  completion_rate: number
+  balance_score_avg: number | null
+  balance_score_trend: BalanceScoreTrendDirection | null
+  top_category: string | null
+  neglected_categories: string[]
+
+  // User interaction
+  user_reflection: string | null
+  is_read: boolean
+  read_at: string | null
+
+  created_at: string
+}
+
+export interface WeeklyReviewAIResponse {
+  summary_markdown: string
+  wins: string[]
+  gaps: string[]
+  patterns: string[]
+  suggested_focus: string[]
+}
+
+export interface WeeklyStats {
+  created: number
+  completed: number
+  dropped: number
+  skipped: number
+  completionRate: number
+  byCategory: Record<string, { created: number; completed: number }>
+  recurringStreaks: Array<{ taskTitle: string; streak: number }>
+}
+
+export interface WeeklyReviewGenerateRequest {
+  forceRegenerate?: boolean // Admin only, not exposed in UI
+}
+
+export interface WeeklyReviewUpdateRequest {
+  user_reflection?: string
+  is_read?: boolean
+}

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import DumpInput from '@/components/DumpInput'
 import ConfirmationCards from '@/components/ConfirmationCards'
+import WeeklyReviewBanner from '@/components/WeeklyReviewBanner'
 import type { ParsedTask, DumpResponse } from '@/lib/types'
 
 type DumpPhase = 'input' | 'confirming' | 'success'
@@ -82,6 +83,9 @@ export default function DumpPage() {
 
   return (
     <div style={{ paddingTop: '20px', paddingBottom: '24px' }}>
+      {/* Weekly Review Banner - only show on input phase */}
+      {phase === 'input' && <WeeklyReviewBanner />}
+
       {/* Header - only show on input phase */}
       {phase === 'input' && (
         <div style={{ marginBottom: '20px' }}>
