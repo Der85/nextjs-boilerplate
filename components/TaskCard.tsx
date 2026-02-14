@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import type { TaskWithCategory } from '@/lib/types'
+import type { TaskWithCategory, Category } from '@/lib/types'
 import { formatRelativeDate, isOverdue, isToday } from '@/lib/utils/dates'
 import CategoryChip from './CategoryChip'
 import DatePicker from './DatePicker'
+import TaskEditModal from './TaskEditModal'
 
 interface TaskCardProps {
   task: TaskWithCategory
+  categories?: Category[]
   onToggle: (id: string, done: boolean) => void
   onUpdate: (id: string, updates: Partial<TaskWithCategory>) => void
   onDrop: (id: string) => void
@@ -19,10 +21,11 @@ const PRIORITY_BORDER: Record<string, string> = {
   low: 'transparent',
 }
 
-export default function TaskCard({ task, onToggle, onUpdate, onDrop }: TaskCardProps) {
+export default function TaskCard({ task, categories = [], onToggle, onUpdate, onDrop }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -216,6 +219,38 @@ export default function TaskCard({ task, onToggle, onUpdate, onDrop }: TaskCardP
         </div>
       </div>
 
+      {/* Edit button */}
+      {!isDone && (
+        <button
+          onClick={() => setShowEditModal(true)}
+          aria-label="Edit task"
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-full)',
+            border: 'none',
+            background: 'none',
+            color: 'var(--color-text-tertiary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            margin: '-10px 0 -10px 0',
+            padding: 0,
+            opacity: 0.4,
+            transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
+      )}
+
       {/* Drop (soft delete) button */}
       {!isDone && (
         <button
@@ -247,6 +282,18 @@ export default function TaskCard({ task, onToggle, onUpdate, onDrop }: TaskCardP
           </svg>
         </button>
       )}
+
+      {/* Edit Modal */}
+      <TaskEditModal
+        task={task}
+        categories={categories}
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSave={(id, updates) => {
+          onUpdate(id, updates)
+          setShowEditModal(false)
+        }}
+      />
     </div>
   )
 }

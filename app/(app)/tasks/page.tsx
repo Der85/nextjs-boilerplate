@@ -212,6 +212,7 @@ export default function TasksPage() {
       {hasActiveTasks ? (
         <TaskList
           groups={groups}
+          categories={categories}
           onToggle={handleToggle}
           onUpdate={handleUpdate}
           onDrop={handleDrop}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { TaskWithCategory } from '@/lib/types'
+import type { TaskWithCategory, Category } from '@/lib/types'
 import TaskCard from './TaskCard'
 
 interface TaskGroup {
@@ -13,12 +13,13 @@ interface TaskGroup {
 
 interface TaskListProps {
   groups: TaskGroup[]
+  categories?: Category[]
   onToggle: (id: string, done: boolean) => void
   onUpdate: (id: string, updates: Partial<TaskWithCategory>) => void
   onDrop: (id: string) => void
 }
 
-export default function TaskList({ groups, onToggle, onUpdate, onDrop }: TaskListProps) {
+export default function TaskList({ groups, categories = [], onToggle, onUpdate, onDrop }: TaskListProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     groups.forEach(g => {
@@ -94,6 +95,7 @@ export default function TaskList({ groups, onToggle, onUpdate, onDrop }: TaskLis
                 <div key={task.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                   <TaskCard
                     task={task}
+                    categories={categories}
                     onToggle={onToggle}
                     onUpdate={onUpdate}
                     onDrop={onDrop}
