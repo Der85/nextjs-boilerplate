@@ -371,3 +371,68 @@ export interface AISuggestionResponse {
 }
 
 export type SnoozeOption = 'tomorrow' | 'next_week' | 'next_month'
+
+// ============================
+// Smart Reminders
+// ============================
+
+export type ReminderType =
+  | 'due_soon'
+  | 'overdue'
+  | 'priority_nudge'
+  | 'recurring_due'
+  | 'suggestion_follow_up'
+
+export type ReminderPriority = 'gentle' | 'normal' | 'important'
+
+export type SnoozeDuration =
+  | '10min'
+  | '30min'
+  | '1hour'
+  | 'after_lunch'
+  | 'tomorrow_morning'
+
+export interface ReminderPreferences {
+  user_id: string
+  reminders_enabled: boolean
+  quiet_hours_start: string // time format "HH:MM"
+  quiet_hours_end: string
+  max_reminders_per_day: number
+  reminder_lead_time_minutes: number
+  preferred_reminder_times: string[] // array of "HH:MM"
+  weekend_reminders: boolean
+  high_priority_override: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Reminder {
+  id: string
+  user_id: string
+  task_id: string
+  reminder_type: ReminderType
+  scheduled_for: string
+  delivered_at: string | null
+  read_at: string | null
+  snoozed_until: string | null
+  dismissed_at: string | null
+  title: string
+  message: string
+  priority: ReminderPriority
+  created_at: string
+}
+
+export interface ReminderWithTask extends Reminder {
+  task?: TaskWithCategory | null
+}
+
+export interface ReminderPreferencesInput {
+  reminders_enabled?: boolean
+  quiet_hours_start?: string
+  quiet_hours_end?: string
+  max_reminders_per_day?: number
+  reminder_lead_time_minutes?: number
+  preferred_reminder_times?: string[]
+  weekend_reminders?: boolean
+  high_priority_override?: boolean
+}

@@ -9,6 +9,9 @@ import TemplatePicker from '@/components/TemplatePicker'
 import PriorityPrompt from '@/components/PriorityPrompt'
 import PrioritySummary from '@/components/PrioritySummary'
 import SuggestionCard from '@/components/SuggestionCard'
+import NotificationBell from '@/components/NotificationBell'
+import ReminderBanner from '@/components/ReminderBanner'
+import { useReminders } from '@/lib/hooks/useReminders'
 import type { TaskWithCategory, Category, TaskTemplateWithCategory, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
 import {
@@ -65,6 +68,17 @@ function TasksPageContent() {
   const [suggestions, setSuggestions] = useState<TaskSuggestionWithCategory[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [hasPriorities, setHasPriorities] = useState(false)
+
+  // Reminders hook
+  const {
+    reminders,
+    unreadCount,
+    markAsRead,
+    dismiss: dismissReminder,
+    snooze: snoozeReminder,
+    clearAll: clearAllReminders,
+    completeTask: completeReminderTask,
+  } = useReminders()
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -434,6 +448,19 @@ function TasksPageContent() {
 
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Notification bell */}
+          <div>
+            <NotificationBell
+              reminders={reminders}
+              unreadCount={unreadCount}
+              onMarkAsRead={markAsRead}
+              onDismiss={dismissReminder}
+              onSnooze={snoozeReminder}
+              onClearAll={clearAllReminders}
+              onCompleteTask={completeReminderTask}
+            />
+          </div>
+
           {/* Template button */}
           <button
             onClick={() => setShowTemplatePicker(true)}
@@ -516,6 +543,15 @@ function TasksPageContent() {
       {/* Priority prompt or summary */}
       <PriorityPrompt taskCount={tasks.length} variant="banner" />
       <PrioritySummary />
+
+      {/* Reminder banners for urgent/overdue tasks */}
+      <ReminderBanner
+        reminders={reminders}
+        onDismiss={dismissReminder}
+        onSnooze={snoozeReminder}
+        onCompleteTask={completeReminderTask}
+        onViewAll={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      />
 
       {/* Suggestions section - only show if user has priorities */}
       {hasPriorities && (

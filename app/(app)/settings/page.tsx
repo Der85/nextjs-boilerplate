@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CategoryManager from '@/components/CategoryManager'
-import type { Category } from '@/lib/types'
+import type { Category, ReminderPreferences } from '@/lib/types'
 
 const COMMON_TIMEZONES = [
   'America/New_York',
@@ -34,14 +34,17 @@ export default function SettingsPage() {
   const [signingOut, setSigningOut] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [reminderPrefs, setReminderPrefs] = useState<ReminderPreferences | null>(null)
+  const [savingReminders, setSavingReminders] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch profile and categories in parallel
-        const [profileRes, categoriesRes] = await Promise.all([
+        // Fetch profile, categories, and reminder preferences in parallel
+        const [profileRes, categoriesRes, remindersRes] = await Promise.all([
           fetch('/api/profile'),
           fetch('/api/categories'),
+          fetch('/api/reminders/preferences'),
         ])
 
         if (profileRes.ok) {
@@ -54,6 +57,11 @@ export default function SettingsPage() {
         if (categoriesRes.ok) {
           const data = await categoriesRes.json()
           setCategories(data.categories || [])
+        }
+
+        if (remindersRes.ok) {
+          const data = await remindersRes.json()
+          setReminderPrefs(data.preferences || null)
         }
       } catch (err) {
         console.error('Failed to fetch data:', err)
@@ -141,6 +149,33 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error('Failed to delete category:', err)
+    }
+  }
+
+  const handleReminderPrefChange = async (key: keyof ReminderPreferences, value: unknown) => {
+    if (!reminderPrefs) return
+
+    // Optimistic update
+    const updatedPrefs = { ...reminderPrefs, [key]: value }
+    setReminderPrefs(updatedPrefs)
+    setSavingReminders(true)
+
+    try {
+      const res = await fetch('/api/reminders/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      })
+
+      if (!res.ok) {
+        // Revert on error
+        setReminderPrefs(reminderPrefs)
+      }
+    } catch (err) {
+      console.error('Failed to update reminder preferences:', err)
+      setReminderPrefs(reminderPrefs)
+    } finally {
+      setSavingReminders(false)
     }
   }
 
@@ -414,6 +449,257 @@ export default function SettingsPage() {
           </svg>
         </button>
       </div>
+
+      {/* Reminders Section */}
+      {reminderPrefs && (
+        <div style={sectionStyle}>
+          <h2 style={{
+            fontSize: 'var(--text-body)',
+            fontWeight: 600,
+            color: 'var(--color-text-primary)',
+            marginBottom: '8px',
+          }}>
+            Reminders
+          </h2>
+          <p style={{
+            fontSize: 'var(--text-caption)',
+            color: 'var(--color-text-tertiary)',
+            marginBottom: '16px',
+          }}>
+            Configure how and when you receive task reminders.
+          </p>
+
+          {/* Enable reminders toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+            borderBottom: '1px solid var(--color-border)',
+          }}>
+            <div>
+              <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                Enable reminders
+              </div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)' }}>
+                Get notified about upcoming and overdue tasks
+              </div>
+            </div>
+            <button
+              onClick={() => handleReminderPrefChange('reminders_enabled', !reminderPrefs.reminders_enabled)}
+              disabled={savingReminders}
+              style={{
+                width: '48px',
+                height: '28px',
+                borderRadius: '14px',
+                border: 'none',
+                background: reminderPrefs.reminders_enabled ? 'var(--color-accent)' : 'var(--color-border)',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'background 0.2s',
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                top: '2px',
+                left: reminderPrefs.reminders_enabled ? '22px' : '2px',
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </div>
+
+          {/* Quiet hours */}
+          <div style={{
+            padding: '12px 0',
+            borderBottom: '1px solid var(--color-border)',
+          }}>
+            <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)', fontWeight: 500, marginBottom: '4px' }}>
+              Quiet hours
+            </div>
+            <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
+              No reminders during these hours
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <input
+                type="time"
+                value={reminderPrefs.quiet_hours_start}
+                onChange={(e) => handleReminderPrefChange('quiet_hours_start', e.target.value)}
+                style={{
+                  ...inputStyle,
+                  width: 'auto',
+                  padding: '8px 12px',
+                }}
+              />
+              <span style={{ color: 'var(--color-text-tertiary)' }}>to</span>
+              <input
+                type="time"
+                value={reminderPrefs.quiet_hours_end}
+                onChange={(e) => handleReminderPrefChange('quiet_hours_end', e.target.value)}
+                style={{
+                  ...inputStyle,
+                  width: 'auto',
+                  padding: '8px 12px',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Max reminders per day */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+            borderBottom: '1px solid var(--color-border)',
+          }}>
+            <div>
+              <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                Max reminders per day
+              </div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)' }}>
+                Limit cognitive overload
+              </div>
+            </div>
+            <select
+              value={reminderPrefs.max_reminders_per_day}
+              onChange={(e) => handleReminderPrefChange('max_reminders_per_day', parseInt(e.target.value))}
+              style={{
+                ...inputStyle,
+                width: 'auto',
+                padding: '8px 32px 8px 12px',
+              }}
+            >
+              {[1, 2, 3, 5, 7, 10, 15].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Lead time */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+            borderBottom: '1px solid var(--color-border)',
+          }}>
+            <div>
+              <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                Remind me before
+              </div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)' }}>
+                How early to remind before task due time
+              </div>
+            </div>
+            <select
+              value={reminderPrefs.reminder_lead_time_minutes}
+              onChange={(e) => handleReminderPrefChange('reminder_lead_time_minutes', parseInt(e.target.value))}
+              style={{
+                ...inputStyle,
+                width: 'auto',
+                padding: '8px 32px 8px 12px',
+              }}
+            >
+              <option value={15}>15 min</option>
+              <option value={30}>30 min</option>
+              <option value={60}>1 hour</option>
+              <option value={120}>2 hours</option>
+            </select>
+          </div>
+
+          {/* Weekend reminders toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+            borderBottom: '1px solid var(--color-border)',
+          }}>
+            <div>
+              <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                Weekend reminders
+              </div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)' }}>
+                Allow reminders on Saturday and Sunday
+              </div>
+            </div>
+            <button
+              onClick={() => handleReminderPrefChange('weekend_reminders', !reminderPrefs.weekend_reminders)}
+              disabled={savingReminders}
+              style={{
+                width: '48px',
+                height: '28px',
+                borderRadius: '14px',
+                border: 'none',
+                background: reminderPrefs.weekend_reminders ? 'var(--color-accent)' : 'var(--color-border)',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'background 0.2s',
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                top: '2px',
+                left: reminderPrefs.weekend_reminders ? '22px' : '2px',
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </div>
+
+          {/* High priority override toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+          }}>
+            <div>
+              <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                Urgent task override
+              </div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)' }}>
+                Important tasks can break quiet hours (not sleep time)
+              </div>
+            </div>
+            <button
+              onClick={() => handleReminderPrefChange('high_priority_override', !reminderPrefs.high_priority_override)}
+              disabled={savingReminders}
+              style={{
+                width: '48px',
+                height: '28px',
+                borderRadius: '14px',
+                border: 'none',
+                background: reminderPrefs.high_priority_override ? 'var(--color-accent)' : 'var(--color-border)',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'background 0.2s',
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                top: '2px',
+                left: reminderPrefs.high_priority_override ? '22px' : '2px',
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Account Section */}
       <div style={sectionStyle}>
