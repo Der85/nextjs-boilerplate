@@ -2,8 +2,57 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type SpeechRecognitionType = any
+// Web Speech API type declarations
+interface SpeechRecognitionAlternative {
+  readonly transcript: string
+  readonly confidence: number
+}
+
+interface SpeechRecognitionResult {
+  readonly isFinal: boolean
+  readonly length: number
+  item(index: number): SpeechRecognitionAlternative
+  [index: number]: SpeechRecognitionAlternative
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number
+  item(index: number): SpeechRecognitionResult
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number
+  readonly results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string
+  readonly message: string
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onend: (() => void) | null
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null
+  start(): void
+  stop(): void
+  abort(): void
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor
+    webkitSpeechRecognition?: SpeechRecognitionConstructor
+  }
+}
 
 interface DumpInputProps {
   onSubmit: (text: string, source: 'text' | 'voice') => Promise<void>
@@ -16,7 +65,7 @@ export default function DumpInput({ onSubmit, loading }: DumpInputProps) {
   const [isListening, setIsListening] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const recognitionRef = useRef<SpeechRecognitionType | null>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   // Check speech API support
   useEffect(() => {
@@ -59,7 +108,7 @@ export default function DumpInput({ onSubmit, loading }: DumpInputProps) {
       return
     }
 
-    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognitionCtor) return
 
     const recognition = new SpeechRecognitionCtor()
@@ -67,7 +116,7 @@ export default function DumpInput({ onSubmit, loading }: DumpInputProps) {
     recognition.interimResults = true
     recognition.lang = 'en-US'
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let finalTranscript = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
