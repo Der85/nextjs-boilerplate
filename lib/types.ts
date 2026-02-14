@@ -198,3 +198,49 @@ export interface CategoryPatterns {
   // Total categories with tasks
   activeCategoryCount: number
 }
+
+// ============================
+// Task Templates
+// ============================
+
+export interface TaskTemplate {
+  id: string
+  user_id: string
+  name: string
+  task_name: string
+  description: string | null
+  priority: 'low' | 'medium' | 'high' | null
+  category_id: string | null
+  is_recurring_default: boolean
+  recurrence_rule: RecurrenceRule | null
+  tags: string[]
+  use_count: number
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TaskTemplateWithCategory extends TaskTemplate {
+  category?: Category | null
+}
+
+export interface CreateTemplateRequest {
+  name: string
+  task_name: string
+  description?: string
+  priority?: 'low' | 'medium' | 'high'
+  category_id?: string
+  is_recurring_default?: boolean
+  recurrence_rule?: RecurrenceRule
+  tags?: string[]
+}
+
+export interface CreateTemplateFromTaskRequest {
+  task_id: string
+  template_name: string
+}
+
+export interface CreateTaskFromTemplateRequest {
+  due_date?: string
+  due_time?: string
+}

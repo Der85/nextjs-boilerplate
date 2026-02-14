@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
-import type { TaskWithCategory, Category } from '@/lib/types'
+import TemplatePicker from '@/components/TemplatePicker'
+import type { TaskWithCategory, Category, TaskTemplateWithCategory } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
 import {
   type TaskFilters,
@@ -57,6 +58,7 @@ function TasksPageContent() {
   const [filters, setFilters] = useState<TaskFilters>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(true)
   const [sortMode, setSortMode] = useState<SortMode>('manual')
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -227,6 +229,23 @@ function TasksPageContent() {
     localStorage.setItem('taskSortMode', mode)
   }
 
+  // Handle creating task from template
+  const handleTemplateSelect = async (template: TaskTemplateWithCategory) => {
+    try {
+      const res = await fetch(`/api/templates/${template.id}/create-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setTasks(prev => [data.task, ...prev])
+      }
+    } catch (err) {
+      console.error('Failed to create task from template:', err)
+    }
+  }
+
   // Handle reorder (drag-and-drop)
   const handleReorder = async (_groupLabel: string, orderedIds: string[]) => {
     // Optimistic update: reorder tasks locally
@@ -315,47 +334,75 @@ function TasksPageContent() {
           Tasks
         </h1>
 
-        {/* Sort dropdown */}
-        <div style={{ position: 'relative' }}>
-          <select
-            value={sortMode}
-            onChange={(e) => handleSortChange(e.target.value as SortMode)}
-            aria-label="Sort tasks by"
+        {/* Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Template button */}
+          <button
+            onClick={() => setShowTemplatePicker(true)}
+            title="Create from template"
             style={{
-              appearance: 'none',
-              padding: '6px 28px 6px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--color-bg)',
               color: 'var(--color-text-secondary)',
-              fontSize: 'var(--text-small)',
               cursor: 'pointer',
             }}
           >
-            {SORT_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            style={{
-              position: 'absolute',
-              right: '8px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: 'var(--color-text-tertiary)',
-            }}
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+          </button>
+
+          {/* Sort dropdown */}
+          <div style={{ position: 'relative' }}>
+            <select
+              value={sortMode}
+              onChange={(e) => handleSortChange(e.target.value as SortMode)}
+              aria-label="Sort tasks by"
+              style={{
+                appearance: 'none',
+                padding: '6px 28px 6px 10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-bg)',
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--text-small)',
+                cursor: 'pointer',
+              }}
+            >
+              {SORT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                color: 'var(--color-text-tertiary)',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
         </div>
       </div>
 
@@ -396,6 +443,14 @@ function TasksPageContent() {
           message="Dump your thoughts to get started. I'll turn them into tasks."
           actionLabel="Brain dump"
           onAction={() => router.push('/dump')}
+        />
+      )}
+
+      {/* Template Picker Modal */}
+      {showTemplatePicker && (
+        <TemplatePicker
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowTemplatePicker(false)}
         />
       )}
     </div>

@@ -320,6 +320,56 @@ export default function SettingsPage() {
         />
       </div>
 
+      {/* Templates Section */}
+      <div style={sectionStyle}>
+        <h2 style={{
+          fontSize: 'var(--text-body)',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+          marginBottom: '8px',
+        }}>
+          Templates
+        </h2>
+        <p style={{
+          fontSize: 'var(--text-caption)',
+          color: 'var(--color-text-tertiary)',
+          marginBottom: '16px',
+        }}>
+          Create reusable templates for tasks you repeat often.
+        </p>
+
+        <button
+          onClick={() => router.push('/templates')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            padding: '12px 14px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--color-bg)',
+            color: 'var(--color-text-primary)',
+            fontSize: 'var(--text-body)',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            Manage Templates
+          </span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="2">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+
       {/* Account Section */}
       <div style={sectionStyle}>
         <h2 style={{
