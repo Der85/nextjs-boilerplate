@@ -149,7 +149,7 @@ export interface CategoryBreakdown {
 // Sherlock Insight Engine Types
 // ============================
 
-export type InsightType = 'correlation' | 'streak' | 'warning' | 'praise' | 'category'
+export type InsightType = 'correlation' | 'streak' | 'warning' | 'praise' | 'category' | 'priority_drift'
 
 export interface Insight {
   type: InsightType
@@ -159,6 +159,24 @@ export interface Insight {
   // Category-specific fields
   category_id?: string
   category_color?: string
+  // Priority drift fields
+  priority_rank?: number
+}
+
+// Priority Drift Analysis (for Sherlock insights)
+export type DriftDirection = 'neglected' | 'overinvested' | 'aligned'
+
+export interface PriorityDrift {
+  domain: PriorityDomain
+  priorityRank: number // 1 = highest priority
+  importanceScore: number
+  taskPercentage: number // % of total tasks in this category
+  completionRate: number
+  driftScore: number // actual_share - expected_share
+  driftDirection: DriftDirection
+  categoryId: string | null
+  categoryIcon: string | null
+  categoryColor: string | null
 }
 
 export interface InsightRow extends Insight {

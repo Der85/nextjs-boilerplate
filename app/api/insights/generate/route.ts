@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
-import type { Insight, InsightRow, InsightType, CategoryStats, CategoryPatterns } from '@/lib/types'
+import type { Insight, InsightRow, InsightType, CategoryStats, CategoryPatterns, PriorityDrift, UserPriority, PriorityDomain, DriftDirection } from '@/lib/types'
 
 const CACHE_MINUTES = 10
 const MIN_CATEGORIZED_TASKS = 5
@@ -216,6 +216,94 @@ function computeCategoryPatterns(
 }
 
 // ============================================
+// Fetch User Priorities
+// ============================================
+async function fetchUserPriorities(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<UserPriority[]> {
+  const { data } = await supabase
+    .from('user_priorities')
+    .select('*')
+    .eq('user_id', userId)
+    .order('rank', { ascending: true })
+
+  return (data || []) as UserPriority[]
+}
+
+// ============================================
+// Compute Priority Drift Metrics
+// ============================================
+function computePriorityDrift(
+  priorities: UserPriority[],
+  categoryStats: CategoryStats[],
+  totalTasks: number
+): PriorityDrift[] {
+  if (priorities.length === 0 || totalTasks === 0) return []
+
+  // Create a map of category name (lowercase) to stats
+  const categoryStatsByName = new Map<string, CategoryStats>()
+  for (const stat of categoryStats) {
+    categoryStatsByName.set(stat.categoryName.toLowerCase(), stat)
+  }
+
+  // Calculate total weight for expected share computation
+  // Rank 1 gets weight 8, rank 8 gets weight 1
+  const totalWeight = priorities.reduce((sum, p) => sum + (9 - p.rank), 0)
+
+  const driftResults: PriorityDrift[] = []
+
+  for (const priority of priorities) {
+    // Map domain name to category (they should share names)
+    const categoryName = priority.domain.toLowerCase()
+    const stats = categoryStatsByName.get(categoryName)
+
+    // Calculate expected vs actual share
+    const expectedShare = (9 - priority.rank) / totalWeight
+    const actualShare = stats ? stats.totalTasks / totalTasks : 0
+    const driftScore = actualShare - expectedShare
+
+    // Determine drift direction
+    let driftDirection: DriftDirection = 'aligned'
+
+    // Only flag as neglected if:
+    // - Significant negative drift (< -0.10)
+    // - AND (high rank <= 3 OR importance_score >= 7)
+    // Don't flag low-priority areas as neglected unless explicitly important
+    if (driftScore < -0.10) {
+      if (priority.rank <= 3 || priority.importance_score >= 7) {
+        driftDirection = 'neglected'
+      }
+    } else if (driftScore > 0.15) {
+      driftDirection = 'overinvested'
+    }
+
+    driftResults.push({
+      domain: priority.domain as PriorityDomain,
+      priorityRank: priority.rank,
+      importanceScore: priority.importance_score,
+      taskPercentage: Math.round(actualShare * 100),
+      completionRate: stats ? stats.completionRate : 0,
+      driftScore,
+      driftDirection,
+      categoryId: stats?.categoryId || null,
+      categoryIcon: stats?.categoryIcon || null,
+      categoryColor: stats?.categoryColor || null,
+    })
+  }
+
+  return driftResults
+}
+
+// ============================================
+// Check if high-priority drift exists
+// ============================================
+function hasHighPriorityDrift(driftData: PriorityDrift[]): boolean {
+  // Returns true if any top-3 priority domain is neglected
+  return driftData.some(d => d.driftDirection === 'neglected' && d.priorityRank <= 3)
+}
+
+// ============================================
 // Check for cached insight (< 10 minutes old)
 // ============================================
 async function fetchCachedInsight(
@@ -227,7 +315,7 @@ async function fetchCachedInsight(
 
   const { data } = await supabase
     .from('user_insights')
-    .select('id, type, title, message, icon, category_id, category_color, is_dismissed, is_helpful, data_window_start, data_window_end, created_at, user_id')
+    .select('id, type, title, message, icon, category_id, category_color, priority_rank, is_dismissed, is_helpful, data_window_start, data_window_end, created_at, user_id')
     .eq('user_id', userId)
     .gte('created_at', cutoff.toISOString())
     .order('created_at', { ascending: false })
@@ -281,21 +369,25 @@ async function saveInsight(
     icon: insight.icon,
     category_id: insight.category_id || null,
     category_color: insight.category_color || null,
+    priority_rank: insight.priority_rank || null,
     data_window_start: windowStart.toISOString().split('T')[0],
     data_window_end: now.toISOString().split('T')[0],
-  }).select('id, type, title, message, icon, category_id, category_color, is_dismissed, is_helpful, data_window_start, data_window_end, created_at, user_id').single()
+  }).select('id, type, title, message, icon, category_id, category_color, priority_rank, is_dismissed, is_helpful, data_window_start, data_window_end, created_at, user_id').single()
 
   return data as InsightRow | null
 }
 
 // ============================================
-// Build the Gemini prompt — "Sherlock" mode with Categories
+// Build the Gemini prompt — "Sherlock" mode with Categories & Priority Drift
 // ============================================
 function buildInsightPrompt(
   categoryStats: CategoryStats[],
   patterns: CategoryPatterns,
   recentInsightTypes: InsightType[],
-  preferCategory: boolean
+  preferCategory: boolean,
+  priorities: UserPriority[],
+  driftData: PriorityDrift[],
+  preferDrift: boolean
 ): string {
   // Summarize category stats for the prompt
   const categorySummary = categoryStats.map(s => ({
@@ -311,6 +403,54 @@ function buildInsightPrompt(
   const recentTypesStr = recentInsightTypes.length > 0
     ? `Recent insight types shown: ${recentInsightTypes.join(', ')}`
     : 'No recent insights'
+
+  // Build priority alignment section if priorities exist
+  let prioritySection = ''
+  if (priorities.length > 0 && driftData.length > 0) {
+    const priorityList = priorities.map(p => {
+      const note = p.aspirational_note ? ` - "${p.aspirational_note}"` : ''
+      return `${p.rank}. ${p.domain} (importance: ${p.importance_score}/10)${note}`
+    }).join('\n')
+
+    const alignmentList = driftData.map(d => {
+      const status = d.driftDirection === 'neglected'
+        ? 'NEGLECTED'
+        : d.driftDirection === 'overinvested'
+          ? 'OVERINVESTED'
+          : 'ALIGNED'
+      return `- ${d.domain}: Priority #${d.priorityRank}, ${d.taskPercentage}% of tasks (${status})`
+    }).join('\n')
+
+    prioritySection = `
+=== PRIORITY ALIGNMENT DATA ===
+
+[USER'S LIFE PRIORITIES (ranked by importance)]
+${priorityList}
+
+[ACTIVITY vs PRIORITY ALIGNMENT (last 14 days)]
+${alignmentList}
+
+=== PRIORITY DRIFT PATTERNS TO LOOK FOR ===
+- Is the user's daily activity aligned with what they say matters most?
+- Are high-priority areas being neglected while low-priority areas consume attention?
+- Frame neglect gently: "Your #2 priority hasn't gotten attention" not "You're ignoring Family"
+- Frame overinvestment as a question: "Work is taking 60% of your tasks — is that intentional?"
+- If aligned, celebrate: "Your activity matches your priorities beautifully this week"
+- For "aligned" domains, positive reinforcement matters for ADHD brains!
+`
+  }
+
+  // Determine which type to prioritize
+  let priorityInstruction = 'Generate the most relevant insight type.'
+  if (preferDrift && driftData.some(d => d.driftDirection !== 'aligned')) {
+    priorityInstruction = 'PRIORITY: Generate a priority_drift insight about activity-priority alignment.'
+  } else if (preferCategory) {
+    priorityInstruction = 'PRIORITY: Generate a category-type insight this time.'
+  }
+
+  const validTypes = priorities.length > 0
+    ? '"category", "priority_drift", "streak", "warning", "praise", or "correlation"'
+    : '"category", "streak", "warning", "praise", or "correlation"'
 
   return `You are an expert ADHD Life Balance Analyst.
 I am sending you 14 days of task category data from an ADHD user.
@@ -331,10 +471,10 @@ ${patterns.streaks.length > 0 ? patterns.streaks.map(s => `${s.icon}${s.name}: $
 
 [CATEGORY GAPS (no completions)]
 ${patterns.gaps.length > 0 ? patterns.gaps.map(g => `${g.icon}${g.name}`).join(', ') : 'None'}
-
+${prioritySection}
 === ROTATION INFO ===
 ${recentTypesStr}
-${preferCategory ? 'PRIORITY: Generate a category-type insight this time.' : 'Generate the most relevant insight type.'}
+${priorityInstruction}
 
 === CATEGORY PATTERNS TO LOOK FOR ===
 - IMBALANCE: Is the user spending disproportionate time on one category while neglecting others?
@@ -351,17 +491,20 @@ ${preferCategory ? 'PRIORITY: Generate a category-type insight this time.' : 'Ge
 - Make it ACTIONABLE: "73% Work" is a fact, "Maybe shift one task slot to Family?" is actionable.
 - Keep the title punchy (max 6 words).
 - Keep the message short (max 2 sentences).
-- Include the category emoji in the title when relevant.
+- Include the category/domain emoji in the title when relevant.
+- For priority_drift type: include "priority_rank" field with the domain's rank number.
 - Use strictly valid JSON format.
+- Valid types are: ${validTypes}
 
-JSON TEMPLATE:
+JSON TEMPLATE (for category or priority_drift):
 {
-  "type": "category",
-  "title": "Health Superpower 🏃",
-  "message": "You complete 92% of Health tasks — your highest category! Days with Health completions seem to energize other areas.",
-  "icon": "🏃",
-  "category_name": "Health",
-  "category_color": "#10B981"
+  "type": "priority_drift",
+  "title": "Family gap 📊",
+  "message": "Family is your #1 priority, but only 3% of your tasks this fortnight were Family-related. Even one small Family task per day could shift this.",
+  "icon": "👨‍👩‍👧",
+  "category_name": "Family",
+  "category_color": "#EC4899",
+  "priority_rank": 1
 }`
 }
 
@@ -402,13 +545,14 @@ async function callGemini(apiKey: string, prompt: string): Promise<Insight | nul
       const parsed = JSON.parse(jsonMatch[0])
       // Validate required fields
       if (parsed.title && parsed.message) {
-        const validTypes: InsightType[] = ['correlation', 'streak', 'warning', 'praise', 'category']
+        const validTypes: InsightType[] = ['correlation', 'streak', 'warning', 'praise', 'category', 'priority_drift']
         return {
           type: validTypes.includes(parsed.type) ? parsed.type : 'category',
           title: parsed.title,
           message: parsed.message,
           icon: parsed.icon || '🔍',
           category_color: parsed.category_color || undefined,
+          priority_rank: parsed.priority_rank || undefined,
         }
       }
     }
@@ -493,18 +637,26 @@ export async function POST(_request: NextRequest) {
     // 7. Check recent insight types for rotation
     const recentTypes = await getRecentInsightTypes(supabase, user.id)
     const categoryInsightCount = recentTypes.filter(t => t === 'category').length
-    const otherInsightCount = recentTypes.length - categoryInsightCount
+    const driftInsightCount = recentTypes.filter(t => t === 'priority_drift').length
+    const otherInsightCount = recentTypes.length - categoryInsightCount - driftInsightCount
 
     // Prefer category insights if we haven't shown many recently
     const preferCategory = categoryInsightCount < otherInsightCount || recentTypes.length === 0
 
-    // 8. Call Gemini
+    // 8. Fetch user priorities and compute drift
+    const priorities = await fetchUserPriorities(supabase, user.id)
+    const driftData = computePriorityDrift(priorities, categoryStats, categorizedTaskCount)
+
+    // Prefer drift insight if high-priority drift detected and not recently shown
+    const preferDrift = hasHighPriorityDrift(driftData) && driftInsightCount < 2
+
+    // 9. Call Gemini
     if (!apiKey) {
       const fallback = sparseDataFallback()
       return NextResponse.json({ insight: fallback, cached: false })
     }
 
-    const prompt = buildInsightPrompt(categoryStats, patterns, recentTypes, preferCategory)
+    const prompt = buildInsightPrompt(categoryStats, patterns, recentTypes, preferCategory, priorities, driftData, preferDrift)
     const insight = await callGemini(apiKey, prompt)
 
     if (!insight) {
@@ -512,7 +664,7 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ insight: fallback, cached: false })
     }
 
-    // 9. Save to user_insights and return with id
+    // 10. Save to user_insights and return with id
     const saved = await saveInsight(supabase, user.id, insight)
 
     return NextResponse.json({

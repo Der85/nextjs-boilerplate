@@ -14,8 +14,8 @@ export default function InsightCard({ insight, onDismiss }: InsightCardProps) {
   const [helpful, setHelpful] = useState<boolean | null>(insight.is_helpful)
   const [dismissed, setDismissed] = useState(false)
 
-  // Use category color for category-type insights, otherwise default purple
-  const accentColor = insight.type === 'category' && insight.category_color
+  // Use category color for category/priority_drift insights, otherwise default purple
+  const accentColor = (insight.type === 'category' || insight.type === 'priority_drift') && insight.category_color
     ? insight.category_color
     : '#7c3aed'
 
@@ -37,7 +37,11 @@ export default function InsightCard({ insight, onDismiss }: InsightCardProps) {
   }
 
   // Badge text varies by insight type
-  const badgeText = insight.type === 'category' ? 'Life Balance' : 'Pattern Engine'
+  const badgeText = insight.type === 'priority_drift'
+    ? (insight.priority_rank ? `Priority #${insight.priority_rank}` : 'Priority Balance')
+    : insight.type === 'category'
+      ? 'Life Balance'
+      : 'Pattern Engine'
 
   if (dismissed) {
     return (
