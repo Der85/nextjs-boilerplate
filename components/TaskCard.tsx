@@ -156,13 +156,17 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
 
         {/* Metadata row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-          {/* Recurring indicator */}
+          {/* Recurring indicator - icon always visible, text hidden on mobile */}
           {task.is_recurring && task.recurrence_rule && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}>
+            <div
+              className="recurrence-indicator"
+              title={getRecurrenceDescription(task.recurrence_rule)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
               <svg
                 width="14"
                 height="14"
@@ -178,11 +182,14 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
                 <path d="M7 21.9l-4-4 4-4" />
                 <path d="M21 11.8v2a4 4 0 0 1-4 4H4.2" />
               </svg>
-              <span style={{
-                fontSize: 'var(--text-small)',
-                color: 'var(--color-accent)',
-                fontWeight: 500,
-              }}>
+              <span
+                className="recurrence-text"
+                style={{
+                  fontSize: 'var(--text-small)',
+                  color: 'var(--color-accent)',
+                  fontWeight: 500,
+                }}
+              >
                 {getRecurrenceDescription(task.recurrence_rule)}
               </span>
             </div>
@@ -392,6 +399,22 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
           setShowEditModal(false)
         }}
       />
+
+      {/* Responsive styles for cleaner mobile view */}
+      <style>{`
+        @keyframes check-pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+
+        /* Hide verbose recurrence text on mobile - icon + tooltip is enough */
+        @media (max-width: 480px) {
+          .recurrence-text {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   )
 }

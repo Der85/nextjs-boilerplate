@@ -497,8 +497,8 @@ export function getBalanceScoreLevel(score: number): BalanceScoreLevel {
 }
 
 export function getBalanceScoreMessage(score: number): string {
-  if (score <= 30) return 'Your priorities need attention'
-  if (score <= 50) return 'Room to grow — focus on your top areas'
+  if (score <= 30) return 'Start with one small task today — any progress counts'
+  if (score <= 50) return 'Pick one priority area and do something tiny for it'
   if (score <= 70) return 'Getting balanced — keep it up!'
   if (score <= 85) return 'Great alignment with your priorities'
   return 'Exceptional balance!'

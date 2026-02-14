@@ -55,7 +55,7 @@ declare global {
 }
 
 interface DumpInputProps {
-  onSubmit: (text: string, source: 'text' | 'voice') => Promise<void>
+  onSubmit: (text: string, source: 'text' | 'voice') => Promise<boolean>
   loading: boolean
 }
 
@@ -139,10 +139,14 @@ export default function DumpInput({ onSubmit, loading }: DumpInputProps) {
   const handleSubmit = async () => {
     const trimmed = text.trim()
     if (trimmed.length < 3 || loading) return
-    await onSubmit(trimmed, source)
-    setText('')
-    setSource('text')
-    localStorage.removeItem('adhder-dump-draft')
+    const success = await onSubmit(trimmed, source)
+    // Only clear text on successful parsing - preserve input on errors
+    // so users don't lose their stream of consciousness
+    if (success) {
+      setText('')
+      setSource('text')
+      localStorage.removeItem('adhder-dump-draft')
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

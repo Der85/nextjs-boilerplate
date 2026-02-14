@@ -18,7 +18,7 @@ export default function DumpPage() {
   const [error, setError] = useState<string | null>(null)
   const [successCount, setSuccessCount] = useState(0)
 
-  const handleDumpSubmit = useCallback(async (text: string, source: 'text' | 'voice') => {
+  const handleDumpSubmit = useCallback(async (text: string, source: 'text' | 'voice'): Promise<boolean> => {
     setLoading(true)
     setError(null)
     try {
@@ -41,11 +41,14 @@ export default function DumpPage() {
         setParsedTasks(data.tasks)
         setDumpId(data.dump.id)
         setPhase('confirming')
+        return true // Success - input can be cleared
       } else {
         setError(data.ai_error || 'Could not extract tasks. Try being more specific about what you need to do.')
+        return false // Failed - preserve input
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
+      return false // Failed - preserve input
     } finally {
       setLoading(false)
     }
