@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
 import WeeklyReviewHeader from '@/components/WeeklyReviewHeader'
 import WeeklyReviewSection from '@/components/WeeklyReviewSection'
 import WeeklyReviewHistory from '@/components/WeeklyReviewHistory'
@@ -301,16 +302,44 @@ export default function WeeklyReviewPage() {
 
         {showFullMarkdown && (
           <div
+            className="markdown-content"
             style={{
               padding: '0 20px 20px 20px',
               fontSize: 'var(--text-body)',
               color: 'var(--color-text-secondary)',
               lineHeight: 1.7,
             }}
-            dangerouslySetInnerHTML={{
-              __html: simpleMarkdownToHtml(review.summary_markdown)
-            }}
-          />
+          >
+            <ReactMarkdown>{review.summary_markdown}</ReactMarkdown>
+            <style>{`
+              .markdown-content h2 {
+                font-size: var(--text-subheading);
+                font-weight: 600;
+                color: var(--color-text-primary);
+                margin: 20px 0 12px 0;
+              }
+              .markdown-content h3 {
+                font-size: var(--text-body);
+                font-weight: 600;
+                color: var(--color-text-primary);
+                margin: 16px 0 8px 0;
+              }
+              .markdown-content p {
+                margin-bottom: 12px;
+              }
+              .markdown-content strong {
+                font-weight: 600;
+                color: var(--color-text-primary);
+              }
+              .markdown-content ul, .markdown-content ol {
+                margin-left: 20px;
+                margin-bottom: 12px;
+              }
+              .markdown-content li {
+                margin-bottom: 4px;
+              }
+            `}</style>
+          </div>
         )}
       </div>
 
@@ -410,31 +439,4 @@ export default function WeeklyReviewPage() {
       )}
     </div>
   )
-}
-
-// Simple markdown to HTML converter
-function simpleMarkdownToHtml(markdown: string): string {
-  if (!markdown) return ''
-
-  let html = markdown
-    // Headers
-    .replace(/^### (.*$)/gm, '<h3 style="font-size: var(--text-body); font-weight: 600; color: var(--color-text-primary); margin: 16px 0 8px 0;">$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2 style="font-size: var(--text-subheading); font-weight: 600; color: var(--color-text-primary); margin: 20px 0 12px 0;">$1</h2>')
-    // Bold
-    .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: var(--color-text-primary);">$1</strong>')
-    // Italic
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    // Bullet points
-    .replace(/^- (.*$)/gm, '<li style="margin-left: 20px; margin-bottom: 4px;">$1</li>')
-    // Line breaks
-    .replace(/\n\n/g, '</p><p style="margin-bottom: 12px;">')
-    .replace(/\n/g, '<br/>')
-
-  // Wrap in paragraph
-  html = `<p style="margin-bottom: 12px;">${html}</p>`
-
-  // Clean up empty paragraphs
-  html = html.replace(/<p[^>]*><\/p>/g, '')
-
-  return html
 }
