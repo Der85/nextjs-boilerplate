@@ -318,3 +318,56 @@ export interface PriorityReviewDueResponse {
   lastReviewedAt: string | null
   daysSinceReview: number | null
 }
+
+// ============================
+// Task Suggestions
+// ============================
+
+export type SuggestionType =
+  | 'gap_fill'
+  | 'priority_boost'
+  | 'routine_suggestion'
+  | 'template_based'
+  | 'seasonal'
+
+export type SuggestionStatus = 'pending' | 'accepted' | 'dismissed' | 'snoozed'
+
+export type EnergyLevel = 'low' | 'medium' | 'high'
+
+export interface TaskSuggestion {
+  id: string
+  user_id: string
+  suggested_task_name: string
+  suggested_steps: string[]
+  suggested_category_id: string | null
+  suggested_energy: EnergyLevel
+  suggested_estimated_minutes: number | null
+  reasoning: string
+  priority_domain: PriorityDomain
+  suggestion_type: SuggestionType
+  status: SuggestionStatus
+  snoozed_until: string | null
+  source_template_id: string | null
+  created_at: string
+  accepted_at: string | null
+  dismissed_at: string | null
+}
+
+export interface TaskSuggestionWithCategory extends TaskSuggestion {
+  category?: Category | null
+  source_template?: TaskTemplate | null
+}
+
+// AI response format for suggestion generation
+export interface AISuggestionResponse {
+  task_name: string
+  steps: string[]
+  category: string
+  energy: EnergyLevel
+  estimated_minutes: number
+  reasoning: string
+  suggestion_type: SuggestionType
+  source_template_name: string | null
+}
+
+export type SnoozeOption = 'tomorrow' | 'next_week' | 'next_month'

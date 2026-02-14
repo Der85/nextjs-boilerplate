@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { suggestionsRateLimiter } from '@/lib/rateLimiter'
+import type { SnoozeOption } from '@/lib/types'
+
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
+
+function calculateSnoozeUntil(option: SnoozeOption): string {
+  const now = new Date()
+
+  switch (option) {
+    case 'tomorrow':
+      now.setDate(now.getDate() + 1)
+      now.setHours(9, 0, 0, 0) // 9 AM tomorrow
+      break
+    case 'next_week':
+      now.setDate(now.getDate() + 7)
+      now.setHours(9, 0, 0, 0) // 9 AM next week
+      break
+    case 'next_month':
+      now.setMonth(now.getMonth() + 1)
+      now.setHours(9, 0, 0, 0) // 9 AM next month
+      break
+  }
+
+  return now.toISOString()
+}
+
+// POST /api/suggestions/[id]/snooze
+// Snoozes the suggestion until a specified time
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    if (suggestionsRateLimiter.isLimited(user.id)) {
+      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+    }
+
+    const { id } = await context.params
+    const body = await request.json()
+    const until: SnoozeOption = body.until
+
+    if (!['tomorrow', 'next_week', 'next_month'].includes(until)) {
+      return NextResponse.json({ error: 'Invalid snooze duration.' }, { status: 400 })
+    }
+
+    const snoozedUntil = calculateSnoozeUntil(until)
+
+    // Update suggestion status
+    const { error } = await supabase
+      .from('task_suggestions')
+      .update({
+        status: 'snoozed',
+        snoozed_until: snoozedUntil,
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Suggestion snooze error:', error)
+      return NextResponse.json({ error: 'Failed to snooze suggestion.' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      snoozed_until: snoozedUntil,
+    })
+  } catch (error) {
+    console.error('Suggestion snooze error:', error)
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+  }
+}
