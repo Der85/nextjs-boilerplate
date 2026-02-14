@@ -22,6 +22,17 @@ import type { TaskWithCategory, Category } from '@/lib/types'
 import SortableTaskItem from './SortableTaskItem'
 import TaskCard from './TaskCard'
 
+/**
+ * Reorders items in an array by moving an item from one index to another.
+ * Returns a new array without mutating the original.
+ */
+function reorderItems<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const result = [...items]
+  const [movedItem] = result.splice(fromIndex, 1)
+  result.splice(toIndex, 0, movedItem)
+  return result
+}
+
 interface TaskGroup {
   label: string
   tasks: TaskWithCategory[]
@@ -97,13 +108,8 @@ export default function TaskList({
 
     if (oldIndex === -1 || newIndex === -1) return
 
-    // Create new ordered array
-    const newOrder = [...groupTasks]
-    const [movedItem] = newOrder.splice(oldIndex, 1)
-    newOrder.splice(newIndex, 0, movedItem)
-
-    // Call onReorder with the new order
-    onReorder(groupLabel, newOrder.map(t => t.id))
+    const reordered = reorderItems(groupTasks, oldIndex, newIndex)
+    onReorder(groupLabel, reordered.map(t => t.id))
   }, [onReorder])
 
   // Handle keyboard-based reordering (Shift+Arrow keys)
@@ -116,12 +122,8 @@ export default function TaskList({
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
     if (newIndex < 0 || newIndex >= groupTasks.length) return
 
-    // Create new ordered array
-    const newOrder = [...groupTasks]
-    const [movedItem] = newOrder.splice(currentIndex, 1)
-    newOrder.splice(newIndex, 0, movedItem)
-
-    onReorder(groupLabel, newOrder.map(t => t.id))
+    const reordered = reorderItems(groupTasks, currentIndex, newIndex)
+    onReorder(groupLabel, reordered.map(t => t.id))
   }, [onReorder])
 
   // Find the active task for the drag overlay
