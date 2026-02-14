@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import EmptyState from '@/components/EmptyState'
 import InsightCard from '@/components/InsightCard'
+import BalanceScoreWidget from '@/components/BalanceScoreWidget'
 import type { InsightSummary, WeeklyTrend, CategoryBreakdown, InsightRow } from '@/lib/types'
 
 // Lazy load charts to keep bundle size small
@@ -15,6 +16,12 @@ export default function InsightsPage() {
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([])
   const [generatedInsight, setGeneratedInsight] = useState<InsightRow | null>(null)
   const [loading, setLoading] = useState(true)
+  const [thresholdToast, setThresholdToast] = useState<{ threshold: number; visible: boolean } | null>(null)
+
+  const handleThresholdCrossed = useCallback((threshold: number) => {
+    setThresholdToast({ threshold, visible: true })
+    setTimeout(() => setThresholdToast(null), 4000)
+  }, [])
 
   useEffect(() => {
     async function fetchInsights() {
@@ -102,6 +109,31 @@ export default function InsightsPage() {
         Insights
       </h1>
 
+      {/* Threshold celebration toast */}
+      {thresholdToast?.visible && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #10B981, #059669)',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-lg)',
+          zIndex: 1000,
+          animation: 'slideDown 0.3s ease-out',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <span style={{ fontSize: '20px' }}>🎉</span>
+          <span style={{ fontWeight: 600 }}>
+            You broke through {thresholdToast.threshold}! Your balance is improving.
+          </span>
+        </div>
+      )}
+
       {/* AI-Generated Insight Card */}
       {generatedInsight && (
         <InsightCard
@@ -109,6 +141,9 @@ export default function InsightsPage() {
           onDismiss={() => setGeneratedInsight(null)}
         />
       )}
+
+      {/* Life Balance Score Widget */}
+      <BalanceScoreWidget onThresholdCrossed={handleThresholdCrossed} />
 
       {/* Stats grid */}
       <div style={{
@@ -182,6 +217,19 @@ export default function InsightsPage() {
         weeklyTrend={weeklyTrend}
         categoryBreakdown={categoryBreakdown}
       />
+
+      <style>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+      `}</style>
     </div>
   )
 }

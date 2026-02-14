@@ -454,3 +454,59 @@ export interface ReminderPreferencesInput {
   weekend_reminders?: boolean
   high_priority_override?: boolean
 }
+
+// ============================
+// Life Balance Score
+// ============================
+
+export interface DomainScore {
+  domain: string
+  score: number // 0-100 for this domain
+  weight: number // 0-1, normalized importance weight
+  taskCount: number
+  completionRate: number
+  categoryIcon: string | null
+  categoryColor: string | null
+}
+
+export interface BalanceScore {
+  score: number // 0-100 overall
+  breakdown: DomainScore[]
+}
+
+export interface BalanceScoreRow extends BalanceScore {
+  id: string
+  user_id: string
+  computed_for_date: string
+  created_at: string
+}
+
+export type BalanceScoreLevel = 'critical' | 'low' | 'moderate' | 'good' | 'excellent'
+
+export interface BalanceScoreTrend {
+  date: string
+  score: number
+}
+
+export function getBalanceScoreLevel(score: number): BalanceScoreLevel {
+  if (score <= 30) return 'critical'
+  if (score <= 50) return 'low'
+  if (score <= 70) return 'moderate'
+  if (score <= 85) return 'good'
+  return 'excellent'
+}
+
+export function getBalanceScoreMessage(score: number): string {
+  if (score <= 30) return 'Your priorities need attention'
+  if (score <= 50) return 'Room to grow — focus on your top areas'
+  if (score <= 70) return 'Getting balanced — keep it up!'
+  if (score <= 85) return 'Great alignment with your priorities'
+  return 'Exceptional balance!'
+}
+
+export function getBalanceScoreColor(score: number): string {
+  if (score <= 30) return '#EF4444' // red
+  if (score <= 60) return '#F59E0B' // amber
+  if (score <= 80) return '#10B981' // green
+  return '#22C55E' // bright green
+}
