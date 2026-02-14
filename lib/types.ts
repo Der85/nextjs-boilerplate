@@ -32,7 +32,15 @@ export interface Category {
   updated_at: string
 }
 
-export type TaskStatus = 'active' | 'done' | 'dropped'
+export type TaskStatus = 'active' | 'done' | 'dropped' | 'skipped'
+
+export type RecurrenceFrequency = 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly'
+
+export interface RecurrenceRule {
+  frequency: RecurrenceFrequency
+  interval?: number  // e.g., every 2 weeks
+  end_date?: string  // ISO date string
+}
 
 export interface Task {
   id: string
@@ -49,6 +57,12 @@ export interface Task {
   position: number
   completed_at: string | null
   dropped_at: string | null
+  skipped_at: string | null
+  // Recurrence fields
+  is_recurring: boolean
+  recurrence_rule: RecurrenceRule | null
+  recurrence_parent_id: string | null
+  recurring_streak: number
   created_at: string
   updated_at: string
 }

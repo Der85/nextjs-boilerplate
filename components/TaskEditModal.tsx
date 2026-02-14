@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import type { TaskWithCategory, Category } from '@/lib/types'
+import type { TaskWithCategory, Category, RecurrenceRule, RecurrenceFrequency } from '@/lib/types'
 import { getTodayISO, getTomorrowISO, getWeekendISO, getNextWeekISO } from '@/lib/utils/dates'
+import { RECURRENCE_OPTIONS, getRecurrenceDescription } from '@/lib/utils/recurrence'
 import CategoryChip from './CategoryChip'
 
 interface TaskEditModalProps {
@@ -42,6 +43,13 @@ export default function TaskEditModal({
   const [dueTime, setDueTime] = useState(task.due_time)
   const [priority, setPriority] = useState(task.priority)
   const [categoryId, setCategoryId] = useState(task.category_id)
+  const [isRecurring, setIsRecurring] = useState(task.is_recurring || false)
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency | null>(
+    task.recurrence_rule?.frequency || null
+  )
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string | null>(
+    task.recurrence_rule?.end_date || null
+  )
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
@@ -53,6 +61,9 @@ export default function TaskEditModal({
       setDueTime(task.due_time)
       setPriority(task.priority)
       setCategoryId(task.category_id)
+      setIsRecurring(task.is_recurring || false)
+      setRecurrenceFrequency(task.recurrence_rule?.frequency || null)
+      setRecurrenceEndDate(task.recurrence_rule?.end_date || null)
       setHasChanges(false)
       setTimeout(() => {
         titleRef.current?.focus()
@@ -63,14 +74,21 @@ export default function TaskEditModal({
 
   // Track changes
   useEffect(() => {
+    const currentRule = task.recurrence_rule
+    const recurrenceChanged =
+      isRecurring !== (task.is_recurring || false) ||
+      recurrenceFrequency !== (currentRule?.frequency || null) ||
+      recurrenceEndDate !== (currentRule?.end_date || null)
+
     const changed =
       title !== task.title ||
       dueDate !== task.due_date ||
       dueTime !== task.due_time ||
       priority !== task.priority ||
-      categoryId !== task.category_id
+      categoryId !== task.category_id ||
+      recurrenceChanged
     setHasChanges(changed)
-  }, [title, dueDate, dueTime, priority, categoryId, task])
+  }, [title, dueDate, dueTime, priority, categoryId, isRecurring, recurrenceFrequency, recurrenceEndDate, task])
 
   const handleSave = async () => {
     if (!title.trim()) return
@@ -83,6 +101,24 @@ export default function TaskEditModal({
     if (dueTime !== task.due_time) updates.due_time = dueTime
     if (priority !== task.priority) updates.priority = priority
     if (categoryId !== task.category_id) updates.category_id = categoryId
+
+    // Handle recurrence updates
+    const currentRule = task.recurrence_rule
+    const recurrenceChanged =
+      isRecurring !== (task.is_recurring || false) ||
+      recurrenceFrequency !== (currentRule?.frequency || null) ||
+      recurrenceEndDate !== (currentRule?.end_date || null)
+
+    if (recurrenceChanged) {
+      updates.is_recurring = isRecurring
+      if (isRecurring && recurrenceFrequency) {
+        const newRule: RecurrenceRule = { frequency: recurrenceFrequency }
+        if (recurrenceEndDate) newRule.end_date = recurrenceEndDate
+        updates.recurrence_rule = newRule
+      } else {
+        updates.recurrence_rule = null
+      }
+    }
 
     if (Object.keys(updates).length > 0) {
       await onSave(task.id, updates)
@@ -358,6 +394,132 @@ export default function TaskEditModal({
               </div>
             </div>
           )}
+
+          {/* Recurrence */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px',
+            }}>
+              <label style={{
+                fontSize: 'var(--text-small)',
+                fontWeight: 600,
+                color: 'var(--color-text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                Repeat
+              </label>
+              <button
+                onClick={() => {
+                  setIsRecurring(!isRecurring)
+                  if (!isRecurring && !recurrenceFrequency) {
+                    setRecurrenceFrequency('daily')
+                  }
+                }}
+                style={{
+                  width: '48px',
+                  height: '28px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: isRecurring ? 'var(--color-accent)' : 'var(--color-border)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <span style={{
+                  position: 'absolute',
+                  top: '3px',
+                  left: isRecurring ? '23px' : '3px',
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '11px',
+                  background: '#fff',
+                  transition: 'left 0.2s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </button>
+            </div>
+
+            {isRecurring && (
+              <>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                  {RECURRENCE_OPTIONS.map((opt) => {
+                    const isSelected = recurrenceFrequency === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setRecurrenceFrequency(opt.value)}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: 'var(--radius-full)',
+                          border: isSelected ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
+                          background: isSelected ? 'var(--color-accent-subtle)' : 'var(--color-bg)',
+                          color: isSelected ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                          fontSize: 'var(--text-caption)',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Streak display */}
+                {task.recurring_streak > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    background: 'var(--color-success-subtle, rgba(34, 197, 94, 0.1))',
+                    borderRadius: 'var(--radius-sm)',
+                    marginBottom: '12px',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>🔥</span>
+                    <span style={{
+                      fontSize: 'var(--text-caption)',
+                      color: 'var(--color-success)',
+                      fontWeight: 600,
+                    }}>
+                      {task.recurring_streak} day streak
+                    </span>
+                  </div>
+                )}
+
+                {/* End date (optional) */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: 'var(--text-caption)',
+                    color: 'var(--color-text-tertiary)',
+                    marginBottom: '6px',
+                  }}>
+                    End date (optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={recurrenceEndDate || ''}
+                    onChange={(e) => setRecurrenceEndDate(e.target.value || null)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 'var(--text-caption)',
+                      color: 'var(--color-text-primary)',
+                      background: 'var(--color-bg)',
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

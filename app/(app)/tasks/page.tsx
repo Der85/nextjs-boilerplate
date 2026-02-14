@@ -52,7 +52,7 @@ export default function TasksPage() {
     const doneToday: TaskWithCategory[] = []
 
     for (const task of allTasks) {
-      if (task.status === 'dropped') continue
+      if (task.status === 'dropped' || task.status === 'skipped') continue
 
       if (task.status === 'done') {
         if (task.completed_at && isToday(task.completed_at.split('T')[0])) {
@@ -96,7 +96,13 @@ export default function TasksPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: done ? 'done' : 'active' }),
       })
-      if (!res.ok) {
+      if (res.ok) {
+        const data = await res.json()
+        // If a next occurrence was created (recurring task), add it to the list
+        if (data.nextOccurrence) {
+          setTasks(prev => [...prev, data.nextOccurrence])
+        }
+      } else {
         // Revert on failure
         setTasks(prev => prev.map(t =>
           t.id === id
@@ -125,7 +131,13 @@ export default function TasksPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       })
-      if (!res.ok && prev) {
+      if (res.ok) {
+        const data = await res.json()
+        // If a next occurrence was created (recurring task skipped), add it to the list
+        if (data.nextOccurrence) {
+          setTasks(ts => [...ts, data.nextOccurrence])
+        }
+      } else if (prev) {
         setTasks(ts => ts.map(t => t.id === id ? prev : t))
       }
     } catch {

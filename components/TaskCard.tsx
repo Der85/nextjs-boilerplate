@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { TaskWithCategory, Category } from '@/lib/types'
 import { formatRelativeDate, isOverdue, isToday } from '@/lib/utils/dates'
+import { getRecurrenceDescription } from '@/lib/utils/recurrence'
 import CategoryChip from './CategoryChip'
 import DatePicker from './DatePicker'
 import TaskEditModal from './TaskEditModal'
@@ -154,6 +155,59 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
 
         {/* Metadata row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+          {/* Recurring indicator */}
+          {task.is_recurring && task.recurrence_rule && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--color-accent)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M17 2.1l4 4-4 4" />
+                <path d="M3 12.2v-2a4 4 0 0 1 4-4h12.8" />
+                <path d="M7 21.9l-4-4 4-4" />
+                <path d="M21 11.8v2a4 4 0 0 1-4 4H4.2" />
+              </svg>
+              <span style={{
+                fontSize: 'var(--text-small)',
+                color: 'var(--color-accent)',
+                fontWeight: 500,
+              }}>
+                {getRecurrenceDescription(task.recurrence_rule)}
+              </span>
+            </div>
+          )}
+
+          {/* Streak badge */}
+          {task.is_recurring && task.recurring_streak > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              padding: '2px 6px',
+              background: 'var(--color-warning-subtle, rgba(245, 158, 11, 0.1))',
+              borderRadius: 'var(--radius-full)',
+            }}>
+              <span style={{ fontSize: '12px' }}>🔥</span>
+              <span style={{
+                fontSize: 'var(--text-small)',
+                color: 'var(--color-warning)',
+                fontWeight: 600,
+              }}>
+                {task.recurring_streak}
+              </span>
+            </div>
+          )}
+
           {task.due_date && (
             <div style={{ position: 'relative' }}>
               <button
@@ -247,6 +301,39 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
+      )}
+
+      {/* Skip button (for recurring tasks only) */}
+      {!isDone && task.is_recurring && (
+        <button
+          onClick={() => onUpdate(task.id, { status: 'skipped' })}
+          aria-label="Skip this occurrence"
+          title={task.recurring_streak > 0 ? `Skip (will reset ${task.recurring_streak} day streak)` : 'Skip this occurrence'}
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-full)',
+            border: 'none',
+            background: 'none',
+            color: 'var(--color-text-tertiary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            margin: '-10px 0 -10px 0',
+            padding: 0,
+            opacity: 0.4,
+            transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="5 4 15 12 5 20 5 4" />
+            <line x1="19" y1="5" x2="19" y2="19" />
           </svg>
         </button>
       )}
