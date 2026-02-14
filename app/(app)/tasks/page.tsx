@@ -2,11 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import TaskList from '@/components/TaskList'
+import TaskList, { type SortMode } from '@/components/TaskList'
 import CategoryChip from '@/components/CategoryChip'
 import EmptyState from '@/components/EmptyState'
 import type { TaskWithCategory, Category } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'due_date', label: 'Due Date' },
+  { value: 'created_date', label: 'Created' },
+]
 
 export default function TasksPage() {
   const router = useRouter()
@@ -14,6 +20,15 @@ export default function TasksPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sortMode, setSortMode] = useState<SortMode>('manual')
+
+  // Load sort preference from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('taskSortMode') as SortMode | null
+    if (saved && SORT_OPTIONS.some(o => o.value === saved)) {
+      setSortMode(saved)
+    }
+  }, [])
 
   const fetchData = useCallback(async () => {
     try {
@@ -158,7 +173,60 @@ export default function TasksPage() {
     })
   }
 
-  const groups = groupTasks(tasks)
+  // Handle sort mode change
+  const handleSortChange = (mode: SortMode) => {
+    setSortMode(mode)
+    localStorage.setItem('taskSortMode', mode)
+  }
+
+  // Handle reorder (drag-and-drop)
+  const handleReorder = async (_groupLabel: string, orderedIds: string[]) => {
+    // Optimistic update: reorder tasks locally
+    const positionMap = new Map(orderedIds.map((id, idx) => [id, idx * 1000]))
+
+    setTasks(prev => {
+      const updated = prev.map(t => {
+        const newPosition = positionMap.get(t.id)
+        return newPosition !== undefined ? { ...t, position: newPosition } : t
+      })
+      return updated
+    })
+
+    // Send to API
+    try {
+      const tasksToUpdate = orderedIds.map((id, idx) => ({ id, position: idx * 1000 }))
+      await fetch('/api/tasks/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: tasksToUpdate }),
+      })
+    } catch (err) {
+      console.error('Failed to reorder tasks:', err)
+      // Could refetch here to revert, but optimistic update is usually fine
+    }
+  }
+
+  // Sort tasks within groups based on sortMode
+  const sortTasks = (taskList: TaskWithCategory[]): TaskWithCategory[] => {
+    const sorted = [...taskList]
+    switch (sortMode) {
+      case 'manual':
+        return sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
+      case 'due_date':
+        return sorted.sort((a, b) => {
+          if (!a.due_date && !b.due_date) return 0
+          if (!a.due_date) return 1
+          if (!b.due_date) return -1
+          return a.due_date.localeCompare(b.due_date)
+        })
+      case 'created_date':
+        return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      default:
+        return sorted
+    }
+  }
+
+  const groups = groupTasks(tasks).map(g => ({ ...g, tasks: sortTasks(g.tasks) }))
   const hasActiveTasks = groups.some(g => g.tasks.length > 0)
 
   if (loading) {
@@ -182,14 +250,64 @@ export default function TasksPage() {
 
   return (
     <div style={{ paddingTop: '20px', paddingBottom: '24px' }}>
-      <h1 style={{
-        fontSize: 'var(--text-heading)',
-        fontWeight: 'var(--font-heading)',
-        color: 'var(--color-text-primary)',
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: '16px',
       }}>
-        Tasks
-      </h1>
+        <h1 style={{
+          fontSize: 'var(--text-heading)',
+          fontWeight: 'var(--font-heading)',
+          color: 'var(--color-text-primary)',
+          margin: 0,
+        }}>
+          Tasks
+        </h1>
+
+        {/* Sort dropdown */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={sortMode}
+            onChange={(e) => handleSortChange(e.target.value as SortMode)}
+            aria-label="Sort tasks by"
+            style={{
+              appearance: 'none',
+              padding: '6px 28px 6px 10px',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-bg)',
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--text-small)',
+              cursor: 'pointer',
+            }}
+          >
+            {SORT_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            style={{
+              position: 'absolute',
+              right: '8px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+              color: 'var(--color-text-tertiary)',
+            }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </div>
 
       {/* Category filter chips */}
       {categories.length > 0 && (
@@ -228,6 +346,8 @@ export default function TasksPage() {
           onToggle={handleToggle}
           onUpdate={handleUpdate}
           onDrop={handleDrop}
+          onReorder={handleReorder}
+          sortMode={sortMode}
         />
       ) : (
         <EmptyState
