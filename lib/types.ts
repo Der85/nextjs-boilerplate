@@ -28,6 +28,7 @@ export interface Category {
   icon: string
   position: number
   is_ai_generated: boolean
+  is_system: boolean
   created_at: string
   updated_at: string
 }
@@ -47,6 +48,7 @@ export interface Task {
   user_id: string
   dump_id: string | null
   category_id: string | null
+  category_confidence: number | null
   title: string
   status: TaskStatus
   due_date: string | null
@@ -97,6 +99,8 @@ export interface ParsedTask {
   priority: 'low' | 'medium' | 'high'
   confidence: number
   original_fragment: string
+  category?: string // AI-suggested category name
+  category_confidence?: number // AI confidence in category (0-1)
 }
 
 export interface DumpParseResult {

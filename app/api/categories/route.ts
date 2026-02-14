@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { categoriesRateLimiter } from '@/lib/rateLimiter'
+import { DEFAULT_CATEGORIES } from '@/lib/utils/categories'
 
 export async function GET() {
   try {
@@ -10,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const { data: categories, error } = await supabase
+    let { data: categories, error } = await supabase
       .from('categories')
       .select('*')
       .eq('user_id', user.id)
@@ -19,6 +20,26 @@ export async function GET() {
     if (error) {
       console.error('Categories fetch error:', error)
       return NextResponse.json({ error: 'Failed to load categories.' }, { status: 500 })
+    }
+
+    // Seed default categories if user has none
+    if (!categories || categories.length === 0) {
+      const defaultsToInsert = DEFAULT_CATEGORIES.map(cat => ({
+        ...cat,
+        user_id: user.id,
+      }))
+
+      const { data: seeded, error: seedError } = await supabase
+        .from('categories')
+        .insert(defaultsToInsert)
+        .select()
+
+      if (seedError) {
+        console.error('Categories seed error:', seedError)
+        // Continue with empty array rather than failing
+      } else {
+        categories = seeded
+      }
     }
 
     return NextResponse.json({ categories: categories || [] })

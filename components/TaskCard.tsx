@@ -5,6 +5,7 @@ import type { TaskWithCategory, Category } from '@/lib/types'
 import { formatRelativeDate, isOverdue, isToday } from '@/lib/utils/dates'
 import { getRecurrenceDescription } from '@/lib/utils/recurrence'
 import CategoryChip from './CategoryChip'
+import CategoryDropdown from './CategoryDropdown'
 import DatePicker from './DatePicker'
 import TaskEditModal from './TaskEditModal'
 
@@ -262,12 +263,22 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
             </div>
           )}
 
-          {task.category && (
-            <CategoryChip
-              name={task.category.name}
-              color={task.category.color}
-              icon={task.category.icon}
-              size="small"
+          {/* Category - interactive dropdown for active tasks, static chip for done */}
+          {isDone ? (
+            task.category && (
+              <CategoryChip
+                name={task.category.name}
+                color={task.category.color}
+                icon={task.category.icon}
+                size="small"
+              />
+            )
+          ) : (
+            <CategoryDropdown
+              categories={categories}
+              selectedId={task.category_id}
+              confidence={task.category_confidence}
+              onSelect={(categoryId) => onUpdate(task.id, { category_id: categoryId })}
             />
           )}
         </div>

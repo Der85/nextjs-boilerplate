@@ -23,6 +23,13 @@ Rules:
 6. If something isn't clearly a task (feelings, observations), still include it but with low confidence.
 7. Split compound items: "buy milk and eggs" → two tasks.
 8. Confidence: 1.0 for clear tasks, 0.7-0.9 for inferred details, below 0.7 for guesses.
+9. For each task, determine which life category it belongs to:
+   Categories: Work, Health, Home, Finance, Social, Personal Growth, Admin, Family
+   Choose the single best match. Set category_confidence from 0.0 to 1.0.
+   - 0.9-1.0: Very clear category match
+   - 0.7-0.9: Likely correct
+   - 0.5-0.7: Ambiguous, best guess
+   - Below 0.5: Very uncertain
 
 Return a JSON object with a "tasks" array. Each task:
 {
@@ -31,7 +38,9 @@ Return a JSON object with a "tasks" array. Each task:
   "due_time": string | null (HH:MM 24hr),
   "priority": "low" | "medium" | "high",
   "confidence": number (0-1),
-  "original_fragment": string (the raw text that produced this task)
+  "original_fragment": string (the raw text that produced this task),
+  "category": string (one of: Work, Health, Home, Finance, Social, Personal Growth, Admin, Family),
+  "category_confidence": number (0-1)
 }`
 }
 

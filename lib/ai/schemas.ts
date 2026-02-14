@@ -17,8 +17,13 @@ export const dumpParseSchema: GeminiSchema = {
           priority: { type: SchemaType.STRING, enum: ['low', 'medium', 'high'] },
           confidence: { type: SchemaType.NUMBER },
           original_fragment: { type: SchemaType.STRING },
+          category: {
+            type: SchemaType.STRING,
+            enum: ['Work', 'Health', 'Home', 'Finance', 'Social', 'Personal Growth', 'Admin', 'Family']
+          },
+          category_confidence: { type: SchemaType.NUMBER },
         },
-        required: ['title', 'priority', 'confidence', 'original_fragment'],
+        required: ['title', 'priority', 'confidence', 'original_fragment', 'category', 'category_confidence'],
       },
     },
   },

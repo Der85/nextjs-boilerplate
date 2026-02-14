@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import CategoryManager from '@/components/CategoryManager'
+import type { Category } from '@/lib/types'
 
 const COMMON_TIMEZONES = [
   'America/New_York',
@@ -31,24 +33,35 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch('/api/profile')
-        if (res.ok) {
-          const data = await res.json()
+        // Fetch profile and categories in parallel
+        const [profileRes, categoriesRes] = await Promise.all([
+          fetch('/api/profile'),
+          fetch('/api/categories'),
+        ])
+
+        if (profileRes.ok) {
+          const data = await profileRes.json()
           setEmail(data.email || '')
           setDisplayName(data.profile?.display_name || '')
           setTimezone(data.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
         }
+
+        if (categoriesRes.ok) {
+          const data = await categoriesRes.json()
+          setCategories(data.categories || [])
+        }
       } catch (err) {
-        console.error('Failed to fetch profile:', err)
+        console.error('Failed to fetch data:', err)
       } finally {
         setLoading(false)
       }
     }
-    fetchProfile()
+    fetchData()
   }, [])
 
   const handleSave = async () => {
@@ -81,6 +94,54 @@ export default function SettingsPage() {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  const handleCategoryUpdate = async (id: string, updates: Partial<Category>) => {
+    try {
+      const res = await fetch(`/api/categories/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(prev => prev.map(c => c.id === id ? data.category : c))
+      }
+    } catch (err) {
+      console.error('Failed to update category:', err)
+    }
+  }
+
+  const handleCategoryCreate = async (category: { name: string; color: string; icon: string }) => {
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(category),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(prev => [...prev, data.category])
+      }
+    } catch (err) {
+      console.error('Failed to create category:', err)
+    }
+  }
+
+  const handleCategoryDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/categories/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        setCategories(prev => prev.filter(c => c.id !== id))
+      }
+    } catch (err) {
+      console.error('Failed to delete category:', err)
+    }
   }
 
   if (loading) {
@@ -231,6 +292,32 @@ export default function SettingsPage() {
             {saveMessage.text}
           </div>
         )}
+      </div>
+
+      {/* Categories Section */}
+      <div style={sectionStyle}>
+        <h2 style={{
+          fontSize: 'var(--text-body)',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+          marginBottom: '8px',
+        }}>
+          Categories
+        </h2>
+        <p style={{
+          fontSize: 'var(--text-caption)',
+          color: 'var(--color-text-tertiary)',
+          marginBottom: '16px',
+        }}>
+          Organize your tasks with custom categories. AI will auto-categorize new tasks.
+        </p>
+
+        <CategoryManager
+          categories={categories}
+          onUpdate={handleCategoryUpdate}
+          onCreate={handleCategoryCreate}
+          onDelete={handleCategoryDelete}
+        />
       </div>
 
       {/* Account Section */}
