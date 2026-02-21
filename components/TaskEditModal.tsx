@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import type { TaskWithCategory, Category, RecurrenceRule, RecurrenceFrequency } from '@/lib/types'
+import type { TaskWithCategory, Category } from '@/lib/types'
 import { getTodayISO, getTomorrowISO, getWeekendISO, getNextWeekISO } from '@/lib/utils/dates'
-import { RECURRENCE_OPTIONS, getRecurrenceDescription } from '@/lib/utils/recurrence'
+import { RECURRENCE_OPTIONS } from '@/lib/utils/recurrence'
 import CategoryChip from './CategoryChip'
 import SaveAsTemplateSection from './SaveAsTemplateSection'
+import { useTaskEditForm } from '@/lib/hooks/useTaskEditForm'
 
 interface TaskEditModalProps {
   task: TaskWithCategory
@@ -36,111 +36,18 @@ export default function TaskEditModal({
   onClose,
   onSave,
 }: TaskEditModalProps) {
-  const titleRef = useRef<HTMLInputElement>(null)
-
-  // Form state
-  const [title, setTitle] = useState(task.title)
-  const [dueDate, setDueDate] = useState(task.due_date)
-  const [dueTime, setDueTime] = useState(task.due_time)
-  const [priority, setPriority] = useState(task.priority)
-  const [categoryId, setCategoryId] = useState(task.category_id)
-  const [isRecurring, setIsRecurring] = useState(task.is_recurring || false)
-  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency | null>(
-    task.recurrence_rule?.frequency || null
-  )
-  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string | null>(
-    task.recurrence_rule?.end_date || null
-  )
-  const [saving, setSaving] = useState(false)
-  const [hasChanges, setHasChanges] = useState(false)
-
-  // Reset form when task changes or modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setTitle(task.title)
-      setDueDate(task.due_date)
-      setDueTime(task.due_time)
-      setPriority(task.priority)
-      setCategoryId(task.category_id)
-      setIsRecurring(task.is_recurring || false)
-      setRecurrenceFrequency(task.recurrence_rule?.frequency || null)
-      setRecurrenceEndDate(task.recurrence_rule?.end_date || null)
-      setHasChanges(false)
-      setTimeout(() => {
-        titleRef.current?.focus()
-        titleRef.current?.select()
-      }, 50)
-    }
-  }, [isOpen, task])
-
-  // Track changes
-  useEffect(() => {
-    const currentRule = task.recurrence_rule
-    const recurrenceChanged =
-      isRecurring !== (task.is_recurring || false) ||
-      recurrenceFrequency !== (currentRule?.frequency || null) ||
-      recurrenceEndDate !== (currentRule?.end_date || null)
-
-    const changed =
-      title !== task.title ||
-      dueDate !== task.due_date ||
-      dueTime !== task.due_time ||
-      priority !== task.priority ||
-      categoryId !== task.category_id ||
-      recurrenceChanged
-    setHasChanges(changed)
-  }, [title, dueDate, dueTime, priority, categoryId, isRecurring, recurrenceFrequency, recurrenceEndDate, task])
-
-  const handleSave = async () => {
-    if (!title.trim()) return
-
-    setSaving(true)
-
-    const updates: Partial<TaskWithCategory> = {}
-    if (title.trim() !== task.title) updates.title = title.trim()
-    if (dueDate !== task.due_date) updates.due_date = dueDate
-    if (dueTime !== task.due_time) updates.due_time = dueTime
-    if (priority !== task.priority) updates.priority = priority
-    if (categoryId !== task.category_id) updates.category_id = categoryId
-
-    // Handle recurrence updates
-    const currentRule = task.recurrence_rule
-    const recurrenceChanged =
-      isRecurring !== (task.is_recurring || false) ||
-      recurrenceFrequency !== (currentRule?.frequency || null) ||
-      recurrenceEndDate !== (currentRule?.end_date || null)
-
-    if (recurrenceChanged) {
-      updates.is_recurring = isRecurring
-      if (isRecurring && recurrenceFrequency) {
-        const newRule: RecurrenceRule = { frequency: recurrenceFrequency }
-        if (recurrenceEndDate) newRule.end_date = recurrenceEndDate
-        updates.recurrence_rule = newRule
-      } else {
-        updates.recurrence_rule = null
-      }
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await onSave(task.id, updates)
-    }
-
-    setSaving(false)
-    onClose()
-  }
+  const form = useTaskEditForm({ task, isOpen, onSave, onClose })
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose()
     }
     if (e.key === 'Enter' && e.metaKey) {
-      handleSave()
+      form.handleSave()
     }
   }
 
   if (!isOpen) return null
-
-  const selectedCategory = categories.find(c => c.id === categoryId)
 
   return (
     <div
@@ -223,10 +130,10 @@ export default function TaskEditModal({
               Task
             </label>
             <input
-              ref={titleRef}
+              ref={form.titleRef}
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={form.title}
+              onChange={(e) => form.setTitle(e.target.value)}
               placeholder="What needs to be done?"
               style={{
                 width: '100%',
@@ -256,11 +163,11 @@ export default function TaskEditModal({
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
               {DATE_PRESETS.map((preset) => {
                 const presetValue = preset.getValue()
-                const isSelected = dueDate === presetValue
+                const isSelected = form.dueDate === presetValue
                 return (
                   <button
                     key={preset.label}
-                    onClick={() => setDueDate(presetValue)}
+                    onClick={() => form.setDueDate(presetValue)}
                     style={{
                       padding: '8px 12px',
                       borderRadius: 'var(--radius-full)',
@@ -279,8 +186,8 @@ export default function TaskEditModal({
             </div>
             <input
               type="date"
-              value={dueDate || ''}
-              onChange={(e) => setDueDate(e.target.value || null)}
+              value={form.dueDate || ''}
+              onChange={(e) => form.setDueDate(e.target.value || null)}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -308,8 +215,8 @@ export default function TaskEditModal({
             </label>
             <input
               type="time"
-              value={dueTime || ''}
-              onChange={(e) => setDueTime(e.target.value || null)}
+              value={form.dueTime || ''}
+              onChange={(e) => form.setDueTime(e.target.value || null)}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -337,11 +244,11 @@ export default function TaskEditModal({
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               {PRIORITY_OPTIONS.map((opt) => {
-                const isSelected = priority === opt.value
+                const isSelected = form.priority === opt.value
                 return (
                   <button
                     key={opt.value}
-                    onClick={() => setPriority(isSelected ? null : opt.value)}
+                    onClick={() => form.setPriority(isSelected ? null : opt.value)}
                     style={{
                       flex: 1,
                       padding: '10px 12px',
@@ -379,8 +286,8 @@ export default function TaskEditModal({
                 <CategoryChip
                   name="None"
                   color="var(--color-text-tertiary)"
-                  selected={!categoryId}
-                  onClick={() => setCategoryId(null)}
+                  selected={!form.categoryId}
+                  onClick={() => form.setCategoryId(null)}
                 />
                 {categories.map((cat) => (
                   <CategoryChip
@@ -388,8 +295,8 @@ export default function TaskEditModal({
                     name={cat.name}
                     color={cat.color}
                     icon={cat.icon}
-                    selected={categoryId === cat.id}
-                    onClick={() => setCategoryId(categoryId === cat.id ? null : cat.id)}
+                    selected={form.categoryId === cat.id}
+                    onClick={() => form.setCategoryId(form.categoryId === cat.id ? null : cat.id)}
                   />
                 ))}
               </div>
@@ -415,9 +322,9 @@ export default function TaskEditModal({
               </label>
               <button
                 onClick={() => {
-                  setIsRecurring(!isRecurring)
-                  if (!isRecurring && !recurrenceFrequency) {
-                    setRecurrenceFrequency('daily')
+                  form.setIsRecurring(!form.isRecurring)
+                  if (!form.isRecurring && !form.recurrenceFrequency) {
+                    form.setRecurrenceFrequency('daily')
                   }
                 }}
                 style={{
@@ -425,7 +332,7 @@ export default function TaskEditModal({
                   height: '28px',
                   borderRadius: '14px',
                   border: 'none',
-                  background: isRecurring ? 'var(--color-accent)' : 'var(--color-border)',
+                  background: form.isRecurring ? 'var(--color-accent)' : 'var(--color-border)',
                   cursor: 'pointer',
                   position: 'relative',
                   transition: 'background 0.2s',
@@ -434,7 +341,7 @@ export default function TaskEditModal({
                 <span style={{
                   position: 'absolute',
                   top: '3px',
-                  left: isRecurring ? '23px' : '3px',
+                  left: form.isRecurring ? '23px' : '3px',
                   width: '22px',
                   height: '22px',
                   borderRadius: '11px',
@@ -445,15 +352,15 @@ export default function TaskEditModal({
               </button>
             </div>
 
-            {isRecurring && (
+            {form.isRecurring && (
               <>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                   {RECURRENCE_OPTIONS.map((opt) => {
-                    const isSelected = recurrenceFrequency === opt.value
+                    const isSelected = form.recurrenceFrequency === opt.value
                     return (
                       <button
                         key={opt.value}
-                        onClick={() => setRecurrenceFrequency(opt.value)}
+                        onClick={() => form.setRecurrenceFrequency(opt.value)}
                         style={{
                           padding: '8px 14px',
                           borderRadius: 'var(--radius-full)',
@@ -505,8 +412,8 @@ export default function TaskEditModal({
                   </label>
                   <input
                     type="date"
-                    value={recurrenceEndDate || ''}
-                    onChange={(e) => setRecurrenceEndDate(e.target.value || null)}
+                    value={form.recurrenceEndDate || ''}
+                    onChange={(e) => form.setRecurrenceEndDate(e.target.value || null)}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -534,7 +441,7 @@ export default function TaskEditModal({
         }}>
           <button
             onClick={onClose}
-            disabled={saving}
+            disabled={form.saving}
             style={{
               flex: 1,
               padding: '12px',
@@ -545,14 +452,14 @@ export default function TaskEditModal({
               fontSize: 'var(--text-body)',
               fontWeight: 600,
               cursor: 'pointer',
-              opacity: saving ? 0.5 : 1,
+              opacity: form.saving ? 0.5 : 1,
             }}
           >
             Cancel
           </button>
           <button
-            onClick={handleSave}
-            disabled={saving || !title.trim()}
+            onClick={form.handleSave}
+            disabled={form.saving || !form.title.trim()}
             style={{
               flex: 1,
               padding: '12px',
@@ -563,10 +470,10 @@ export default function TaskEditModal({
               fontSize: 'var(--text-body)',
               fontWeight: 600,
               cursor: 'pointer',
-              opacity: saving || !title.trim() ? 0.5 : 1,
+              opacity: form.saving || !form.title.trim() ? 0.5 : 1,
             }}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {form.saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
