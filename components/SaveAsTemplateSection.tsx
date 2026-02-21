@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { apiFetch } from '@/lib/api-client'
 
 interface SaveAsTemplateSectionProps {
   taskId: string
@@ -23,7 +24,7 @@ export default function SaveAsTemplateSection({ taskId }: SaveAsTemplateSectionP
     setError('')
 
     try {
-      const res = await fetch('/api/templates/from-task', {
+      const res = await apiFetch('/api/templates/from-task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

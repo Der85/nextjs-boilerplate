@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ReminderWithTask, SnoozeDuration } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 const POLL_INTERVAL = 5 * 60 * 1000 // 5 minutes
 
@@ -51,7 +52,7 @@ export function useReminders(): UseRemindersReturn {
   const refresh = useCallback(async () => {
     try {
       // Generate new reminders
-      await fetch('/api/reminders/generate', { method: 'POST' })
+      await apiFetch('/api/reminders/generate', { method: 'POST' })
       // Then fetch all reminders
       await fetchReminders()
     } catch (err) {
@@ -62,7 +63,7 @@ export function useReminders(): UseRemindersReturn {
   // Mark reminder as read
   const markAsRead = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/reminders/${id}/read`, { method: 'POST' })
+      const res = await apiFetch(`/api/reminders/${id}/read`, { method: 'POST' })
       if (res.ok) {
         setReminders(prev =>
           prev.map(r => r.id === id ? { ...r, read_at: new Date().toISOString() } : r)
@@ -84,7 +85,7 @@ export function useReminders(): UseRemindersReturn {
     })
 
     try {
-      await fetch(`/api/reminders/${id}/dismiss`, { method: 'POST' })
+      await apiFetch(`/api/reminders/${id}/dismiss`, { method: 'POST' })
     } catch (err) {
       console.error('Failed to dismiss reminder:', err)
       // Refetch to restore state
@@ -102,7 +103,7 @@ export function useReminders(): UseRemindersReturn {
     })
 
     try {
-      await fetch(`/api/reminders/${id}/snooze`, {
+      await apiFetch(`/api/reminders/${id}/snooze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ duration }),
@@ -121,7 +122,7 @@ export function useReminders(): UseRemindersReturn {
     setUnreadCount(0)
 
     try {
-      await fetch('/api/reminders', { method: 'DELETE' })
+      await apiFetch('/api/reminders', { method: 'DELETE' })
     } catch (err) {
       console.error('Failed to clear reminders:', err)
       // Refetch to restore state
@@ -140,7 +141,7 @@ export function useReminders(): UseRemindersReturn {
     setUnreadCount(prev => Math.max(0, prev - unreadTaskReminders.length))
 
     try {
-      const res = await fetch(`/api/tasks/${taskId}/complete`, {
+      const res = await apiFetch(`/api/tasks/${taskId}/complete`, {
         method: 'POST',
       })
 

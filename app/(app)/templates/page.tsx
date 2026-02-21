@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import TemplateCard from '@/components/TemplateCard'
 import EmptyState from '@/components/EmptyState'
 import type { TaskTemplateWithCategory, Category } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 export default function TemplatesPage() {
   const router = useRouter()
@@ -51,7 +52,7 @@ export default function TemplatesPage() {
 
   const handleUse = async (template: TaskTemplateWithCategory) => {
     try {
-      const res = await fetch(`/api/templates/${template.id}/create-task`, {
+      const res = await apiFetch(`/api/templates/${template.id}/create-task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -72,7 +73,7 @@ export default function TemplatesPage() {
 
   const handleDelete = async (template: TaskTemplateWithCategory) => {
     try {
-      const res = await fetch(`/api/templates/${template.id}`, {
+      const res = await apiFetch(`/api/templates/${template.id}`, {
         method: 'DELETE',
       })
       if (res.ok) {

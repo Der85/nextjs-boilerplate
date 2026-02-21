@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState'
 import InsightCard from '@/components/InsightCard'
 import BalanceScoreWidget from '@/components/BalanceScoreWidget'
 import type { InsightSummary, WeeklyTrend, CategoryBreakdown, InsightRow } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 // Lazy load charts to keep bundle size small
 const InsightCharts = dynamic(() => import('@/components/InsightCharts'), { ssr: false })
@@ -42,7 +43,7 @@ export default function InsightsPage() {
 
         // Fetch AI-generated insight (POST to generate if needed)
         try {
-          const generateRes = await fetch('/api/insights/generate', {
+          const generateRes = await apiFetch('/api/insights/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
           })

@@ -8,6 +8,7 @@ export type ApiErrorCode =
   | 'VALIDATION_ERROR'
   | 'BAD_REQUEST'
   | 'INTERNAL_ERROR'
+  | 'CSRF_ERROR'
 
 interface ApiErrorBody {
   error: string

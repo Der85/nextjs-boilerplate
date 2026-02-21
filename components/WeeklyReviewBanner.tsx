@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { apiFetch } from '@/lib/api-client'
 
 interface WeeklyReviewBannerProps {
   onDismiss?: () => void
@@ -47,7 +48,7 @@ export default function WeeklyReviewBanner({ onDismiss }: WeeklyReviewBannerProp
 
       if (!checkData.review) {
         // Generate the review
-        await fetch('/api/weekly-review/generate', {
+        await apiFetch('/api/weekly-review/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         })
