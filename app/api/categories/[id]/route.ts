@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 
 interface RouteContext {
@@ -10,7 +11,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { id } = await context.params
@@ -22,7 +23,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (typeof body.icon === 'string') updates.icon = body.icon
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
+      return apiError('No valid fields to update.', 400, 'VALIDATION_ERROR')
     }
 
     const { data: category, error } = await supabase
@@ -35,13 +36,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (error) {
       console.error('Category update error:', error)
-      return NextResponse.json({ error: 'Failed to update category.' }, { status: 500 })
+      return apiError('Failed to update category.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ category })
   } catch (error) {
     console.error('Category PATCH error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -50,7 +51,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { id } = await context.params
@@ -63,12 +64,12 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     if (error) {
       console.error('Category delete error:', error)
-      return NextResponse.json({ error: 'Failed to delete category.' }, { status: 500 })
+      return apiError('Failed to delete category.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Category DELETE error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

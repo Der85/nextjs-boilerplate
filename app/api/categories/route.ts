@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { categoriesRateLimiter } from '@/lib/rateLimiter'
 import { DEFAULT_CATEGORIES } from '@/lib/utils/categories'
@@ -8,7 +9,7 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     let { data: categories, error } = await supabase
@@ -19,7 +20,7 @@ export async function GET() {
 
     if (error) {
       console.error('Categories fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load categories.' }, { status: 500 })
+      return apiError('Failed to load categories.', 500, 'INTERNAL_ERROR')
     }
 
     // Seed default categories if user has none
@@ -45,7 +46,7 @@ export async function GET() {
     return NextResponse.json({ categories: categories || [] })
   } catch (error) {
     console.error('Categories GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -54,17 +55,17 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (categoriesRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const body = await request.json()
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) {
-      return NextResponse.json({ error: 'Category name is required.' }, { status: 400 })
+      return apiError('Category name is required.', 400, 'VALIDATION_ERROR')
     }
 
     const { data: category, error } = await supabase
@@ -81,15 +82,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json({ error: 'A category with this name already exists.' }, { status: 409 })
+        return apiError('A category with this name already exists.', 409, 'CONFLICT')
       }
       console.error('Category insert error:', error)
-      return NextResponse.json({ error: 'Failed to create category.' }, { status: 500 })
+      return apiError('Failed to create category.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ category }, { status: 201 })
   } catch (error) {
     console.error('Categories POST error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { suggestionsRateLimiter } from '@/lib/rateLimiter'
 import type { SnoozeOption } from '@/lib/types'
@@ -37,11 +38,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (suggestionsRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id } = await context.params
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const until: SnoozeOption = body.until
 
     if (!['tomorrow', 'next_week', 'next_month'].includes(until)) {
-      return NextResponse.json({ error: 'Invalid snooze duration.' }, { status: 400 })
+      return apiError('Invalid snooze duration.', 400, 'VALIDATION_ERROR')
     }
 
     const snoozedUntil = calculateSnoozeUntil(until)
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (error) {
       console.error('Suggestion snooze error:', error)
-      return NextResponse.json({ error: 'Failed to snooze suggestion.' }, { status: 500 })
+      return apiError('Failed to snooze suggestion.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({
@@ -75,6 +76,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     console.error('Suggestion snooze error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

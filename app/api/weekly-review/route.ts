@@ -2,6 +2,7 @@
 // Returns the most recent weekly review for the user
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import type { WeeklyReview } from '@/lib/types'
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Check for specific week query param
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
     if (error && error.code !== 'PGRST116') {
       // PGRST116 = no rows returned, which is fine
       console.error('Failed to fetch weekly review:', error)
-      return NextResponse.json({ error: 'Failed to fetch review' }, { status: 500 })
+      return apiError('Failed to fetch review', 500, 'INTERNAL_ERROR')
     }
 
     // Check if user can generate a review
@@ -118,6 +119,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Weekly review GET error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

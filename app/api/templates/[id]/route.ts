@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { templatesRateLimiter } from '@/lib/rateLimiter'
 
@@ -11,11 +12,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (templatesRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id } = await context.params
@@ -46,7 +47,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .single()
 
         if (!cat) {
-          return NextResponse.json({ error: 'Invalid category.' }, { status: 400 })
+          return apiError('Invalid category.', 400, 'VALIDATION_ERROR')
         }
       }
       updates.category_id = body.category_id || null
@@ -62,7 +63,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
+      return apiError('No valid fields to update.', 400, 'VALIDATION_ERROR')
     }
 
     const { data: template, error } = await supabase
@@ -75,20 +76,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json({ error: 'A template with this name already exists.' }, { status: 409 })
+        return apiError('A template with this name already exists.', 409, 'CONFLICT')
       }
       console.error('Template update error:', error)
-      return NextResponse.json({ error: 'Failed to update template.' }, { status: 500 })
+      return apiError('Failed to update template.', 500, 'INTERNAL_ERROR')
     }
 
     if (!template) {
-      return NextResponse.json({ error: 'Template not found.' }, { status: 404 })
+      return apiError('Template not found.', 404, 'NOT_FOUND')
     }
 
     return NextResponse.json({ template })
   } catch (error) {
     console.error('Templates PATCH error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -97,7 +98,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { id } = await context.params
@@ -110,12 +111,12 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     if (error) {
       console.error('Template delete error:', error)
-      return NextResponse.json({ error: 'Failed to delete template.' }, { status: 500 })
+      return apiError('Failed to delete template.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Templates DELETE error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

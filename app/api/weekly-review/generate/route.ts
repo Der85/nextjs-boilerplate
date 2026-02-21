@@ -2,6 +2,7 @@
 // Generates an AI-powered weekly review for the most recently completed week
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import type {
   WeeklyReview,
@@ -503,7 +504,7 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Check if it's a valid day to generate (Monday-Wednesday)
@@ -588,7 +589,7 @@ export async function POST(_request: NextRequest) {
 
     if (saveError) {
       console.error('Failed to save weekly review:', saveError)
-      return NextResponse.json({ error: 'Failed to save review' }, { status: 500 })
+      return apiError('Failed to save review', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({
@@ -598,6 +599,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Weekly review generate error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

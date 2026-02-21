@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { tasksRateLimiter } from '@/lib/rateLimiter'
 import { findCategoryByName, getFallbackCategory } from '@/lib/utils/categories'
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { searchParams } = new URL(request.url)
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Tasks fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load tasks.' }, { status: 500 })
+      return apiError('Failed to load tasks.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Tasks GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -64,18 +65,18 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (tasksRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const body = await request.json()
     const { dump_id, tasks } = body
 
     if (!dump_id || !Array.isArray(tasks) || tasks.length === 0) {
-      return NextResponse.json({ error: 'Invalid request. Provide dump_id and tasks array.' }, { status: 400 })
+      return apiError('Invalid request. Provide dump_id and tasks array.', 400, 'BAD_REQUEST')
     }
 
     // Verify dump belongs to user
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!dump) {
-      return NextResponse.json({ error: 'Dump not found.' }, { status: 404 })
+      return apiError('Dump not found.', 404, 'NOT_FOUND')
     }
 
     // Fetch user's categories to map AI category names to IDs
@@ -103,10 +104,10 @@ export async function POST(request: NextRequest) {
     for (const t of tasks) {
       const title = String(t.title || '').trim()
       if (!title) {
-        return NextResponse.json({ error: 'Each task must have a non-empty title.' }, { status: 400 })
+        return apiError('Each task must have a non-empty title.', 400, 'VALIDATION_ERROR')
       }
       if (title.length > 500) {
-        return NextResponse.json({ error: 'Task title must be 500 characters or fewer.' }, { status: 400 })
+        return apiError('Task title must be 500 characters or fewer.', 400, 'VALIDATION_ERROR')
       }
     }
 
@@ -151,12 +152,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Tasks insert error:', error)
-      return NextResponse.json({ error: 'Failed to save tasks.' }, { status: 500 })
+      return apiError('Failed to save tasks.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ tasks: createdTasks || [] }, { status: 201 })
   } catch (error) {
     console.error('Tasks POST error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

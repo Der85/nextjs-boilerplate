@@ -2,6 +2,7 @@
 // Returns the last 30 days of balance scores for trend visualization
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import type { BalanceScoreTrend } from '@/lib/types'
 
@@ -122,7 +123,7 @@ export async function GET(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Get 30-day trend data
@@ -139,6 +140,6 @@ export async function GET(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Balance trend API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

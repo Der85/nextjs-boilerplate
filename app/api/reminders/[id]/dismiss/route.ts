@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
 
@@ -15,11 +16,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id } = await context.params
@@ -32,12 +33,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     if (error) {
       console.error('Reminder dismiss error:', error)
-      return NextResponse.json({ error: 'Failed to dismiss reminder.' }, { status: 500 })
+      return apiError('Failed to dismiss reminder.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Reminder dismiss error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
@@ -6,7 +7,7 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { data: suggestions, error } = await supabase
@@ -19,12 +20,12 @@ export async function GET() {
 
     if (error) {
       console.error('Suggestions fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load suggestions.' }, { status: 500 })
+      return apiError('Failed to load suggestions.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ suggestion: suggestions?.[0] || null })
   } catch (error) {
     console.error('Suggestions GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -4,6 +4,7 @@
 // Also returns the last 14 scores for the trend chart
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow, BalanceScoreTrend } from '@/lib/types'
@@ -196,7 +197,7 @@ export async function GET(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // 1. Check if user has priorities
@@ -242,6 +243,6 @@ export async function GET(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Balance GET API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

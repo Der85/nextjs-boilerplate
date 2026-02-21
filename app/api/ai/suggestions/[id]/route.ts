@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import type { SuggestedCategory } from '@/lib/types'
 
@@ -11,7 +12,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { id } = await context.params
@@ -19,7 +20,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const action = body.action
 
     if (!['accept', 'dismiss'].includes(action)) {
-      return NextResponse.json({ error: 'Action must be "accept" or "dismiss".' }, { status: 400 })
+      return apiError('Action must be "accept" or "dismiss".', 400, 'VALIDATION_ERROR')
     }
 
     // Fetch the suggestion
@@ -32,7 +33,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .single()
 
     if (fetchError || !suggestion) {
-      return NextResponse.json({ error: 'Suggestion not found.' }, { status: 404 })
+      return apiError('Suggestion not found.', 404, 'NOT_FOUND')
     }
 
     if (action === 'dismiss') {
@@ -100,6 +101,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     console.error('Suggestion PATCH error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

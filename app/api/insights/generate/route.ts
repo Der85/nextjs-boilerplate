@@ -7,6 +7,7 @@
 // from the last 10 minutes (prevents spam and saves API costs).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
 import type { Insight, InsightRow, InsightType, CategoryStats, CategoryPatterns, PriorityDrift, UserPriority, PriorityDomain, DriftDirection } from '@/lib/types'
@@ -485,12 +486,12 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Rate limit
     if (insightsRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // 1. Check cache — return existing insight if < 10 min old
@@ -560,6 +561,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Insights generate API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 
 const REVIEW_INTERVAL_DAYS = 90 // Quarterly review
@@ -8,7 +9,7 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Get the most recent last_reviewed_at from user's priorities
@@ -21,7 +22,7 @@ export async function GET() {
 
     if (error) {
       console.error('Priority review check error:', error)
-      return NextResponse.json({ error: 'Failed to check review status.' }, { status: 500 })
+      return apiError('Failed to check review status.', 500, 'INTERNAL_ERROR')
     }
 
     // If no priorities exist, they haven't set them yet
@@ -49,6 +50,6 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Priority review-due GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -3,6 +3,7 @@
 // Score represents alignment between task activity and stated priorities
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow } from '@/lib/types'
@@ -162,7 +163,7 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // 1. Fetch user priorities
@@ -197,6 +198,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Balance compute API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

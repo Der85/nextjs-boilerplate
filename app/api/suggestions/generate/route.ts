@@ -6,6 +6,7 @@
 // 3. User has priorities set
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { suggestionsRateLimiter } from '@/lib/rateLimiter'
 import type {
@@ -433,11 +434,11 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (suggestionsRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // Cleanup expired suggestions first
@@ -566,6 +567,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Suggestions generate error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

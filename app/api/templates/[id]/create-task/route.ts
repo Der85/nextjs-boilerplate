@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { templatesRateLimiter } from '@/lib/rateLimiter'
 
@@ -11,11 +12,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (templatesRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id } = await context.params
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (templateError || !template) {
-      return NextResponse.json({ error: 'Template not found.' }, { status: 404 })
+      return apiError('Template not found.', 404, 'NOT_FOUND')
     }
 
     // Create task from template
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (taskError) {
       console.error('Task from template error:', taskError)
-      return NextResponse.json({ error: 'Failed to create task.' }, { status: 500 })
+      return apiError('Failed to create task.', 500, 'INTERNAL_ERROR')
     }
 
     // Update template usage stats
@@ -77,6 +78,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {
     console.error('Templates create-task POST error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

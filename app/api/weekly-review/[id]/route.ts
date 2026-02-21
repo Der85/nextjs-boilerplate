@@ -2,6 +2,7 @@
 // Update user reflection and read status on a weekly review
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import type { WeeklyReview, WeeklyReviewUpdateRequest } from '@/lib/types'
 
@@ -18,7 +19,7 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { data: review, error } = await supabase
@@ -29,13 +30,13 @@ export async function GET(
       .single()
 
     if (error || !review) {
-      return NextResponse.json({ error: 'Review not found' }, { status: 404 })
+      return apiError('Review not found', 404, 'NOT_FOUND')
     }
 
     return NextResponse.json({ review: review as WeeklyReview })
   } catch (error) {
     console.error('Weekly review GET by ID error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -52,7 +53,7 @@ export async function PATCH(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const body: WeeklyReviewUpdateRequest = await request.json()
@@ -72,7 +73,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
+      return apiError('No updates provided', 400, 'VALIDATION_ERROR')
     }
 
     // Update the review
@@ -86,12 +87,12 @@ export async function PATCH(
 
     if (error) {
       console.error('Failed to update weekly review:', error)
-      return NextResponse.json({ error: 'Failed to update review' }, { status: 500 })
+      return apiError('Failed to update review', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ review: review as WeeklyReview })
   } catch (error) {
     console.error('Weekly review PATCH error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

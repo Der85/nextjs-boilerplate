@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { prioritiesRateLimiter } from '@/lib/rateLimiter'
 import type {
@@ -26,7 +27,7 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const { data: priorities, error } = await supabase
@@ -37,13 +38,13 @@ export async function GET() {
 
     if (error) {
       console.error('Priorities fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load priorities.' }, { status: 500 })
+      return apiError('Failed to load priorities.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ priorities: priorities || [] })
   } catch (error) {
     console.error('Priorities GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -52,11 +53,11 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (prioritiesRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const body = await request.json()
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
 
       if (deleteError) {
         console.error('Priorities delete error:', deleteError)
-        return NextResponse.json({ error: 'Failed to update priorities.' }, { status: 500 })
+        return apiError('Failed to update priorities.', 500, 'INTERNAL_ERROR')
       }
     }
 
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Priorities insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to save priorities.' }, { status: 500 })
+      return apiError('Failed to save priorities.', 500, 'INTERNAL_ERROR')
     }
 
     // Create review record if this is an update
@@ -186,6 +187,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('Priorities POST error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

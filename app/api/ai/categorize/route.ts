@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { aiRateLimiter } from '@/lib/rateLimiter'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -12,11 +13,11 @@ export async function POST() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (aiRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // Fetch uncategorized active tasks
@@ -28,7 +29,7 @@ export async function POST() {
       .is('category_id', null)
 
     if (fetchError) {
-      return NextResponse.json({ error: 'Failed to fetch tasks.' }, { status: 500 })
+      return apiError('Failed to fetch tasks.', 500, 'INTERNAL_ERROR')
     }
 
     if (!tasks || tasks.length < 10) {
@@ -72,12 +73,12 @@ export async function POST() {
 
     if (insertError) {
       console.error('Suggestion insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to save suggestions.' }, { status: 500 })
+      return apiError('Failed to save suggestions.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ suggestion, eligible: true }, { status: 201 })
   } catch (error) {
     console.error('AI categorize error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

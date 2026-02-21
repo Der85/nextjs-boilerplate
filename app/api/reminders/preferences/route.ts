@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
 import type { ReminderPreferencesInput } from '@/lib/types'
@@ -24,11 +25,11 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // Try to fetch existing preferences
@@ -41,7 +42,7 @@ export async function GET() {
     if (error && error.code !== 'PGRST116') {
       // PGRST116 = no rows found (expected for new users)
       console.error('Reminder preferences fetch error:', error)
-      return NextResponse.json({ error: 'Failed to fetch preferences.' }, { status: 500 })
+      return apiError('Failed to fetch preferences.', 500, 'INTERNAL_ERROR')
     }
 
     if (prefs) {
@@ -60,13 +61,13 @@ export async function GET() {
 
     if (insertError) {
       console.error('Reminder preferences insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to create preferences.' }, { status: 500 })
+      return apiError('Failed to create preferences.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ preferences: newPrefs })
   } catch (error) {
     console.error('Reminder preferences GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -79,11 +80,11 @@ export async function PUT(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const body: ReminderPreferencesInput = await request.json()
@@ -91,19 +92,19 @@ export async function PUT(request: NextRequest) {
     // Validate inputs
     if (body.max_reminders_per_day !== undefined) {
       if (body.max_reminders_per_day < 1 || body.max_reminders_per_day > 15) {
-        return NextResponse.json({ error: 'Max reminders per day must be between 1 and 15.' }, { status: 400 })
+        return apiError('Max reminders per day must be between 1 and 15.', 400, 'VALIDATION_ERROR')
       }
     }
 
     if (body.reminder_lead_time_minutes !== undefined) {
       if (![15, 30, 60, 120].includes(body.reminder_lead_time_minutes)) {
-        return NextResponse.json({ error: 'Invalid lead time.' }, { status: 400 })
+        return apiError('Invalid lead time.', 400, 'VALIDATION_ERROR')
       }
     }
 
     if (body.preferred_reminder_times !== undefined) {
       if (body.preferred_reminder_times.length > 3) {
-        return NextResponse.json({ error: 'Maximum 3 preferred reminder times.' }, { status: 400 })
+        return apiError('Maximum 3 preferred reminder times.', 400, 'VALIDATION_ERROR')
       }
     }
 
@@ -130,12 +131,12 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Reminder preferences update error:', error)
-      return NextResponse.json({ error: 'Failed to update preferences.' }, { status: 500 })
+      return apiError('Failed to update preferences.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ preferences: prefs })
   } catch (error) {
     console.error('Reminder preferences PUT error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

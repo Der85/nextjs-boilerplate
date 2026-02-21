@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
@@ -6,7 +7,7 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Try to fetch existing profile
@@ -26,7 +27,7 @@ export async function GET() {
 
       if (insertError) {
         console.error('Profile create error:', insertError)
-        return NextResponse.json({ error: 'Failed to create profile.' }, { status: 500 })
+        return apiError('Failed to create profile.', 500, 'INTERNAL_ERROR')
       }
 
       return NextResponse.json({ profile: newProfile, email: user.email })
@@ -34,13 +35,13 @@ export async function GET() {
 
     if (error) {
       console.error('Profile fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load profile.' }, { status: 500 })
+      return apiError('Failed to load profile.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ profile, email: user.email })
   } catch (error) {
     console.error('Profile GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -49,7 +50,7 @@ export async function PATCH(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     const body = await request.json()
@@ -59,7 +60,7 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.timezone === 'string') updates.timezone = body.timezone
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
+      return apiError('No valid fields to update.', 400, 'VALIDATION_ERROR')
     }
 
     const { data: profile, error } = await supabase
@@ -71,12 +72,12 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Profile update error:', error)
-      return NextResponse.json({ error: 'Failed to update profile.' }, { status: 500 })
+      return apiError('Failed to update profile.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ profile })
   } catch (error) {
     console.error('Profile PATCH error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
