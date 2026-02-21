@@ -4,11 +4,13 @@ import { DEFAULT_CATEGORY_NAMES } from '@/lib/utils/categories'
 import { getDumpParsePrompt } from './prompts'
 import { dumpParseSchema } from './schemas'
 
+export const GEMINI_MODEL = GEMINI_MODEL
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function parseBrainDump(rawText: string): Promise<DumpParseResult> {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: GEMINI_MODEL,
     generationConfig: {
       temperature: 0.3,
       maxOutputTokens: 2048,
@@ -62,7 +64,7 @@ export async function parseBrainDump(rawText: string): Promise<DumpParseResult> 
 export async function categorizeTask(taskTitle: string): Promise<{ category: string; confidence: number }> {
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: GEMINI_MODEL,
       generationConfig: {
         temperature: 0.2,
         maxOutputTokens: 256,

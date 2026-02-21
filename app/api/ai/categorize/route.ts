@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { aiRateLimiter } from '@/lib/rateLimiter'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GEMINI_MODEL } from '@/lib/ai/gemini'
 import { getCategorizePrompt } from '@/lib/ai/prompts'
 import { categorizeSchema } from '@/lib/ai/schemas'
 
@@ -42,7 +43,7 @@ export async function POST() {
 
     // Call Gemini for categorization
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: GEMINI_MODEL,
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 2048,

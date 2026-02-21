@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { dumpRateLimiter } from '@/lib/rateLimiter'
-import { parseBrainDump } from '@/lib/ai/gemini'
+import { parseBrainDump, GEMINI_MODEL } from '@/lib/ai/gemini'
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       .from('dumps')
       .update({
         task_count: parseResult.tasks.length,
-        ai_model: 'gemini-2.0-flash',
+        ai_model: GEMINI_MODEL,
         ai_latency_ms: aiLatency,
       })
       .eq('id', dump.id)

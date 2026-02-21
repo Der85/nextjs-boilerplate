@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { suggestionsRateLimiter } from '@/lib/rateLimiter'
+import { GEMINI_MODEL } from '@/lib/ai/gemini'
 import type {
   UserPriority,
   TaskSuggestion,
@@ -344,7 +345,7 @@ async function callGemini(
 ): Promise<AISuggestionResponse[] | null> {
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

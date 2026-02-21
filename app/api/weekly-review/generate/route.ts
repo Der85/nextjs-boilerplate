@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
+import { GEMINI_MODEL } from '@/lib/ai/gemini'
 import type {
   WeeklyReview,
   WeeklyReviewAIResponse,
@@ -394,7 +395,7 @@ async function generateReviewWithGemini(prompt: string): Promise<WeeklyReviewAIR
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

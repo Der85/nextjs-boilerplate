@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
+import { GEMINI_MODEL } from '@/lib/ai/gemini'
 import type { Insight, InsightRow, InsightType, CategoryStats, CategoryPatterns, PriorityDrift, UserPriority, PriorityDomain, DriftDirection } from '@/lib/types'
 import { type TaskWithCategory, fetchRecentTasks, computeCategoryStats } from '@/lib/utils/taskStats'
 
@@ -402,7 +403,7 @@ JSON TEMPLATE (for category or priority_drift):
 async function callGemini(apiKey: string, prompt: string): Promise<Insight | null> {
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
