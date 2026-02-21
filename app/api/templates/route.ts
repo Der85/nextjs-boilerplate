@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .order('use_count', { ascending: false })
       .order('last_used_at', { ascending: false, nullsFirst: false })
+      .limit(50)
 
     if (search) {
       query = query.ilike('name', `%${search}%`)

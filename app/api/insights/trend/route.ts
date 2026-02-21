@@ -28,6 +28,7 @@ export async function GET() {
       .eq('user_id', user.id)
       .eq('status', 'done')
       .gte('completed_at', fourWeeksAgo.toISOString())
+      .limit(500)
 
     // Fetch created tasks in the last 4 weeks
     const { data: createdTasks } = await supabase
@@ -35,6 +36,7 @@ export async function GET() {
       .select('created_at')
       .eq('user_id', user.id)
       .gte('created_at', fourWeeksAgo.toISOString())
+      .limit(500)
 
     // Group by week
     const weeks: Record<string, { completed: number; created: number }> = {}
