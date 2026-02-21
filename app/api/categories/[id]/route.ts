@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { categoriesRateLimiter } from '@/lib/rateLimiter'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -13,6 +14,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (categoriesRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const { id } = await context.params
     const body = await request.json()
@@ -53,6 +58,10 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (categoriesRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const { id } = await context.params
 

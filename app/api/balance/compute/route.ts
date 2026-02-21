@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { balanceRateLimiter } from '@/lib/rateLimiter'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow } from '@/lib/types'
 
@@ -165,6 +166,10 @@ export async function POST(_request: NextRequest) {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (balanceRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // 1. Fetch user priorities
     const priorities = await fetchUserPriorities(supabase, user.id)

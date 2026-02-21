@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { balanceRateLimiter } from '@/lib/rateLimiter'
 import type { BalanceScoreTrend } from '@/lib/types'
 
 // ============================================
@@ -125,6 +126,10 @@ export async function GET(_request: NextRequest) {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (balanceRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Get 30-day trend data
     const trend = await getTrendData(supabase, user.id, 30)

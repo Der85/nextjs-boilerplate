@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { tasksRateLimiter } from '@/lib/rateLimiter'
 
 export async function GET() {
   try {
@@ -9,6 +10,10 @@ export async function GET() {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (tasksRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Try to fetch existing profile
     const { data: profile, error } = await supabase
@@ -52,6 +57,10 @@ export async function PATCH(request: NextRequest) {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (tasksRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const body = await request.json()
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { suggestionsRateLimiter } from '@/lib/rateLimiter'
 
 // GET /api/suggestions
 // Returns pending and unsnoozed suggestions for the user
@@ -14,6 +15,10 @@ export async function GET() {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (suggestionsRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const now = new Date().toISOString()
 

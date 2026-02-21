@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { prioritiesRateLimiter } from '@/lib/rateLimiter'
 
 const REVIEW_INTERVAL_DAYS = 90 // Quarterly review
 
@@ -11,6 +12,10 @@ export async function GET() {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (prioritiesRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Get the most recent last_reviewed_at from user's priorities
     const { data: priorities, error } = await supabase

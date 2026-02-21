@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
 import type { WeeklyReview, WeeklyReviewUpdateRequest } from '@/lib/types'
 
 // ============================================
@@ -21,6 +22,10 @@ export async function GET(
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const { data: review, error } = await supabase
       .from('weekly_reviews')
@@ -55,6 +60,10 @@ export async function PATCH(
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const body: WeeklyReviewUpdateRequest = await request.json()
 

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
 import type {
   WeeklyReview,
   WeeklyReviewAIResponse,
@@ -506,6 +507,10 @@ export async function POST(_request: NextRequest) {
     if (authError || !user) {
       return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Check if it's a valid day to generate (Monday-Wednesday)
     if (!isValidGenerationDay()) {
