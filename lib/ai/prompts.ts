@@ -1,5 +1,7 @@
+import { formatUTCDate } from '@/lib/utils/dates'
+
 export function getDumpParsePrompt(): string {
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatUTCDate(new Date())
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
 
   return `You are a task extraction assistant for people with ADHD.

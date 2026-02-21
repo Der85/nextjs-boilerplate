@@ -8,6 +8,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { balanceRateLimiter } from '@/lib/rateLimiter'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow, BalanceScoreTrend } from '@/lib/types'
 
 // ============================================
@@ -33,7 +34,7 @@ async function getTodayScore(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<BalanceScoreRow | null> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatUTCDate(new Date())
 
   const { data } = await supabase
     .from('balance_scores')
@@ -60,7 +61,7 @@ async function getRecentScores(
     .from('balance_scores')
     .select('score, computed_for_date')
     .eq('user_id', userId)
-    .gte('computed_for_date', cutoffDate.toISOString().split('T')[0])
+    .gte('computed_for_date', formatUTCDate(cutoffDate))
     .order('computed_for_date', { ascending: true })
 
   return (data || []).map(d => ({
@@ -224,7 +225,7 @@ export async function GET(_request: NextRequest) {
       const categoryStats = computeExtendedCategoryStats(tasks)
       const previousScore = await getPreviousScore(supabase, user.id)
       const balanceScore = computeBalanceScore(priorities, categoryStats, previousScore)
-      const today = new Date().toISOString().split('T')[0]
+      const today = formatUTCDate(new Date())
       todayScore = await saveBalanceScore(supabase, user.id, balanceScore, today)
     }
 

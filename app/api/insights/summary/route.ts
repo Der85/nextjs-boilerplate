@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 
 export async function GET() {
   try {
@@ -63,12 +64,12 @@ export async function GET() {
       today.setHours(0, 0, 0, 0)
 
       // Check if today has completions
-      const todayISO = today.toISOString().split('T')[0]
+      const todayISO = formatUTCDate(today)
       if (dates.has(todayISO)) {
         streak = 1
         const d = new Date(today)
         d.setDate(d.getDate() - 1)
-        while (dates.has(d.toISOString().split('T')[0])) {
+        while (dates.has(formatUTCDate(d))) {
           streak++
           d.setDate(d.getDate() - 1)
         }
@@ -76,12 +77,12 @@ export async function GET() {
         // Check if yesterday had completions (streak not broken yet today)
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayISO = yesterday.toISOString().split('T')[0]
+        const yesterdayISO = formatUTCDate(yesterday)
         if (dates.has(yesterdayISO)) {
           streak = 1
           const d = new Date(yesterday)
           d.setDate(d.getDate() - 1)
-          while (dates.has(d.toISOString().split('T')[0])) {
+          while (dates.has(formatUTCDate(d))) {
             streak++
             d.setDate(d.getDate() - 1)
           }

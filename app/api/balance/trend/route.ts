@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { balanceRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { BalanceScoreTrend } from '@/lib/types'
 
 // ============================================
@@ -22,7 +23,7 @@ async function getTrendData(
     .from('balance_scores')
     .select('score, computed_for_date')
     .eq('user_id', userId)
-    .gte('computed_for_date', cutoffDate.toISOString().split('T')[0])
+    .gte('computed_for_date', formatUTCDate(cutoffDate))
     .order('computed_for_date', { ascending: true })
 
   return (data || []).map(d => ({

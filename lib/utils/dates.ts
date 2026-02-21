@@ -1,3 +1,26 @@
+/**
+ * Format a Date as YYYY-MM-DD using local timezone components.
+ * Unlike toISOString().split('T')[0] which returns UTC date,
+ * this returns the date in the user's local timezone.
+ */
+export function formatLocalDate(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Format a Date as YYYY-MM-DD using UTC components.
+ * Use this on the server side where dates should be consistently UTC.
+ */
+export function formatUTCDate(d: Date): string {
+  const year = d.getUTCFullYear()
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function isToday(dateStr: string): boolean {
   const d = new Date(dateStr + 'T00:00:00')
   const today = new Date()
@@ -49,19 +72,19 @@ export function formatRelativeDate(dateStr: string): string {
 }
 
 export function getTodayISO(): string {
-  return new Date().toISOString().split('T')[0]
+  return formatLocalDate(new Date())
 }
 
 export function getTomorrowISO(): string {
   const d = new Date()
   d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+  return formatLocalDate(d)
 }
 
 export function getNextWeekISO(): string {
   const d = new Date()
   d.setDate(d.getDate() + 7)
-  return d.toISOString().split('T')[0]
+  return formatLocalDate(d)
 }
 
 export function getWeekendISO(): string {
@@ -69,5 +92,5 @@ export function getWeekendISO(): string {
   const dayOfWeek = d.getDay()
   const daysUntilSaturday = dayOfWeek === 0 ? 6 : 6 - dayOfWeek
   d.setDate(d.getDate() + daysUntilSaturday)
-  return d.toISOString().split('T')[0]
+  return formatLocalDate(d)
 }

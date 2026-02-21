@@ -6,6 +6,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
 import { GEMINI_MODEL } from '@/lib/ai/gemini'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type {
   WeeklyReview,
   WeeklyReviewAIResponse,
@@ -31,8 +32,8 @@ function getLastWeekRange(): { weekStart: string; weekEnd: string } {
   lastSunday.setDate(lastMonday.getDate() + 6)
 
   return {
-    weekStart: lastMonday.toISOString().split('T')[0],
-    weekEnd: lastSunday.toISOString().split('T')[0],
+    weekStart: formatUTCDate(lastMonday),
+    weekEnd: formatUTCDate(lastSunday),
   }
 }
 

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { WeeklyReview } from '@/lib/types'
 
 // ============================================
@@ -16,7 +17,7 @@ function getWeekStartFromDate(dateStr: string): string {
   const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   const monday = new Date(date)
   monday.setDate(date.getDate() - daysToMonday)
-  return monday.toISOString().split('T')[0]
+  return formatUTCDate(monday)
 }
 
 function getLastWeekStart(): string {
@@ -25,7 +26,7 @@ function getLastWeekStart(): string {
   const daysToLastMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   const lastMonday = new Date(now)
   lastMonday.setDate(now.getDate() - daysToLastMonday - 7)
-  return lastMonday.toISOString().split('T')[0]
+  return formatUTCDate(lastMonday)
 }
 
 // ============================================

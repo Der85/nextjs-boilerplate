@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api-client'
+import { formatLocalDate } from '@/lib/utils/dates'
 
 interface WeeklyReviewBannerProps {
   onDismiss?: () => void
@@ -186,5 +187,5 @@ function getWeekKey(): string {
   const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   const monday = new Date(now)
   monday.setDate(now.getDate() - daysToMonday)
-  return monday.toISOString().split('T')[0]
+  return formatLocalDate(monday)
 }

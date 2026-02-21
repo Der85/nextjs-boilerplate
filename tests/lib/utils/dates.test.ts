@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
+  formatLocalDate,
+  formatUTCDate,
   isToday,
   isTomorrow,
   isThisWeek,
@@ -21,6 +23,35 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+// ============================================
+// formatLocalDate / formatUTCDate
+// ============================================
+
+describe('formatLocalDate', () => {
+  it('formats a date as YYYY-MM-DD using local components', () => {
+    const d = new Date('2024-03-13T12:00:00')
+    expect(formatLocalDate(d)).toBe('2024-03-13')
+  })
+
+  it('pads single-digit month and day', () => {
+    const d = new Date('2024-01-05T12:00:00')
+    expect(formatLocalDate(d)).toBe('2024-01-05')
+  })
+})
+
+describe('formatUTCDate', () => {
+  it('formats a date as YYYY-MM-DD using UTC components', () => {
+    const d = new Date('2024-03-13T12:00:00Z')
+    expect(formatUTCDate(d)).toBe('2024-03-13')
+  })
+
+  it('uses UTC date even near midnight', () => {
+    // 2024-03-13 23:30 UTC
+    const d = new Date('2024-03-13T23:30:00Z')
+    expect(formatUTCDate(d)).toBe('2024-03-13')
+  })
 })
 
 // ============================================

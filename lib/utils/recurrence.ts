@@ -1,4 +1,5 @@
 import type { RecurrenceRule, RecurrenceFrequency } from '@/lib/types'
+import { formatLocalDate } from '@/lib/utils/dates'
 
 /**
  * Calculate the next occurrence date based on recurrence rule
@@ -9,7 +10,7 @@ export function getNextOccurrenceDate(
 ): string {
   const baseDate = currentDueDate ? new Date(currentDueDate + 'T00:00:00') : new Date()
   const interval = rule.interval || 1
-  let nextDate = new Date(baseDate)
+  const nextDate = new Date(baseDate)
 
   switch (rule.frequency) {
     case 'daily':
@@ -44,7 +45,7 @@ export function getNextOccurrenceDate(
     }
   }
 
-  return nextDate.toISOString().split('T')[0]
+  return formatLocalDate(nextDate)
 }
 
 /**

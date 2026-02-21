@@ -7,6 +7,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { balanceRateLimiter } from '@/lib/rateLimiter'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow } from '@/lib/types'
 
 // ============================================
@@ -194,7 +195,7 @@ export async function POST(_request: NextRequest) {
     const balanceScore = computeBalanceScore(priorities, categoryStats, previousScore)
 
     // 6. Save to database
-    const today = new Date().toISOString().split('T')[0]
+    const today = formatUTCDate(new Date())
     const saved = await saveBalanceScore(supabase, user.id, balanceScore, today)
 
     return NextResponse.json({

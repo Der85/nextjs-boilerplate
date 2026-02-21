@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 
 export async function GET() {
   try {
@@ -43,7 +44,7 @@ export async function GET() {
       const weekStart = new Date()
       weekStart.setDate(weekStart.getDate() - weekStart.getDay() - (i * 7))
       weekStart.setHours(0, 0, 0, 0)
-      const key = weekStart.toISOString().split('T')[0]
+      const key = formatUTCDate(weekStart)
       weeks[key] = { completed: 0, created: 0 }
     }
 
@@ -53,7 +54,7 @@ export async function GET() {
       const weekStart = new Date(d)
       weekStart.setDate(weekStart.getDate() - dayOfWeek)
       weekStart.setHours(0, 0, 0, 0)
-      const key = weekStart.toISOString().split('T')[0]
+      const key = formatUTCDate(weekStart)
       return weeks[key] !== undefined ? key : null
     }
 

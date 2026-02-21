@@ -11,6 +11,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
 import { GEMINI_MODEL } from '@/lib/ai/gemini'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { Insight, InsightRow, InsightType, CategoryStats, CategoryPatterns, PriorityDrift, UserPriority, PriorityDomain, DriftDirection } from '@/lib/types'
 import { type TaskWithCategory, fetchRecentTasks, computeCategoryStats } from '@/lib/utils/taskStats'
 
@@ -56,8 +57,8 @@ function computeCategoryPatterns(
 
     // Sort dates and find current streak (ending today or yesterday)
     const sortedDates = Array.from(completionDates).sort().reverse()
-    const today = new Date().toISOString().split('T')[0]
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const today = formatUTCDate(new Date())
+    const yesterday = formatUTCDate(new Date(Date.now() - 86400000))
 
     // Only count if streak is current (includes today or yesterday)
     if (sortedDates[0] !== today && sortedDates[0] !== yesterday) continue
@@ -259,8 +260,8 @@ async function saveInsight(
     category_id: insight.category_id || null,
     category_color: insight.category_color || null,
     priority_rank: insight.priority_rank || null,
-    data_window_start: windowStart.toISOString().split('T')[0],
-    data_window_end: now.toISOString().split('T')[0],
+    data_window_start: formatUTCDate(windowStart),
+    data_window_end: formatUTCDate(now),
   }).select('id, type, title, message, icon, category_id, category_color, priority_rank, is_dismissed, is_helpful, data_window_start, data_window_end, created_at, user_id').single()
 
   return data as InsightRow | null

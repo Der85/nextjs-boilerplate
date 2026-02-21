@@ -76,17 +76,12 @@ describe('getNextOccurrenceDate', () => {
   describe('monthly', () => {
     it('advances by 1 month when interval is 1', () => {
       const rule: RecurrenceRule = { frequency: 'monthly', interval: 1 }
-      // Uses setMonth on a local Date then toISOString (UTC), so result depends on DST offset.
-      const result = getNextOccurrenceDate('2024-03-11', rule)
-      // The result should be approximately 1 month ahead (Apr 10 or 11 depending on local DST).
-      expect(result).toMatch(/^2024-04-1[01]$/)
+      expect(getNextOccurrenceDate('2024-03-11', rule)).toBe('2024-04-11')
     })
 
     it('advances by 3 months when interval is 3', () => {
       const rule: RecurrenceRule = { frequency: 'monthly', interval: 3 }
-      // Same DST caveat — result is approximately 3 months ahead.
-      const result = getNextOccurrenceDate('2024-03-11', rule)
-      expect(result).toMatch(/^2024-06-1[01]$/)
+      expect(getNextOccurrenceDate('2024-03-11', rule)).toBe('2024-06-11')
     })
   })
 
