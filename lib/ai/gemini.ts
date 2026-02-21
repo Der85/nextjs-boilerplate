@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { DumpParseResult, ParsedTask } from '@/lib/types'
+import { DEFAULT_CATEGORY_NAMES } from '@/lib/utils/categories'
 import { getDumpParsePrompt } from './prompts'
 import { dumpParseSchema } from './schemas'
 
@@ -25,9 +26,6 @@ export async function parseBrainDump(rawText: string): Promise<DumpParseResult> 
   const text = response.text()
   const parsed = JSON.parse(text)
 
-  // Valid category names
-  const validCategories = ['Work', 'Health', 'Home', 'Finance', 'Social', 'Personal Growth', 'Admin', 'Family']
-
   // Validate and sanitize each task
   const tasks: ParsedTask[] = (parsed.tasks || [])
     .map((t: Record<string, unknown>) => ({
@@ -37,7 +35,7 @@ export async function parseBrainDump(rawText: string): Promise<DumpParseResult> 
       priority: (['low', 'medium', 'high'].includes(t.priority as string) ? t.priority : 'medium') as 'low' | 'medium' | 'high',
       confidence: typeof t.confidence === 'number' ? Math.min(Math.max(t.confidence, 0), 1) : 0.8,
       original_fragment: String(t.original_fragment || '').trim().slice(0, 1000),
-      category: validCategories.includes(t.category as string) ? (t.category as string) : 'Admin',
+      category: DEFAULT_CATEGORY_NAMES.includes(t.category as string) ? (t.category as string) : 'Admin',
       category_confidence: typeof t.category_confidence === 'number' ? Math.min(Math.max(t.category_confidence, 0), 1) : 0.5,
     }))
     .filter((t: ParsedTask) => t.title.length > 0)
@@ -76,8 +74,7 @@ Return JSON: { "category": string, "confidence": number (0-1) }
     const text = result.response.text()
     const parsed = JSON.parse(text)
 
-    const validCategories = ['Work', 'Health', 'Home', 'Finance', 'Social', 'Personal Growth', 'Admin', 'Family']
-    const category = validCategories.includes(parsed.category) ? parsed.category : 'Admin'
+    const category = DEFAULT_CATEGORY_NAMES.includes(parsed.category) ? parsed.category : 'Admin'
     const confidence = typeof parsed.confidence === 'number' ? Math.min(Math.max(parsed.confidence, 0), 1) : 0.5
 
     return { category, confidence }
