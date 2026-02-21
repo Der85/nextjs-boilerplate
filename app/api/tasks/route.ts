@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { tasksRateLimiter } from '@/lib/rateLimiter'
 import { findCategoryByName, getFallbackCategory } from '@/lib/utils/categories'
+import { taskCreateSchema, parseBody } from '@/lib/validations'
 import type { Category } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -73,11 +74,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { dump_id, tasks } = body
+    const parsed = parseBody(taskCreateSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!dump_id || !Array.isArray(tasks) || tasks.length === 0) {
-      return apiError('Invalid request. Provide dump_id and tasks array.', 400, 'BAD_REQUEST')
-    }
+    const { dump_id, tasks } = parsed.data
 
     // Verify dump belongs to user
     const { data: dump } = await supabase
@@ -100,45 +100,33 @@ export async function POST(request: NextRequest) {
     const userCategories = (categories || []) as Category[]
     const fallbackCategory = getFallbackCategory(userCategories)
 
-    // Validate each task title
-    for (const t of tasks) {
-      const title = String(t.title || '').trim()
-      if (!title) {
-        return apiError('Each task must have a non-empty title.', 400, 'VALIDATION_ERROR')
-      }
-      if (title.length > 500) {
-        return apiError('Task title must be 500 characters or fewer.', 400, 'VALIDATION_ERROR')
-      }
-    }
-
     // Batch insert tasks with AI categorization
-    const taskRows = tasks.map((t: Record<string, unknown>, i: number) => {
+    const taskRows = tasks.map((t, i) => {
       // Map AI category name to user's category ID
       let categoryId: string | null = null
       let categoryConfidence: number | null = null
 
-      if (t.category && typeof t.category === 'string') {
+      if (t.category) {
         const matchedCategory = findCategoryByName(userCategories, t.category)
         if (matchedCategory) {
           categoryId = matchedCategory.id
-          categoryConfidence = typeof t.category_confidence === 'number' ? t.category_confidence : 0.8
+          categoryConfidence = t.category_confidence ?? 0.8
         } else if (fallbackCategory) {
-          // AI returned unknown category, use fallback
           categoryId = fallbackCategory.id
-          categoryConfidence = 0.3 // Low confidence since we fell back
+          categoryConfidence = 0.3
         }
       }
 
       return {
         user_id: user.id,
         dump_id,
-        title: String(t.title || '').trim().slice(0, 500),
+        title: t.title.trim().slice(0, 500),
         status: 'active',
-        due_date: t.due_date || null,
-        due_time: t.due_time || null,
-        priority: ['low', 'medium', 'high'].includes(t.priority as string) ? t.priority : null,
-        original_fragment: t.original_fragment || null,
-        ai_confidence: typeof t.confidence === 'number' ? t.confidence : 1.0,
+        due_date: t.due_date ?? null,
+        due_time: t.due_time ?? null,
+        priority: t.priority,
+        original_fragment: t.original_fragment ?? null,
+        ai_confidence: t.confidence ?? 1.0,
         category_id: categoryId,
         category_confidence: categoryConfidence,
         position: i,

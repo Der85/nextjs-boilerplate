@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { templatesRateLimiter } from '@/lib/rateLimiter'
+import { templateCreateTaskSchema, parseBody } from '@/lib/validations'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -21,6 +22,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
+    const parsed = parseBody(templateCreateTaskSchema, body)
+    if (!parsed.success) return parsed.response
 
     // Fetch the template
     const { data: template, error: templateError } = await supabase
@@ -48,11 +51,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Add optional fields from request
-    if (body.due_date) {
-      taskData.due_date = body.due_date
+    if (parsed.data.due_date) {
+      taskData.due_date = parsed.data.due_date
     }
-    if (body.due_time) {
-      taskData.due_time = body.due_time
+    if (parsed.data.due_time) {
+      taskData.due_time = parsed.data.due_time
     }
 
     const { data: task, error: taskError } = await supabase

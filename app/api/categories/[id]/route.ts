@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { categoriesRateLimiter } from '@/lib/rateLimiter'
+import { categoryPatchSchema, parseBody } from '@/lib/validations'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -21,15 +22,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
+    const parsed = parseBody(categoryPatchSchema, body)
+    if (!parsed.success) return parsed.response
 
     const updates: Record<string, unknown> = {}
-    if (typeof body.name === 'string') updates.name = body.name.trim()
-    if (typeof body.color === 'string') updates.color = body.color
-    if (typeof body.icon === 'string') updates.icon = body.icon
-
-    if (Object.keys(updates).length === 0) {
-      return apiError('No valid fields to update.', 400, 'VALIDATION_ERROR')
-    }
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name.trim()
+    if (parsed.data.color !== undefined) updates.color = parsed.data.color
+    if (parsed.data.icon !== undefined) updates.icon = parsed.data.icon
 
     const { data: category, error } = await supabase
       .from('categories')

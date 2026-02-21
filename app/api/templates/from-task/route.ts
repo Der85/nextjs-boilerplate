@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { templatesRateLimiter } from '@/lib/rateLimiter'
+import { templateFromTaskSchema, parseBody } from '@/lib/validations'
 
 const MAX_TEMPLATES = 50
 
@@ -31,12 +32,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const taskId = body.task_id
-    const templateName = typeof body.template_name === 'string' ? body.template_name.trim() : ''
+    const parsed = parseBody(templateFromTaskSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!taskId || !templateName) {
-      return apiError('Task ID and template name are required.', 400, 'VALIDATION_ERROR')
-    }
+    const { task_id: taskId, template_name: templateName } = parsed.data
 
     // Fetch the source task
     const { data: task, error: taskError } = await supabase

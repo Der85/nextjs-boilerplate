@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { tasksRateLimiter } from '@/lib/rateLimiter'
+import { profilePatchSchema, parseBody } from '@/lib/validations'
 
 export async function GET() {
   try {
@@ -63,13 +64,15 @@ export async function PATCH(request: NextRequest) {
 
 
     const body = await request.json()
+    const parsed = parseBody(profilePatchSchema, body)
+    if (!parsed.success) return parsed.response
 
     const updates: Record<string, unknown> = {}
-    if (typeof body.display_name === 'string') updates.display_name = body.display_name.trim() || null
-    if (typeof body.timezone === 'string') updates.timezone = body.timezone
-
-    if (Object.keys(updates).length === 0) {
-      return apiError('No valid fields to update.', 400, 'VALIDATION_ERROR')
+    if (parsed.data.display_name !== undefined) {
+      updates.display_name = parsed.data.display_name.trim() || null
+    }
+    if (parsed.data.timezone !== undefined) {
+      updates.timezone = parsed.data.timezone
     }
 
     const { data: profile, error } = await supabase

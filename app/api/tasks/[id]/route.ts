@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { tasksRateLimiter } from '@/lib/rateLimiter'
 import { getNextOccurrenceDate } from '@/lib/utils/recurrence'
+import { taskPatchSchema, parseBody } from '@/lib/validations'
 import type { RecurrenceRule } from '@/lib/types'
 
 interface RouteContext {
@@ -23,6 +24,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
+    const parsed = parseBody(taskPatchSchema, body)
+    if (!parsed.success) return parsed.response
 
     // First, fetch the current task to check for recurrence
     const { data: currentTask, error: fetchError } = await supabase
@@ -36,27 +39,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiError('Task not found.', 404, 'NOT_FOUND')
     }
 
-    // Validate title if provided
-    if ('title' in body) {
-      const title = String(body.title || '').trim()
-      if (!title) {
-        return apiError('Task title cannot be empty.', 400, 'VALIDATION_ERROR')
-      }
-      if (title.length > 500) {
-        return apiError('Task title must be 500 characters or fewer.', 400, 'VALIDATION_ERROR')
-      }
-    }
-
-    // Build update object from allowed fields
+    // Build update object from validated fields
     const updates: Record<string, unknown> = {}
-    const allowedFields = [
-      'title', 'status', 'due_date', 'due_time', 'priority', 'category_id', 'position',
-      'is_recurring', 'recurrence_rule'
-    ]
-
-    for (const field of allowedFields) {
-      if (field in body) {
-        updates[field] = body[field]
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (value !== undefined) {
+        updates[key] = value
       }
     }
 

@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
-import type { WeeklyReview, WeeklyReviewUpdateRequest } from '@/lib/types'
+import { weeklyReviewPatchSchema, parseBody } from '@/lib/validations'
+import type { WeeklyReview } from '@/lib/types'
 
 // ============================================
 // Get Single Review
@@ -65,24 +66,22 @@ export async function PATCH(
     }
 
 
-    const body: WeeklyReviewUpdateRequest = await request.json()
+    const body = await request.json()
+    const parsed = parseBody(weeklyReviewPatchSchema, body)
+    if (!parsed.success) return parsed.response
 
     // Build update object
     const updates: Record<string, unknown> = {}
 
-    if (body.user_reflection !== undefined) {
-      updates.user_reflection = body.user_reflection
+    if (parsed.data.user_reflection !== undefined) {
+      updates.user_reflection = parsed.data.user_reflection
     }
 
-    if (body.is_read !== undefined) {
-      updates.is_read = body.is_read
-      if (body.is_read) {
+    if (parsed.data.is_read !== undefined) {
+      updates.is_read = parsed.data.is_read
+      if (parsed.data.is_read) {
         updates.read_at = new Date().toISOString()
       }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return apiError('No updates provided', 400, 'VALIDATION_ERROR')
     }
 
     // Update the review

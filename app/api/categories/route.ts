@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { categoriesRateLimiter } from '@/lib/rateLimiter'
 import { DEFAULT_CATEGORIES } from '@/lib/utils/categories'
+import { categoryCreateSchema, parseBody } from '@/lib/validations'
 
 export async function GET() {
   try {
@@ -63,18 +64,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const name = typeof body.name === 'string' ? body.name.trim() : ''
-    if (!name) {
-      return apiError('Category name is required.', 400, 'VALIDATION_ERROR')
-    }
+    const parsed = parseBody(categoryCreateSchema, body)
+    if (!parsed.success) return parsed.response
 
     const { data: category, error } = await supabase
       .from('categories')
       .insert({
         user_id: user.id,
-        name,
-        color: body.color || '#3B82F6',
-        icon: body.icon || String.fromCodePoint(0x1F4C1),
+        name: parsed.data.name.trim(),
+        color: parsed.data.color,
+        icon: parsed.data.icon || String.fromCodePoint(0x1F4C1),
         is_ai_generated: false,
       })
       .select()

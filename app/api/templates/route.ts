@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { templatesRateLimiter } from '@/lib/rateLimiter'
+import { templateCreateSchema, parseBody } from '@/lib/validations'
 
 const MAX_TEMPLATES = 50
 
@@ -67,19 +68,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const name = typeof body.name === 'string' ? body.name.trim() : ''
-    const taskName = typeof body.task_name === 'string' ? body.task_name.trim() : ''
+    const parsed = parseBody(templateCreateSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!name || !taskName) {
-      return apiError('Template name and task name are required.', 400, 'VALIDATION_ERROR')
-    }
+    const { name, task_name, description, priority: pri, category_id, is_recurring_default, recurrence_rule, tags } = parsed.data
 
     // Verify category belongs to user if provided
-    if (body.category_id) {
+    if (category_id) {
       const { data: cat } = await supabase
         .from('categories')
         .select('id')
-        .eq('id', body.category_id)
+        .eq('id', category_id)
         .eq('user_id', user.id)
         .single()
 
@@ -92,14 +91,14 @@ export async function POST(request: NextRequest) {
       .from('task_templates')
       .insert({
         user_id: user.id,
-        name,
-        task_name: taskName,
-        description: body.description || null,
-        priority: ['low', 'medium', 'high'].includes(body.priority) ? body.priority : null,
-        category_id: body.category_id || null,
-        is_recurring_default: !!body.is_recurring_default,
-        recurrence_rule: body.recurrence_rule || null,
-        tags: Array.isArray(body.tags) ? body.tags.filter((t: unknown) => typeof t === 'string') : [],
+        name: name.trim(),
+        task_name: task_name.trim(),
+        description: description ?? null,
+        priority: pri ?? null,
+        category_id: category_id ?? null,
+        is_recurring_default,
+        recurrence_rule: recurrence_rule ?? null,
+        tags,
       })
       .select('*, category:categories(id, name, color, icon)')
       .single()

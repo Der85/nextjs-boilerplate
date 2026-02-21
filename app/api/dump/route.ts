@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { dumpRateLimiter } from '@/lib/rateLimiter'
 import { parseBrainDump, GEMINI_MODEL } from '@/lib/ai/gemini'
+import { dumpCreateSchema, parseBody } from '@/lib/validations'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,14 +18,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const rawText = typeof body.raw_text === 'string' ? body.raw_text.trim() : ''
-    if (!rawText || rawText.length < 3) {
-      return apiError('Please enter at least a few words.', 400, 'VALIDATION_ERROR')
-    }
-    if (rawText.length > 5000) {
-      return apiError('Text too long (max 5000 characters).', 400, 'VALIDATION_ERROR')
-    }
-    const source = body.source === 'voice' ? 'voice' : 'text'
+    const parsed = parseBody(dumpCreateSchema, body)
+    if (!parsed.success) return parsed.response
+
+    const rawText = parsed.data.raw_text.trim()
+    const source = parsed.data.source
 
     // Save dump immediately so user's text is never lost
     const startTime = Date.now()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { tasksRateLimiter } from '@/lib/rateLimiter'
+import { taskReorderSchema, parseBody } from '@/lib/validations'
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -16,26 +17,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tasks } = body
+    const parsed = parseBody(taskReorderSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return apiError('Provide tasks array with id and position.', 400, 'BAD_REQUEST')
-    }
-
-    const invalid = tasks.some(
-      (t) =>
-        typeof t?.id !== 'string' ||
-        !t.id.trim() ||
-        typeof t?.position !== 'number' ||
-        !Number.isInteger(t.position) ||
-        t.position < 0
-    )
-    if (invalid) {
-      return apiError('Each task must have a string id and a non-negative integer position.', 400, 'VALIDATION_ERROR')
-    }
+    const { tasks } = parsed.data
 
     // Update each task's position
-    const updates = tasks.map((t: { id: string; position: number }) =>
+    const updates = tasks.map((t) =>
       supabase
         .from('tasks')
         .update({ position: t.position })
