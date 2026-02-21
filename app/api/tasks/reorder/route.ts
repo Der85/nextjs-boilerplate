@@ -22,6 +22,18 @@ export async function PATCH(request: NextRequest) {
       return apiError('Provide tasks array with id and position.', 400, 'BAD_REQUEST')
     }
 
+    const invalid = tasks.some(
+      (t) =>
+        typeof t?.id !== 'string' ||
+        !t.id.trim() ||
+        typeof t?.position !== 'number' ||
+        !Number.isInteger(t.position) ||
+        t.position < 0
+    )
+    if (invalid) {
+      return apiError('Each task must have a string id and a non-negative integer position.', 400, 'VALIDATION_ERROR')
+    }
+
     // Update each task's position
     const updates = tasks.map((t: { id: string; position: number }) =>
       supabase
