@@ -1,6 +1,14 @@
 // Shared Rate Limiter Utility
 // Used by all API routes to prevent abuse
 // Includes automatic cleanup to prevent memory leaks
+//
+// ⚠️  IN-MEMORY LIMITATION: This rate limiter stores state in process memory.
+//    - State is lost on every server restart or deploy
+//    - Each serverless function instance has its own independent state,
+//      so limits are NOT enforced across concurrent instances
+//    - In development and single-instance deployments this works fine
+//    - For production multi-instance deployments, migrate to a shared store
+//      such as Redis (e.g. Upstash Redis with @upstash/ratelimit)
 
 interface RateBucket {
   count: number
