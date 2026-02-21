@@ -4,7 +4,7 @@ import { DEFAULT_CATEGORY_NAMES } from '@/lib/utils/categories'
 import { getDumpParsePrompt } from './prompts'
 import { dumpParseSchema } from './schemas'
 
-export const GEMINI_MODEL = GEMINI_MODEL
+export const GEMINI_MODEL = 'gemini-2.0-flash'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
