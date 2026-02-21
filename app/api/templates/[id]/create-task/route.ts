@@ -66,14 +66,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiError('Failed to create task.', 500, 'INTERNAL_ERROR')
     }
 
-    // Update template usage stats
-    await supabase
-      .from('task_templates')
-      .update({
-        use_count: template.use_count + 1,
-        last_used_at: new Date().toISOString(),
-      })
-      .eq('id', id)
+    // Atomically increment template usage stats
+    await supabase.rpc('increment_template_use_count', { template_id: id })
 
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {

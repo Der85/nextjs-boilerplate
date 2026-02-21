@@ -94,16 +94,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // 4. Update the task
+    // 4. Update the task (only if still active — prevents duplicate completion race)
     const { data: task, error: updateError } = await supabase
       .from('tasks')
       .update(updates)
       .eq('id', taskId)
       .eq('user_id', user.id)
+      .neq('status', 'done')
       .select('*, category:categories(id, name, color, icon)')
       .single()
 
     if (updateError) {
+      // If no rows matched, another request already completed this task
+      if (updateError.code === 'PGRST116') {
+        return NextResponse.json({
+          task: currentTask,
+          reminders_dismissed: 0,
+          message: 'Task was already completed',
+        })
+      }
       console.error('Task completion error:', updateError)
       return apiError('Failed to complete task.', 500, 'INTERNAL_ERROR')
     }

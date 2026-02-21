@@ -3,12 +3,9 @@ import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { prioritiesRateLimiter } from '@/lib/rateLimiter'
 import type {
-  UserPriority,
   PriorityInput,
   PriorityDomain,
   PriorityReviewTrigger,
-  PriorityRankingSnapshot,
-  PRIORITY_DOMAINS,
 } from '@/lib/types'
 
 const VALID_DOMAINS: PriorityDomain[] = [
@@ -102,87 +99,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch existing priorities for review snapshot
-    const { data: existingPriorities } = await supabase
+    // Check if this is an update (for response status code)
+    const { count } = await supabase
       .from('user_priorities')
-      .select('*')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .order('rank', { ascending: true })
 
-    const isUpdate = existingPriorities && existingPriorities.length > 0
+    const isUpdate = (count ?? 0) > 0
 
-    // Create snapshot of previous rankings if updating
-    let previousRankings: PriorityRankingSnapshot[] = []
-    if (isUpdate) {
-      previousRankings = existingPriorities.map(p => ({
-        domain: p.domain as PriorityDomain,
-        rank: p.rank,
-        importance_score: p.importance_score,
-        aspirational_note: p.aspirational_note,
-      }))
-    }
-
-    // Prepare new rankings snapshot
-    const newRankings: PriorityRankingSnapshot[] = priorities.map(p => ({
+    // Prepare priorities as JSON for the RPC function
+    const prioritiesJson = priorities.map(p => ({
       domain: p.domain,
       rank: p.rank,
       importance_score: p.importance_score,
       aspirational_note: p.aspirational_note || null,
     }))
 
-    // Delete existing priorities and insert new ones (atomic upsert)
-    if (isUpdate) {
-      const { error: deleteError } = await supabase
-        .from('user_priorities')
-        .delete()
-        .eq('user_id', user.id)
+    // Atomic upsert: delete + insert + review record in a single transaction
+    const { data: result, error: rpcError } = await supabase.rpc('upsert_priorities', {
+      p_priorities: prioritiesJson,
+      p_trigger: trigger,
+    })
 
-      if (deleteError) {
-        console.error('Priorities delete error:', deleteError)
-        return apiError('Failed to update priorities.', 500, 'INTERNAL_ERROR')
-      }
-    }
-
-    // Insert all priorities
-    const now = new Date().toISOString()
-    const prioritiesToInsert = priorities.map(p => ({
-      user_id: user.id,
-      domain: p.domain,
-      rank: p.rank,
-      importance_score: p.importance_score,
-      aspirational_note: p.aspirational_note || null,
-      last_reviewed_at: now,
-    }))
-
-    const { data: insertedPriorities, error: insertError } = await supabase
-      .from('user_priorities')
-      .insert(prioritiesToInsert)
-      .select()
-
-    if (insertError) {
-      console.error('Priorities insert error:', insertError)
+    if (rpcError) {
+      console.error('Priorities upsert error:', rpcError)
       return apiError('Failed to save priorities.', 500, 'INTERNAL_ERROR')
     }
 
-    // Create review record if this is an update
-    if (isUpdate) {
-      const { error: reviewError } = await supabase
-        .from('priority_reviews')
-        .insert({
-          user_id: user.id,
-          previous_rankings: previousRankings,
-          new_rankings: newRankings,
-          trigger: trigger,
-        })
-
-      if (reviewError) {
-        // Log but don't fail - review records are supplementary
-        console.error('Priority review insert error:', reviewError)
-      }
-    }
-
     return NextResponse.json(
-      { priorities: insertedPriorities, isUpdate },
+      { priorities: result || [], isUpdate },
       { status: isUpdate ? 200 : 201 }
     )
   } catch (error) {

@@ -160,15 +160,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiError('No valid fields to update.', 400, 'VALIDATION_ERROR')
     }
 
-    const { data: task, error } = await supabase
+    // When completing or skipping a recurring task, guard against duplicate
+    // processing by only updating tasks that haven't already been completed/skipped.
+    let query = supabase
       .from('tasks')
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)
+
+    if (isCompletingRecurring) {
+      query = query.neq('status', 'done')
+    } else if (isSkippingRecurring) {
+      query = query.neq('status', 'skipped')
+    }
+
+    const { data: task, error } = await query
       .select('*, category:categories(id, name, color, icon)')
       .single()
 
     if (error) {
+      // PGRST116 = no rows returned (already in target status)
+      if (error.code === 'PGRST116' && (isCompletingRecurring || isSkippingRecurring)) {
+        return NextResponse.json({ task: currentTask, nextOccurrence: null })
+      }
       console.error('Task update error:', error)
       return apiError('Failed to update task.', 500, 'INTERNAL_ERROR')
     }
