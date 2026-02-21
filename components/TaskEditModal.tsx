@@ -6,6 +6,7 @@ import { RECURRENCE_OPTIONS } from '@/lib/utils/recurrence'
 import CategoryChip from './CategoryChip'
 import SaveAsTemplateSection from './SaveAsTemplateSection'
 import { useTaskEditForm } from '@/lib/hooks/useTaskEditForm'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 interface TaskEditModalProps {
   task: TaskWithCategory
@@ -37,6 +38,7 @@ export default function TaskEditModal({
   onSave,
 }: TaskEditModalProps) {
   const form = useTaskEditForm({ task, isOpen, onSave, onClose })
+  const focusTrapRef = useFocusTrap(isOpen)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -66,7 +68,11 @@ export default function TaskEditModal({
       }}
     >
       <div
+        ref={focusTrapRef}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit task"
         style={{
           background: 'var(--color-bg)',
           borderRadius: 'var(--radius-lg)',
