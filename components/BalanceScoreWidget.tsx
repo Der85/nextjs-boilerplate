@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BalanceBreakdown from './BalanceBreakdown'
 import BalanceSparkline from './BalanceSparkline'
@@ -20,6 +20,10 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
   const [changeFromYesterday, setChangeFromYesterday] = useState<number | null>(null)
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
+
+  // Ref to hold latest callback without re-triggering the fetch effect
+  const thresholdRef = useRef(onThresholdCrossed)
+  useEffect(() => { thresholdRef.current = onThresholdCrossed })
 
   useEffect(() => {
     async function fetchBalance() {
@@ -41,7 +45,7 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
 
               for (const threshold of thresholds) {
                 if (prevScore < threshold && data.score.score >= threshold) {
-                  onThresholdCrossed?.(threshold, 'up')
+                  thresholdRef.current?.(threshold, 'up')
                   setShowCelebration(true)
                   setTimeout(() => setShowCelebration(false), 2000)
                   break
@@ -58,7 +62,7 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
     }
 
     fetchBalance()
-  }, [onThresholdCrossed])
+  }, []) // stable: runs once on mount
 
   if (loading) {
     return (

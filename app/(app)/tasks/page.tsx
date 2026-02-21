@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
@@ -28,6 +28,63 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'due_date', label: 'Due Date' },
   { value: 'created_date', label: 'Created' },
 ]
+
+// Pure functions at file scope to enable stable useMemo references
+function groupTasks(allTasks: TaskWithCategory[]) {
+  const overdue: TaskWithCategory[] = []
+  const today: TaskWithCategory[] = []
+  const thisWeek: TaskWithCategory[] = []
+  const noDate: TaskWithCategory[] = []
+  const doneToday: TaskWithCategory[] = []
+
+  for (const task of allTasks) {
+    if (task.status === 'dropped' || task.status === 'skipped') continue
+
+    if (task.status === 'done') {
+      if (task.completed_at && isToday(task.completed_at.split('T')[0])) {
+        doneToday.push(task)
+      }
+      continue
+    }
+
+    if (task.due_date && isOverdue(task.due_date)) {
+      overdue.push(task)
+    } else if (task.due_date && isToday(task.due_date)) {
+      today.push(task)
+    } else if (task.due_date && isThisWeek(task.due_date)) {
+      thisWeek.push(task)
+    } else {
+      noDate.push(task)
+    }
+  }
+
+  return [
+    { label: 'Overdue', tasks: overdue, color: 'var(--color-danger)' },
+    { label: 'Today', tasks: today, color: 'var(--color-accent)' },
+    { label: 'This Week', tasks: thisWeek },
+    { label: 'No Date', tasks: noDate },
+    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
+  ]
+}
+
+function sortTasks(taskList: TaskWithCategory[], sortMode: SortMode): TaskWithCategory[] {
+  const sorted = [...taskList]
+  switch (sortMode) {
+    case 'manual':
+      return sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
+    case 'due_date':
+      return sorted.sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1
+        if (!b.due_date) return -1
+        return a.due_date.localeCompare(b.due_date)
+      })
+    case 'created_date':
+      return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
+    default:
+      return sorted
+  }
+}
 
 // Wrapper to provide Suspense boundary for useSearchParams
 export default function TasksPage() {
@@ -222,44 +279,6 @@ function TasksPageContent() {
     }
   }
 
-  const groupTasks = (allTasks: TaskWithCategory[]) => {
-    const overdue: TaskWithCategory[] = []
-    const today: TaskWithCategory[] = []
-    const thisWeek: TaskWithCategory[] = []
-    const noDate: TaskWithCategory[] = []
-    const doneToday: TaskWithCategory[] = []
-
-    for (const task of allTasks) {
-      if (task.status === 'dropped' || task.status === 'skipped') continue
-
-      if (task.status === 'done') {
-        if (task.completed_at && isToday(task.completed_at.split('T')[0])) {
-          doneToday.push(task)
-        }
-        continue
-      }
-
-      // Active tasks
-      if (task.due_date && isOverdue(task.due_date)) {
-        overdue.push(task)
-      } else if (task.due_date && isToday(task.due_date)) {
-        today.push(task)
-      } else if (task.due_date && isThisWeek(task.due_date)) {
-        thisWeek.push(task)
-      } else {
-        noDate.push(task)
-      }
-    }
-
-    return [
-      { label: 'Overdue', tasks: overdue, color: 'var(--color-danger)' },
-      { label: 'Today', tasks: today, color: 'var(--color-accent)' },
-      { label: 'This Week', tasks: thisWeek },
-      { label: 'No Date', tasks: noDate },
-      { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
-    ]
-  }
-
   // Optimistic toggle
   const handleToggle = async (id: string, done: boolean) => {
     setTasks(prev => prev.map(t =>
@@ -386,29 +405,12 @@ function TasksPageContent() {
     }
   }
 
-  // Sort tasks within groups based on sortMode
-  const sortTasks = (taskList: TaskWithCategory[]): TaskWithCategory[] => {
-    const sorted = [...taskList]
-    switch (sortMode) {
-      case 'manual':
-        return sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
-      case 'due_date':
-        return sorted.sort((a, b) => {
-          if (!a.due_date && !b.due_date) return 0
-          if (!a.due_date) return 1
-          if (!b.due_date) return -1
-          return a.due_date.localeCompare(b.due_date)
-        })
-      case 'created_date':
-        return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
-      default:
-        return sorted
-    }
-  }
-
-  // Apply filters then group
-  const filteredTasks = applyFilters(tasks, filters)
-  const groups = groupTasks(filteredTasks).map(g => ({ ...g, tasks: sortTasks(g.tasks) }))
+  // Memoize the filter → group → sort pipeline
+  const filteredCount = useMemo(() => applyFilters(tasks, filters).length, [tasks, filters])
+  const groups = useMemo(() => {
+    const filtered = applyFilters(tasks, filters)
+    return groupTasks(filtered).map(g => ({ ...g, tasks: sortTasks(g.tasks, sortMode) }))
+  }, [tasks, filters, sortMode])
   const hasActiveTasks = groups.some(g => g.tasks.length > 0)
 
   if (loading) {
@@ -538,7 +540,7 @@ function TasksPageContent() {
         filters={filters}
         onFilterChange={handleFilterChange}
         totalCount={tasks.length}
-        filteredCount={filteredTasks.length}
+        filteredCount={filteredCount}
       />
 
       {/* Priority prompt or summary */}
