@@ -61,7 +61,9 @@ export async function GET() {
         return orderA - orderB
       })
 
-    return NextResponse.json({ suggestions: sortedSuggestions })
+    return NextResponse.json({ suggestions: sortedSuggestions }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+    })
   } catch (error) {
     console.error('Suggestions GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

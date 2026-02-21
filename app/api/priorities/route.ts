@@ -23,7 +23,9 @@ export async function GET() {
       return apiError('Failed to load priorities.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ priorities: priorities || [] })
+    return NextResponse.json({ priorities: priorities || [] }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+    })
   } catch (error) {
     console.error('Priorities GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

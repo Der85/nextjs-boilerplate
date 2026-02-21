@@ -39,7 +39,9 @@ export async function GET(
       return apiError('Review not found', 404, 'NOT_FOUND')
     }
 
-    return NextResponse.json({ review: review as WeeklyReview })
+    return NextResponse.json({ review: review as WeeklyReview }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
+    })
   } catch (error) {
     console.error('Weekly review GET by ID error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

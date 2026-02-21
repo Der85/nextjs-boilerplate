@@ -122,6 +122,8 @@ export async function GET(request: NextRequest) {
       canGenerate,
       canGenerateReason: reason,
       canShowReviewPrompt,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Weekly review GET error:', error)

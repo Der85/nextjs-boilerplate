@@ -209,11 +209,13 @@ export async function GET(_request: NextRequest) {
     // 1. Check if user has priorities
     const priorities = await fetchUserPriorities(supabase, user.id)
 
+    const cacheHeaders = { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' }
+
     if (priorities.length === 0) {
       return NextResponse.json({
         hasPriorities: false,
         message: 'Please set your life priorities first to see your balance score.',
-      })
+      }, { headers: cacheHeaders })
     }
 
     // 2. Check for today's score
@@ -246,7 +248,7 @@ export async function GET(_request: NextRequest) {
       score: todayScore,
       trend,
       changeFromYesterday,
-    })
+    }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Balance GET API error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

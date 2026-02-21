@@ -47,6 +47,8 @@ export async function GET(request: NextRequest) {
       limit,
       offset,
       hasMore: count ? offset + limit < count : false,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Weekly review history error:', error)

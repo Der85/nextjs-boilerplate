@@ -30,6 +30,8 @@ export async function GET() {
       return apiError('Failed to check review status.', 500, 'INTERNAL_ERROR')
     }
 
+    const cacheHeaders = { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=7200' }
+
     // If no priorities exist, they haven't set them yet
     if (!priorities || priorities.length === 0) {
       return NextResponse.json({
@@ -37,7 +39,7 @@ export async function GET() {
         lastReviewedAt: null,
         daysSinceReview: null,
         hasPriorities: false,
-      })
+      }, { headers: cacheHeaders })
     }
 
     const lastReviewedAt = priorities[0].last_reviewed_at
@@ -52,7 +54,7 @@ export async function GET() {
       lastReviewedAt,
       daysSinceReview,
       hasPriorities: true,
-    })
+    }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Priority review-due GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

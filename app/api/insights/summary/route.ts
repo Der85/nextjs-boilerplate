@@ -107,6 +107,8 @@ export async function GET() {
       completed_this_week: completedThisWeek || 0,
       current_streak: streak,
       completion_rate: completionRate,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Insights summary error:', error)

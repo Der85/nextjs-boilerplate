@@ -44,7 +44,9 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ categories: categories || [] })
+    return NextResponse.json({ categories: categories || [] }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+    })
   } catch (error) {
     console.error('Categories GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

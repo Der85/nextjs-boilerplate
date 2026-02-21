@@ -98,6 +98,8 @@ export async function GET() {
     return NextResponse.json({
       reminders: normalizedReminders,
       unread_count: unreadCount,
+    }, {
+      headers: { 'Cache-Control': 'private, no-store' },
     })
   } catch (error) {
     console.error('Reminders GET error:', error)

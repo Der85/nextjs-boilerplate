@@ -28,7 +28,9 @@ export async function GET() {
       return apiError('Failed to load suggestions.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ suggestion: suggestions?.[0] || null })
+    return NextResponse.json({ suggestion: suggestions?.[0] || null }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+    })
   } catch (error) {
     console.error('Suggestions GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

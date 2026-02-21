@@ -45,8 +45,10 @@ export async function GET() {
       return apiError('Failed to fetch preferences.', 500, 'INTERNAL_ERROR')
     }
 
+    const cacheHeaders = { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+
     if (prefs) {
-      return NextResponse.json({ preferences: prefs })
+      return NextResponse.json({ preferences: prefs }, { headers: cacheHeaders })
     }
 
     // Create default preferences for new users
@@ -64,7 +66,7 @@ export async function GET() {
       return apiError('Failed to create preferences.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ preferences: newPrefs })
+    return NextResponse.json({ preferences: newPrefs }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Reminder preferences GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

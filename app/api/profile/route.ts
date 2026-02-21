@@ -36,7 +36,9 @@ export async function GET() {
         return apiError('Failed to create profile.', 500, 'INTERNAL_ERROR')
       }
 
-      return NextResponse.json({ profile: newProfile, email: user.email })
+      return NextResponse.json({ profile: newProfile, email: user.email }, {
+        headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+      })
     }
 
     if (error) {
@@ -44,7 +46,9 @@ export async function GET() {
       return apiError('Failed to load profile.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ profile, email: user.email })
+    return NextResponse.json({ profile, email: user.email }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+    })
   } catch (error) {
     console.error('Profile GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

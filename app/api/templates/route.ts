@@ -35,7 +35,9 @@ export async function GET(request: NextRequest) {
       return apiError('Failed to load templates.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ templates: templates || [] })
+    return NextResponse.json({ templates: templates || [] }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+    })
   } catch (error) {
     console.error('Templates GET error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')

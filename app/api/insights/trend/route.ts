@@ -103,6 +103,8 @@ export async function GET() {
     return NextResponse.json({
       weekly_trend: weeklyTrend,
       category_breakdown: Object.values(categoryBreakdown),
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Insights trend error:', error)

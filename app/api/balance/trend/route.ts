@@ -143,6 +143,8 @@ export async function GET(_request: NextRequest) {
       trend,
       direction,
       stats,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Balance trend API error:', error)
