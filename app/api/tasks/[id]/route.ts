@@ -35,6 +35,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Task not found.' }, { status: 404 })
     }
 
+    // Validate title if provided
+    if ('title' in body) {
+      const title = String(body.title || '').trim()
+      if (!title) {
+        return NextResponse.json({ error: 'Task title cannot be empty.' }, { status: 400 })
+      }
+      if (title.length > 500) {
+        return NextResponse.json({ error: 'Task title must be 500 characters or fewer.' }, { status: 400 })
+      }
+    }
+
     // Build update object from allowed fields
     const updates: Record<string, unknown> = {}
     const allowedFields = [

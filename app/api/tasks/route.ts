@@ -85,6 +85,17 @@ export async function POST(request: NextRequest) {
     const userCategories = (categories || []) as Category[]
     const fallbackCategory = getFallbackCategory(userCategories)
 
+    // Validate each task title
+    for (const t of tasks) {
+      const title = String(t.title || '').trim()
+      if (!title) {
+        return NextResponse.json({ error: 'Each task must have a non-empty title.' }, { status: 400 })
+      }
+      if (title.length > 500) {
+        return NextResponse.json({ error: 'Task title must be 500 characters or fewer.' }, { status: 400 })
+      }
+    }
+
     // Batch insert tasks with AI categorization
     const taskRows = tasks.map((t: Record<string, unknown>, i: number) => {
       // Map AI category name to user's category ID
