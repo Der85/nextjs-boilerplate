@@ -15,6 +15,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const categoryId = searchParams.get('category_id')
+    const limitParam = searchParams.get('limit')
+    const offsetParam = searchParams.get('offset')
+
+    const MAX_LIMIT = 500
+    const DEFAULT_LIMIT = 500
+    const limit = Math.min(
+      limitParam ? Math.max(1, parseInt(limitParam, 10) || DEFAULT_LIMIT) : DEFAULT_LIMIT,
+      MAX_LIMIT
+    )
+    const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10) || 0) : 0
 
     let query = supabase
       .from('tasks')
@@ -22,6 +32,7 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .order('position', { ascending: true })
       .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (status && ['active', 'done', 'dropped'].includes(status)) {
       query = query.eq('status', status)
@@ -38,7 +49,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to load tasks.' }, { status: 500 })
     }
 
-    return NextResponse.json({ tasks: tasks || [] })
+    return NextResponse.json({
+      tasks: tasks || [],
+      pagination: { limit, offset, count: (tasks || []).length },
+    })
   } catch (error) {
     console.error('Tasks GET error:', error)
     return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
