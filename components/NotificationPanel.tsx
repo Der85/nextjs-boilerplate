@@ -4,15 +4,10 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { ReminderWithTask, SnoozeDuration, ReminderPriority } from '@/lib/types'
 import { getReminderPriorityColor } from '@/lib/theme'
+import { useRemindersContext } from '@/lib/contexts/RemindersContext'
 
 interface NotificationPanelProps {
-  reminders: ReminderWithTask[]
   onClose: () => void
-  onMarkAsRead: (id: string) => Promise<void>
-  onDismiss: (id: string) => Promise<void>
-  onSnooze: (id: string, duration: SnoozeDuration) => Promise<void>
-  onClearAll: () => Promise<void>
-  onCompleteTask: (taskId: string) => Promise<void>
 }
 
 const SNOOZE_OPTIONS: { value: SnoozeDuration; label: string }[] = [
@@ -335,15 +330,16 @@ function ReminderItem({
   )
 }
 
-export default function NotificationPanel({
-  reminders,
-  onClose,
-  onMarkAsRead,
-  onDismiss,
-  onSnooze,
-  onClearAll,
-  onCompleteTask,
-}: NotificationPanelProps) {
+export default function NotificationPanel({ onClose }: NotificationPanelProps) {
+  const {
+    reminders,
+    markAsRead,
+    dismiss,
+    snooze,
+    clearAll,
+    completeTask,
+  } = useRemindersContext()
+
   // Track which items are in the process of exiting
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
 
@@ -352,7 +348,7 @@ export default function NotificationPanel({
   }
 
   const handleClearAll = async () => {
-    await onClearAll()
+    await clearAll()
     onClose()
   }
 
@@ -420,10 +416,10 @@ export default function NotificationPanel({
               <ReminderItem
                 key={reminder.id}
                 reminder={reminder}
-                onMarkAsRead={onMarkAsRead}
-                onDismiss={onDismiss}
-                onSnooze={onSnooze}
-                onCompleteTask={onCompleteTask}
+                onMarkAsRead={markAsRead}
+                onDismiss={dismiss}
+                onSnooze={snooze}
+                onCompleteTask={completeTask}
                 onStartExit={handleStartExit}
                 isExiting={exitingIds.has(reminder.id)}
               />

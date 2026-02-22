@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CategoryManager from '@/components/CategoryManager'
+import { useCategories } from '@/lib/contexts/CategoriesContext'
 import type { Category, ReminderPreferences } from '@/lib/types'
 import { apiFetch } from '@/lib/api-client'
 
@@ -34,17 +35,16 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
+  const { categories, setCategories } = useCategories()
   const [reminderPrefs, setReminderPrefs] = useState<ReminderPreferences | null>(null)
   const [savingReminders, setSavingReminders] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch profile, categories, and reminder preferences in parallel
-        const [profileRes, categoriesRes, remindersRes] = await Promise.all([
+        // Fetch profile and reminder preferences in parallel
+        const [profileRes, remindersRes] = await Promise.all([
           fetch('/api/profile'),
-          fetch('/api/categories'),
           fetch('/api/reminders/preferences'),
         ])
 
@@ -53,11 +53,6 @@ export default function SettingsPage() {
           setEmail(data.email || '')
           setDisplayName(data.profile?.display_name || '')
           setTimezone(data.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
-        }
-
-        if (categoriesRes.ok) {
-          const data = await categoriesRes.json()
-          setCategories(data.categories || [])
         }
 
         if (remindersRes.ok) {

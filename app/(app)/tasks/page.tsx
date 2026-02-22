@@ -11,8 +11,8 @@ import PrioritySummary from '@/components/PrioritySummary'
 import SuggestionsSection from '@/components/SuggestionsSection'
 import NotificationBell from '@/components/NotificationBell'
 import ReminderBanner from '@/components/ReminderBanner'
-import { useReminders } from '@/lib/hooks/useReminders'
-import type { TaskWithCategory, Category, TaskTemplateWithCategory, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
+import { useCategories } from '@/lib/contexts/CategoriesContext'
+import type { TaskWithCategory, TaskTemplateWithCategory, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
 import {
   type TaskFilters,
@@ -118,7 +118,7 @@ function TasksPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<TaskWithCategory[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
+  const { categories } = useCategories()
   const [filters, setFilters] = useState<TaskFilters>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(true)
   const [sortMode, setSortMode] = useState<SortMode>('manual')
@@ -126,17 +126,6 @@ function TasksPageContent() {
   const [suggestions, setSuggestions] = useState<TaskSuggestionWithCategory[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [hasPriorities, setHasPriorities] = useState(false)
-
-  // Reminders hook
-  const {
-    reminders,
-    unreadCount,
-    markAsRead,
-    dismiss: dismissReminder,
-    snooze: snoozeReminder,
-    clearAll: clearAllReminders,
-    completeTask: completeReminderTask,
-  } = useReminders()
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -162,19 +151,10 @@ function TasksPageContent() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch all tasks (filtering happens client-side)
-      const [tasksRes, catsRes] = await Promise.all([
-        fetch('/api/tasks'),
-        fetch('/api/categories'),
-      ])
-
+      const tasksRes = await fetch('/api/tasks')
       if (tasksRes.ok) {
         const data = await tasksRes.json()
         setTasks(data.tasks || [])
-      }
-      if (catsRes.ok) {
-        const data = await catsRes.json()
-        setCategories(data.categories || [])
       }
     } catch (err) {
       console.error('Failed to fetch tasks:', err)
@@ -453,15 +433,7 @@ function TasksPageContent() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Notification bell */}
           <div>
-            <NotificationBell
-              reminders={reminders}
-              unreadCount={unreadCount}
-              onMarkAsRead={markAsRead}
-              onDismiss={dismissReminder}
-              onSnooze={snoozeReminder}
-              onClearAll={clearAllReminders}
-              onCompleteTask={completeReminderTask}
-            />
+            <NotificationBell />
           </div>
 
           {/* Template button */}
@@ -549,10 +521,6 @@ function TasksPageContent() {
 
       {/* Reminder banners for urgent/overdue tasks */}
       <ReminderBanner
-        reminders={reminders}
-        onDismiss={dismissReminder}
-        onSnooze={snoozeReminder}
-        onCompleteTask={completeReminderTask}
         onViewAll={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       />
 
