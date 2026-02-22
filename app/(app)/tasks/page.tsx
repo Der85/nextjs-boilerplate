@@ -6,7 +6,6 @@ import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import TemplatePicker from '@/components/TemplatePicker'
-import PriorityPrompt from '@/components/PriorityPrompt'
 import NotificationBell from '@/components/NotificationBell'
 import { useCategories } from '@/lib/contexts/CategoriesContext'
 import type { TaskWithCategory, TaskTemplateWithCategory } from '@/lib/types'
@@ -61,7 +60,7 @@ function groupTasks(allTasks: TaskWithCategory[]) {
     { label: 'Today', tasks: today, color: 'var(--color-accent)' },
     { label: 'This Week', tasks: thisWeek },
     { label: 'No Date', tasks: noDate },
-    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)' },
+    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
   ]
 }
 
@@ -123,6 +122,7 @@ function TasksPageContent() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [newOccurrenceIds, setNewOccurrenceIds] = useState<Set<string>>(new Set())
   const moreMenuRef = useRef<HTMLDivElement>(null)
 
   // Close more menu on outside click
@@ -180,6 +180,22 @@ function TasksPageContent() {
     fetchData()
   }, [fetchData])
 
+  // Add a recurring task's next occurrence with delay + highlight
+  const addNextOccurrence = useCallback((task: TaskWithCategory) => {
+    setTimeout(() => {
+      setTasks(prev => [...prev, task])
+      setNewOccurrenceIds(prev => new Set(prev).add(task.id))
+      // Clear highlight after animation
+      setTimeout(() => {
+        setNewOccurrenceIds(prev => {
+          const next = new Set(prev)
+          next.delete(task.id)
+          return next
+        })
+      }, 1500)
+    }, 800)
+  }, [])
+
   // Optimistic toggle — capture pre-toggle state for accurate revert
   const handleToggle = async (id: string, done: boolean) => {
     let previousTask: TaskWithCategory | undefined
@@ -201,7 +217,7 @@ function TasksPageContent() {
       if (res.ok) {
         const data = await res.json()
         if (data.nextOccurrence) {
-          setTasks(prev => [...prev, data.nextOccurrence])
+          addNextOccurrence(data.nextOccurrence)
         }
       } else if (previousTask) {
         setTasks(prev => prev.map(t => t.id === id ? previousTask! : t))
@@ -226,9 +242,9 @@ function TasksPageContent() {
       })
       if (res.ok) {
         const data = await res.json()
-        // If a next occurrence was created (recurring task skipped), add it to the list
+        // If a next occurrence was created (recurring task skipped), add with delay
         if (data.nextOccurrence) {
-          setTasks(ts => [...ts, data.nextOccurrence])
+          addNextOccurrence(data.nextOccurrence)
         }
       } else if (prev) {
         setTasks(ts => ts.map(t => t.id === id ? prev : t))
@@ -522,9 +538,6 @@ function TasksPageContent() {
         />
       )}
 
-      {/* Priority prompt */}
-      <PriorityPrompt taskCount={tasks.length} variant="banner" />
-
       {/* Task list or empty state */}
       {hasActiveTasks ? (
         <TaskList
@@ -535,6 +548,7 @@ function TasksPageContent() {
           onDrop={handleDrop}
           onReorder={handleReorder}
           sortMode={sortMode}
+          newOccurrenceIds={newOccurrenceIds}
         />
       ) : tasks.length > 0 ? (
         // Has tasks but filters return no results

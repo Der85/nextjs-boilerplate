@@ -105,6 +105,33 @@ a:hover { text-decoration: underline; }
   100% { transform: scale(1); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.task-actions-row {
+  animation: fadeIn 0.15s ease-out;
+}
+
+/* Hide verbose recurrence text on mobile - icon + tooltip is enough */
+@media (max-width: 480px) {
+  .recurrence-text {
+    display: none;
+  }
+}
+
+/* New occurrence highlight for recurring tasks */
+@keyframes new-occurrence {
+  from { background-color: var(--color-accent-light); }
+  to { background-color: transparent; }
+}
+
+.new-occurrence {
+  animation: new-occurrence 1.5s ease-out;
+  border-radius: var(--radius-sm);
+}
+
 /* Skeleton loading */
 .skeleton {
   background: linear-gradient(90deg, var(--color-surface) 25%, #f0f0f0 50%, var(--color-surface) 75%);
