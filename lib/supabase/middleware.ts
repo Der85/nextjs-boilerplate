@@ -71,12 +71,16 @@ export async function updateSession(request: NextRequest) {
     const requestOrigin = origin || (referer ? new URL(referer).origin : null)
 
     if (requestOrigin) {
-      const allowedOrigins = getAllowedOrigins()
-      if (allowedOrigins.length > 0 && !allowedOrigins.includes(requestOrigin)) {
-        return NextResponse.json(
-          { error: 'Invalid request origin.', code: 'CSRF_ERROR' },
-          { status: 403 }
-        )
+      // Same-origin requests are always safe
+      const selfOrigin = `${request.nextUrl.protocol}//${request.nextUrl.host}`
+      if (requestOrigin !== selfOrigin) {
+        const allowedOrigins = getAllowedOrigins()
+        if (allowedOrigins.length > 0 && !allowedOrigins.includes(requestOrigin)) {
+          return NextResponse.json(
+            { error: 'Invalid request origin.', code: 'CSRF_ERROR' },
+            { status: 403 }
+          )
+        }
       }
     }
 

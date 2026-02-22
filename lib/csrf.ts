@@ -37,6 +37,11 @@ export function getAllowedOrigins(): string[] {
     origins.push(`https://${process.env.VERCEL_URL}`)
   }
 
+  // Vercel production domain (custom domains like adhder.io)
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    origins.push(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+  }
+
   if (process.env.NODE_ENV === 'development') {
     origins.push('http://localhost:3000')
   }
