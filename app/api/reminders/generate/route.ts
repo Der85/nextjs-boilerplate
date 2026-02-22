@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
 import type { ReminderPreferences, ReminderType, ReminderPriority, TaskWithCategory, UserPriority } from '@/lib/types'
@@ -169,11 +170,11 @@ export async function POST() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // 1. Get user's reminder preferences
@@ -372,7 +373,7 @@ export async function POST() {
 
       if (insertError) {
         console.error('Reminder insert error:', insertError)
-        return NextResponse.json({ error: 'Failed to create reminders.' }, { status: 500 })
+        return apiError('Failed to create reminders.', 500, 'INTERNAL_ERROR')
       }
     }
 
@@ -383,6 +384,6 @@ export async function POST() {
     })
   } catch (error) {
     console.error('Reminder generate error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

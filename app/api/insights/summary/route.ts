@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 
 export async function GET() {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (insightsRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const now = new Date()
@@ -62,12 +64,12 @@ export async function GET() {
       today.setHours(0, 0, 0, 0)
 
       // Check if today has completions
-      const todayISO = today.toISOString().split('T')[0]
+      const todayISO = formatUTCDate(today)
       if (dates.has(todayISO)) {
         streak = 1
         const d = new Date(today)
         d.setDate(d.getDate() - 1)
-        while (dates.has(d.toISOString().split('T')[0])) {
+        while (dates.has(formatUTCDate(d))) {
           streak++
           d.setDate(d.getDate() - 1)
         }
@@ -75,12 +77,12 @@ export async function GET() {
         // Check if yesterday had completions (streak not broken yet today)
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayISO = yesterday.toISOString().split('T')[0]
+        const yesterdayISO = formatUTCDate(yesterday)
         if (dates.has(yesterdayISO)) {
           streak = 1
           const d = new Date(yesterday)
           d.setDate(d.getDate() - 1)
-          while (dates.has(d.toISOString().split('T')[0])) {
+          while (dates.has(formatUTCDate(d))) {
             streak++
             d.setDate(d.getDate() - 1)
           }
@@ -105,9 +107,11 @@ export async function GET() {
       completed_this_week: completedThisWeek || 0,
       current_streak: streak,
       completion_rate: completionRate,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Insights summary error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

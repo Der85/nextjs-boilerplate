@@ -3,6 +3,7 @@
 // in a single database transaction (reduces N+1 HTTP request problem)
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { tasksRateLimiter } from '@/lib/rateLimiter'
 import { getNextOccurrenceDate } from '@/lib/utils/recurrence'
@@ -18,11 +19,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (tasksRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id: taskId } = await context.params
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (fetchError || !currentTask) {
-      return NextResponse.json({ error: 'Task not found.' }, { status: 404 })
+      return apiError('Task not found.', 404, 'NOT_FOUND')
     }
 
     // Already completed? Return early
@@ -93,18 +94,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // 4. Update the task
+    // 4. Update the task (only if still active — prevents duplicate completion race)
     const { data: task, error: updateError } = await supabase
       .from('tasks')
       .update(updates)
       .eq('id', taskId)
       .eq('user_id', user.id)
+      .neq('status', 'done')
       .select('*, category:categories(id, name, color, icon)')
       .single()
 
     if (updateError) {
+      // If no rows matched, another request already completed this task
+      if (updateError.code === 'PGRST116') {
+        return NextResponse.json({
+          task: currentTask,
+          reminders_dismissed: 0,
+          message: 'Task was already completed',
+        })
+      }
       console.error('Task completion error:', updateError)
-      return NextResponse.json({ error: 'Failed to complete task.' }, { status: 500 })
+      return apiError('Failed to complete task.', 500, 'INTERNAL_ERROR')
     }
 
     // 5. Dismiss all reminders for this task in a single query
@@ -130,6 +140,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     console.error('Task complete error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

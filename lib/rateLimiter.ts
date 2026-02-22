@@ -1,6 +1,14 @@
 // Shared Rate Limiter Utility
 // Used by all API routes to prevent abuse
 // Includes automatic cleanup to prevent memory leaks
+//
+// ⚠️  IN-MEMORY LIMITATION: This rate limiter stores state in process memory.
+//    - State is lost on every server restart or deploy
+//    - Each serverless function instance has its own independent state,
+//      so limits are NOT enforced across concurrent instances
+//    - In development and single-instance deployments this works fine
+//    - For production multi-instance deployments, migrate to a shared store
+//      such as Redis (e.g. Upstash Redis with @upstash/ratelimit)
 
 interface RateBucket {
   count: number
@@ -146,6 +154,12 @@ export const suggestionsRateLimiter = new RateLimiter(60_000, 10)
 
 // Reminders API: 30 requests per minute (frequent polling + actions)
 export const remindersRateLimiter = new RateLimiter(60_000, 30)
+
+// Balance API: 20 requests per minute (score computation + reads)
+export const balanceRateLimiter = new RateLimiter(60_000, 20)
+
+// Weekly Review API: 10 requests per minute (AI generation + reads)
+export const weeklyReviewRateLimiter = new RateLimiter(60_000, 10)
 
 // Export the class for custom instances
 export { RateLimiter }

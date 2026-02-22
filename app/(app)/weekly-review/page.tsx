@@ -7,6 +7,7 @@ import WeeklyReviewHeader from '@/components/WeeklyReviewHeader'
 import WeeklyReviewSection from '@/components/WeeklyReviewSection'
 import WeeklyReviewHistory from '@/components/WeeklyReviewHistory'
 import type { WeeklyReview } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 export default function WeeklyReviewPage() {
   const router = useRouter()
@@ -34,7 +35,7 @@ export default function WeeklyReviewPage() {
 
         // Mark as read if not already
         if (data.review && !data.review.is_read) {
-          fetch(`/api/weekly-review/${data.review.id}`, {
+          apiFetch(`/api/weekly-review/${data.review.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_read: true }),
@@ -53,7 +54,7 @@ export default function WeeklyReviewPage() {
     try {
       setGenerating(true)
       setError(null)
-      const res = await fetch('/api/weekly-review/generate', {
+      const res = await apiFetch('/api/weekly-review/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -78,7 +79,7 @@ export default function WeeklyReviewPage() {
 
     try {
       setSavingReflection(true)
-      const res = await fetch(`/api/weekly-review/${review.id}`, {
+      const res = await apiFetch(`/api/weekly-review/${review.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_reflection: reflection }),

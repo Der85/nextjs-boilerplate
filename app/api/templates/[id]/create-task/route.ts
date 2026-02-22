@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { templatesRateLimiter } from '@/lib/rateLimiter'
+import { templateCreateTaskSchema, parseBody } from '@/lib/validations'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -11,15 +13,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (templatesRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id } = await context.params
     const body = await request.json()
+    const parsed = parseBody(templateCreateTaskSchema, body)
+    if (!parsed.success) return parsed.response
 
     // Fetch the template
     const { data: template, error: templateError } = await supabase
@@ -30,7 +34,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (templateError || !template) {
-      return NextResponse.json({ error: 'Template not found.' }, { status: 404 })
+      return apiError('Template not found.', 404, 'NOT_FOUND')
     }
 
     // Create task from template
@@ -47,11 +51,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Add optional fields from request
-    if (body.due_date) {
-      taskData.due_date = body.due_date
+    if (parsed.data.due_date) {
+      taskData.due_date = parsed.data.due_date
     }
-    if (body.due_time) {
-      taskData.due_time = body.due_time
+    if (parsed.data.due_time) {
+      taskData.due_time = parsed.data.due_time
     }
 
     const { data: task, error: taskError } = await supabase
@@ -62,21 +66,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (taskError) {
       console.error('Task from template error:', taskError)
-      return NextResponse.json({ error: 'Failed to create task.' }, { status: 500 })
+      return apiError('Failed to create task.', 500, 'INTERNAL_ERROR')
     }
 
-    // Update template usage stats
-    await supabase
-      .from('task_templates')
-      .update({
-        use_count: template.use_count + 1,
-        last_used_at: new Date().toISOString(),
-      })
-      .eq('id', id)
+    // Atomically increment template usage stats
+    await supabase.rpc('increment_template_use_count', { template_id: id })
 
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {
     console.error('Templates create-task POST error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

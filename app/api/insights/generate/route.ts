@@ -7,126 +7,16 @@
 // from the last 10 minutes (prevents spam and saves API costs).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { insightsRateLimiter } from '@/lib/rateLimiter'
+import { GEMINI_MODEL } from '@/lib/ai/gemini'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { Insight, InsightRow, InsightType, CategoryStats, CategoryPatterns, PriorityDrift, UserPriority, PriorityDomain, DriftDirection } from '@/lib/types'
+import { type TaskWithCategory, fetchRecentTasks, computeCategoryStats } from '@/lib/utils/taskStats'
 
 const CACHE_MINUTES = 10
 const MIN_CATEGORIZED_TASKS = 5
-
-// ============================================
-// Types
-// ============================================
-interface TaskWithCategory {
-  id: string
-  status: string
-  category_id: string | null
-  completed_at: string | null
-  dropped_at: string | null
-  skipped_at: string | null
-  created_at: string
-  category: {
-    id: string
-    name: string
-    icon: string
-    color: string
-  } | null
-}
-
-// ============================================
-// Data Gathering — last 14 days
-// ============================================
-function fourteenDaysAgo(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 14)
-  return d.toISOString()
-}
-
-async function fetchRecentTasks(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<TaskWithCategory[]> {
-  const { data } = await supabase
-    .from('tasks')
-    .select('id, status, category_id, completed_at, dropped_at, skipped_at, created_at, category:categories(id, name, icon, color)')
-    .eq('user_id', userId)
-    .gte('created_at', fourteenDaysAgo())
-    .order('created_at', { ascending: true })
-
-  // Supabase returns category as single object when FK relationship exists
-  return ((data || []) as unknown as TaskWithCategory[]).map(task => ({
-    ...task,
-    // Ensure category is single object or null (not array)
-    category: Array.isArray(task.category) ? task.category[0] || null : task.category,
-  }))
-}
-
-// ============================================
-// Category Statistics Computation
-// ============================================
-function computeCategoryStats(tasks: TaskWithCategory[]): CategoryStats[] {
-  const statsMap = new Map<string, {
-    id: string
-    name: string
-    icon: string
-    color: string
-    total: number
-    completed: number
-    dropped: number
-    skipped: number
-    completionDays: number[]
-  }>()
-
-  for (const task of tasks) {
-    if (!task.category_id || !task.category) continue
-
-    const cat = task.category
-    let stat = statsMap.get(cat.id)
-    if (!stat) {
-      stat = {
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        color: cat.color,
-        total: 0,
-        completed: 0,
-        dropped: 0,
-        skipped: 0,
-        completionDays: [],
-      }
-      statsMap.set(cat.id, stat)
-    }
-
-    stat.total++
-
-    if (task.status === 'done' && task.completed_at) {
-      stat.completed++
-      const created = new Date(task.created_at)
-      const completed = new Date(task.completed_at)
-      const days = Math.ceil((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
-      stat.completionDays.push(days)
-    } else if (task.status === 'dropped') {
-      stat.dropped++
-    } else if (task.status === 'skipped') {
-      stat.skipped++
-    }
-  }
-
-  return Array.from(statsMap.values()).map(s => ({
-    categoryId: s.id,
-    categoryName: s.name,
-    categoryIcon: s.icon,
-    categoryColor: s.color,
-    totalTasks: s.total,
-    completedTasks: s.completed,
-    completionRate: s.total > 0 ? s.completed / s.total : 0,
-    droppedCount: s.dropped,
-    skippedCount: s.skipped,
-    avgDaysToComplete: s.completionDays.length > 0
-      ? s.completionDays.reduce((a, b) => a + b, 0) / s.completionDays.length
-      : null,
-  }))
-}
 
 // ============================================
 // Cross-Category Pattern Computation
@@ -167,8 +57,8 @@ function computeCategoryPatterns(
 
     // Sort dates and find current streak (ending today or yesterday)
     const sortedDates = Array.from(completionDates).sort().reverse()
-    const today = new Date().toISOString().split('T')[0]
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const today = formatUTCDate(new Date())
+    const yesterday = formatUTCDate(new Date(Date.now() - 86400000))
 
     // Only count if streak is current (includes today or yesterday)
     if (sortedDates[0] !== today && sortedDates[0] !== yesterday) continue
@@ -370,8 +260,8 @@ async function saveInsight(
     category_id: insight.category_id || null,
     category_color: insight.category_color || null,
     priority_rank: insight.priority_rank || null,
-    data_window_start: windowStart.toISOString().split('T')[0],
-    data_window_end: now.toISOString().split('T')[0],
+    data_window_start: formatUTCDate(windowStart),
+    data_window_end: formatUTCDate(now),
   }).select('id, type, title, message, icon, category_id, category_color, priority_rank, is_dismissed, is_helpful, data_window_start, data_window_end, created_at, user_id').single()
 
   return data as InsightRow | null
@@ -514,7 +404,7 @@ JSON TEMPLATE (for category or priority_drift):
 async function callGemini(apiKey: string, prompt: string): Promise<Insight | null> {
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -598,12 +488,12 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     // Rate limit
     if (insightsRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // 1. Check cache — return existing insight if < 10 min old
@@ -673,6 +563,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Insights generate API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

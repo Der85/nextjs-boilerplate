@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
-import type { ReminderPreferencesInput } from '@/lib/types'
+import { reminderPreferencesSchema, parseBody } from '@/lib/validations'
 
 // Default preferences for new users
 const DEFAULT_PREFERENCES = {
@@ -24,11 +25,11 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     // Try to fetch existing preferences
@@ -41,11 +42,13 @@ export async function GET() {
     if (error && error.code !== 'PGRST116') {
       // PGRST116 = no rows found (expected for new users)
       console.error('Reminder preferences fetch error:', error)
-      return NextResponse.json({ error: 'Failed to fetch preferences.' }, { status: 500 })
+      return apiError('Failed to fetch preferences.', 500, 'INTERNAL_ERROR')
     }
 
+    const cacheHeaders = { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+
     if (prefs) {
-      return NextResponse.json({ preferences: prefs })
+      return NextResponse.json({ preferences: prefs }, { headers: cacheHeaders })
     }
 
     // Create default preferences for new users
@@ -60,13 +63,13 @@ export async function GET() {
 
     if (insertError) {
       console.error('Reminder preferences insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to create preferences.' }, { status: 500 })
+      return apiError('Failed to create preferences.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ preferences: newPrefs })
+    return NextResponse.json({ preferences: newPrefs }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Reminder preferences GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -79,44 +82,24 @@ export async function PUT(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
-    const body: ReminderPreferencesInput = await request.json()
-
-    // Validate inputs
-    if (body.max_reminders_per_day !== undefined) {
-      if (body.max_reminders_per_day < 1 || body.max_reminders_per_day > 15) {
-        return NextResponse.json({ error: 'Max reminders per day must be between 1 and 15.' }, { status: 400 })
-      }
-    }
-
-    if (body.reminder_lead_time_minutes !== undefined) {
-      if (![15, 30, 60, 120].includes(body.reminder_lead_time_minutes)) {
-        return NextResponse.json({ error: 'Invalid lead time.' }, { status: 400 })
-      }
-    }
-
-    if (body.preferred_reminder_times !== undefined) {
-      if (body.preferred_reminder_times.length > 3) {
-        return NextResponse.json({ error: 'Maximum 3 preferred reminder times.' }, { status: 400 })
-      }
-    }
+    const body = await request.json()
+    const parsed = parseBody(reminderPreferencesSchema, body)
+    if (!parsed.success) return parsed.response
 
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {}
-    if (body.reminders_enabled !== undefined) updates.reminders_enabled = body.reminders_enabled
-    if (body.quiet_hours_start !== undefined) updates.quiet_hours_start = body.quiet_hours_start
-    if (body.quiet_hours_end !== undefined) updates.quiet_hours_end = body.quiet_hours_end
-    if (body.max_reminders_per_day !== undefined) updates.max_reminders_per_day = body.max_reminders_per_day
-    if (body.reminder_lead_time_minutes !== undefined) updates.reminder_lead_time_minutes = body.reminder_lead_time_minutes
-    if (body.preferred_reminder_times !== undefined) updates.preferred_reminder_times = body.preferred_reminder_times
-    if (body.weekend_reminders !== undefined) updates.weekend_reminders = body.weekend_reminders
-    if (body.high_priority_override !== undefined) updates.high_priority_override = body.high_priority_override
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (value !== undefined) {
+        updates[key] = value
+      }
+    }
 
     // Upsert preferences
     const { data: prefs, error } = await supabase
@@ -130,12 +113,12 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Reminder preferences update error:', error)
-      return NextResponse.json({ error: 'Failed to update preferences.' }, { status: 500 })
+      return apiError('Failed to update preferences.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ preferences: prefs })
   } catch (error) {
     console.error('Reminder preferences PUT error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

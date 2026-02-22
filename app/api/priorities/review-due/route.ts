@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { prioritiesRateLimiter } from '@/lib/rateLimiter'
 
 const REVIEW_INTERVAL_DAYS = 90 // Quarterly review
 
@@ -8,8 +10,12 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (prioritiesRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Get the most recent last_reviewed_at from user's priorities
     const { data: priorities, error } = await supabase
@@ -21,8 +27,10 @@ export async function GET() {
 
     if (error) {
       console.error('Priority review check error:', error)
-      return NextResponse.json({ error: 'Failed to check review status.' }, { status: 500 })
+      return apiError('Failed to check review status.', 500, 'INTERNAL_ERROR')
     }
+
+    const cacheHeaders = { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=7200' }
 
     // If no priorities exist, they haven't set them yet
     if (!priorities || priorities.length === 0) {
@@ -31,7 +39,7 @@ export async function GET() {
         lastReviewedAt: null,
         daysSinceReview: null,
         hasPriorities: false,
-      })
+      }, { headers: cacheHeaders })
     }
 
     const lastReviewedAt = priorities[0].last_reviewed_at
@@ -46,9 +54,9 @@ export async function GET() {
       lastReviewedAt,
       daysSinceReview,
       hasPriorities: true,
-    })
+    }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Priority review-due GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

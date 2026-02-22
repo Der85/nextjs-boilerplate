@@ -2,7 +2,10 @@
 // Returns the most recent weekly review for the user
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { WeeklyReview } from '@/lib/types'
 
 // ============================================
@@ -14,7 +17,7 @@ function getWeekStartFromDate(dateStr: string): string {
   const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   const monday = new Date(date)
   monday.setDate(date.getDate() - daysToMonday)
-  return monday.toISOString().split('T')[0]
+  return formatUTCDate(monday)
 }
 
 function getLastWeekStart(): string {
@@ -23,7 +26,7 @@ function getLastWeekStart(): string {
   const daysToLastMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   const lastMonday = new Date(now)
   lastMonday.setDate(now.getDate() - daysToLastMonday - 7)
-  return lastMonday.toISOString().split('T')[0]
+  return formatUTCDate(lastMonday)
 }
 
 // ============================================
@@ -49,8 +52,12 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Check for specific week query param
     const searchParams = request.nextUrl.searchParams
@@ -76,7 +83,7 @@ export async function GET(request: NextRequest) {
     if (error && error.code !== 'PGRST116') {
       // PGRST116 = no rows returned, which is fine
       console.error('Failed to fetch weekly review:', error)
-      return NextResponse.json({ error: 'Failed to fetch review' }, { status: 500 })
+      return apiError('Failed to fetch review', 500, 'INTERNAL_ERROR')
     }
 
     // Check if user can generate a review
@@ -115,9 +122,11 @@ export async function GET(request: NextRequest) {
       canGenerate,
       canGenerateReason: reason,
       canShowReviewPrompt,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Weekly review GET error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

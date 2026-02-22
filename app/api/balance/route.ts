@@ -4,8 +4,11 @@
 // Also returns the last 14 scores for the trend chart
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { balanceRateLimiter } from '@/lib/rateLimiter'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow, BalanceScoreTrend } from '@/lib/types'
 
 // ============================================
@@ -31,7 +34,7 @@ async function getTodayScore(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<BalanceScoreRow | null> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatUTCDate(new Date())
 
   const { data } = await supabase
     .from('balance_scores')
@@ -58,7 +61,7 @@ async function getRecentScores(
     .from('balance_scores')
     .select('score, computed_for_date')
     .eq('user_id', userId)
-    .gte('computed_for_date', cutoffDate.toISOString().split('T')[0])
+    .gte('computed_for_date', formatUTCDate(cutoffDate))
     .order('computed_for_date', { ascending: true })
 
   return (data || []).map(d => ({
@@ -196,17 +199,23 @@ export async function GET(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (balanceRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // 1. Check if user has priorities
     const priorities = await fetchUserPriorities(supabase, user.id)
+
+    const cacheHeaders = { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' }
 
     if (priorities.length === 0) {
       return NextResponse.json({
         hasPriorities: false,
         message: 'Please set your life priorities first to see your balance score.',
-      })
+      }, { headers: cacheHeaders })
     }
 
     // 2. Check for today's score
@@ -218,7 +227,7 @@ export async function GET(_request: NextRequest) {
       const categoryStats = computeExtendedCategoryStats(tasks)
       const previousScore = await getPreviousScore(supabase, user.id)
       const balanceScore = computeBalanceScore(priorities, categoryStats, previousScore)
-      const today = new Date().toISOString().split('T')[0]
+      const today = formatUTCDate(new Date())
       todayScore = await saveBalanceScore(supabase, user.id, balanceScore, today)
     }
 
@@ -239,9 +248,9 @@ export async function GET(_request: NextRequest) {
       score: todayScore,
       trend,
       changeFromYesterday,
-    })
+    }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Balance GET API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

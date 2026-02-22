@@ -2,8 +2,11 @@
 // Update user reflection and read status on a weekly review
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
-import type { WeeklyReview, WeeklyReviewUpdateRequest } from '@/lib/types'
+import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
+import { weeklyReviewPatchSchema, parseBody } from '@/lib/validations'
+import type { WeeklyReview } from '@/lib/types'
 
 // ============================================
 // Get Single Review
@@ -18,8 +21,12 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const { data: review, error } = await supabase
       .from('weekly_reviews')
@@ -29,13 +36,15 @@ export async function GET(
       .single()
 
     if (error || !review) {
-      return NextResponse.json({ error: 'Review not found' }, { status: 404 })
+      return apiError('Review not found', 404, 'NOT_FOUND')
     }
 
-    return NextResponse.json({ review: review as WeeklyReview })
+    return NextResponse.json({ review: review as WeeklyReview }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
+    })
   } catch (error) {
     console.error('Weekly review GET by ID error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -52,27 +61,29 @@ export async function PATCH(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
+    }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
-    const body: WeeklyReviewUpdateRequest = await request.json()
+
+    const body = await request.json()
+    const parsed = parseBody(weeklyReviewPatchSchema, body)
+    if (!parsed.success) return parsed.response
 
     // Build update object
     const updates: Record<string, unknown> = {}
 
-    if (body.user_reflection !== undefined) {
-      updates.user_reflection = body.user_reflection
+    if (parsed.data.user_reflection !== undefined) {
+      updates.user_reflection = parsed.data.user_reflection
     }
 
-    if (body.is_read !== undefined) {
-      updates.is_read = body.is_read
-      if (body.is_read) {
+    if (parsed.data.is_read !== undefined) {
+      updates.is_read = parsed.data.is_read
+      if (parsed.data.is_read) {
         updates.read_at = new Date().toISOString()
       }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
     }
 
     // Update the review
@@ -86,12 +97,12 @@ export async function PATCH(
 
     if (error) {
       console.error('Failed to update weekly review:', error)
-      return NextResponse.json({ error: 'Failed to update review' }, { status: 500 })
+      return apiError('Failed to update review', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ review: review as WeeklyReview })
   } catch (error) {
     console.error('Weekly review PATCH error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

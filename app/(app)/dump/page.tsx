@@ -6,6 +6,7 @@ import DumpInput from '@/components/DumpInput'
 import ConfirmationCards from '@/components/ConfirmationCards'
 import WeeklyReviewBanner from '@/components/WeeklyReviewBanner'
 import type { ParsedTask, DumpResponse } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 type DumpPhase = 'input' | 'confirming' | 'success'
 
@@ -22,7 +23,7 @@ export default function DumpPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/dump', {
+      const res = await apiFetch('/api/dump', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw_text: text, source }),
@@ -58,7 +59,7 @@ export default function DumpPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await apiFetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dump_id: dumpId, tasks }),

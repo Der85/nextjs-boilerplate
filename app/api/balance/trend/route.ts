@@ -2,7 +2,10 @@
 // Returns the last 30 days of balance scores for trend visualization
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { balanceRateLimiter } from '@/lib/rateLimiter'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { BalanceScoreTrend } from '@/lib/types'
 
 // ============================================
@@ -20,7 +23,7 @@ async function getTrendData(
     .from('balance_scores')
     .select('score, computed_for_date')
     .eq('user_id', userId)
-    .gte('computed_for_date', cutoffDate.toISOString().split('T')[0])
+    .gte('computed_for_date', formatUTCDate(cutoffDate))
     .order('computed_for_date', { ascending: true })
 
   return (data || []).map(d => ({
@@ -122,8 +125,12 @@ export async function GET(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (balanceRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Get 30-day trend data
     const trend = await getTrendData(supabase, user.id, 30)
@@ -136,9 +143,11 @@ export async function GET(_request: NextRequest) {
       trend,
       direction,
       stats,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Balance trend API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

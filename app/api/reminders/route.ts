@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
 
@@ -14,11 +15,11 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const now = new Date().toISOString()
@@ -44,7 +45,7 @@ export async function GET() {
 
     if (error) {
       console.error('Reminders fetch error:', error)
-      return NextResponse.json({ error: 'Failed to fetch reminders.' }, { status: 500 })
+      return apiError('Failed to fetch reminders.', 500, 'INTERNAL_ERROR')
     }
 
     // Normalize task joins and sort by priority
@@ -97,10 +98,12 @@ export async function GET() {
     return NextResponse.json({
       reminders: normalizedReminders,
       unread_count: unreadCount,
+    }, {
+      headers: { 'Cache-Control': 'private, no-store' },
     })
   } catch (error) {
     console.error('Reminders GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -113,11 +116,11 @@ export async function DELETE() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const now = new Date().toISOString()
@@ -130,12 +133,12 @@ export async function DELETE() {
 
     if (error) {
       console.error('Reminders clear error:', error)
-      return NextResponse.json({ error: 'Failed to clear reminders.' }, { status: 500 })
+      return apiError('Failed to clear reminders.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ success: true, message: 'All reminders cleared.' })
   } catch (error) {
     console.error('Reminders DELETE error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

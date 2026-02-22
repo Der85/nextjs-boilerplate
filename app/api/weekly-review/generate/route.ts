@@ -2,7 +2,11 @@
 // Generates an AI-powered weekly review for the most recently completed week
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
+import { GEMINI_MODEL } from '@/lib/ai/gemini'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type {
   WeeklyReview,
   WeeklyReviewAIResponse,
@@ -28,8 +32,8 @@ function getLastWeekRange(): { weekStart: string; weekEnd: string } {
   lastSunday.setDate(lastMonday.getDate() + 6)
 
   return {
-    weekStart: lastMonday.toISOString().split('T')[0],
-    weekEnd: lastSunday.toISOString().split('T')[0],
+    weekStart: formatUTCDate(lastMonday),
+    weekEnd: formatUTCDate(lastSunday),
   }
 }
 
@@ -392,7 +396,7 @@ async function generateReviewWithGemini(prompt: string): Promise<WeeklyReviewAIR
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -503,8 +507,12 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Check if it's a valid day to generate (Monday-Wednesday)
     if (!isValidGenerationDay()) {
@@ -588,7 +596,7 @@ export async function POST(_request: NextRequest) {
 
     if (saveError) {
       console.error('Failed to save weekly review:', saveError)
-      return NextResponse.json({ error: 'Failed to save review' }, { status: 500 })
+      return apiError('Failed to save review', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({
@@ -598,6 +606,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Weekly review generate error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -2,7 +2,9 @@
 // Returns all weekly reviews for the user, paginated
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { weeklyReviewRateLimiter } from '@/lib/rateLimiter'
 import type { WeeklyReview } from '@/lib/types'
 
 // ============================================
@@ -14,8 +16,12 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (weeklyReviewRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Parse pagination params
     const searchParams = request.nextUrl.searchParams
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Failed to fetch weekly review history:', error)
-      return NextResponse.json({ error: 'Failed to fetch history' }, { status: 500 })
+      return apiError('Failed to fetch history', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({
@@ -41,9 +47,11 @@ export async function GET(request: NextRequest) {
       limit,
       offset,
       hasMore: count ? offset + limit < count : false,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Weekly review history error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

@@ -21,6 +21,7 @@ import {
   searchParamsToFilters,
   filtersToSearchParams,
 } from '@/lib/utils/filters'
+import { apiFetch } from '@/lib/api-client'
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'manual', label: 'Manual' },
@@ -170,7 +171,7 @@ function TasksPageContent() {
   const handleGenerateSuggestions = async () => {
     setSuggestionsLoading(true)
     try {
-      const res = await fetch('/api/suggestions/generate', { method: 'POST' })
+      const res = await apiFetch('/api/suggestions/generate', { method: 'POST' })
       if (res.ok) {
         await fetchSuggestions()
       }
@@ -184,7 +185,7 @@ function TasksPageContent() {
   // Accept suggestion (create task)
   const handleAcceptSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
     try {
-      const res = await fetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'POST' })
+      const res = await apiFetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'POST' })
       if (res.ok) {
         const data = await res.json()
         if (data.task) {
@@ -201,7 +202,7 @@ function TasksPageContent() {
   const handleDismissSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
     setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
     try {
-      await fetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'POST' })
+      await apiFetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'POST' })
     } catch (err) {
       console.error('Failed to dismiss suggestion:', err)
     }
@@ -211,7 +212,7 @@ function TasksPageContent() {
   const handleSnoozeSuggestion = async (suggestion: TaskSuggestionWithCategory, until: SnoozeOption) => {
     setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
     try {
-      await fetch(`/api/suggestions/${suggestion.id}/snooze`, {
+      await apiFetch(`/api/suggestions/${suggestion.id}/snooze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ until }),
@@ -268,7 +269,7 @@ function TasksPageContent() {
     ))
 
     try {
-      const res = await fetch(`/api/tasks/${id}`, {
+      const res = await apiFetch(`/api/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: done ? 'done' : 'active' }),
@@ -303,7 +304,7 @@ function TasksPageContent() {
     setTasks(ts => ts.map(t => t.id === id ? { ...t, ...updates } : t))
 
     try {
-      const res = await fetch(`/api/tasks/${id}`, {
+      const res = await apiFetch(`/api/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -328,7 +329,7 @@ function TasksPageContent() {
       t.id === id ? { ...t, status: 'dropped' as const } : t
     ))
 
-    await fetch(`/api/tasks/${id}`, {
+    await apiFetch(`/api/tasks/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'dropped' }),
@@ -344,7 +345,7 @@ function TasksPageContent() {
   // Handle creating task from template
   const handleTemplateSelect = async (template: TaskTemplateWithCategory) => {
     try {
-      const res = await fetch(`/api/templates/${template.id}/create-task`, {
+      const res = await apiFetch(`/api/templates/${template.id}/create-task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -374,7 +375,7 @@ function TasksPageContent() {
     // Send to API
     try {
       const tasksToUpdate = orderedIds.map((id, idx) => ({ id, position: idx * 1000 }))
-      await fetch('/api/tasks/reorder', {
+      await apiFetch('/api/tasks/reorder', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tasks: tasksToUpdate }),

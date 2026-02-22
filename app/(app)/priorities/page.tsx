@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { DEFAULT_CATEGORIES } from '@/lib/utils/categories'
 import type { PriorityDomain, PriorityInput, UserPriority } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 type WizardStep = 'intro' | 'ranking' | 'calibration' | 'notes' | 'confirmation'
 
@@ -199,7 +200,7 @@ export default function PrioritiesPage() {
     }))
 
     try {
-      const res = await fetch('/api/priorities', {
+      const res = await apiFetch('/api/priorities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

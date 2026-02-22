@@ -4,11 +4,13 @@ import { DEFAULT_CATEGORY_NAMES } from '@/lib/utils/categories'
 import { getDumpParsePrompt } from './prompts'
 import { dumpParseSchema } from './schemas'
 
+export const GEMINI_MODEL = 'gemini-2.0-flash'
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function parseBrainDump(rawText: string): Promise<DumpParseResult> {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: GEMINI_MODEL,
     generationConfig: {
       temperature: 0.3,
       maxOutputTokens: 2048,
@@ -28,16 +30,28 @@ export async function parseBrainDump(rawText: string): Promise<DumpParseResult> 
 
   // Validate and sanitize each task
   const tasks: ParsedTask[] = (parsed.tasks || [])
-    .map((t: Record<string, unknown>) => ({
-      title: String(t.title || '').trim().slice(0, 500),
-      due_date: typeof t.due_date === 'string' && t.due_date ? t.due_date : null,
-      due_time: typeof t.due_time === 'string' && t.due_time ? t.due_time : null,
-      priority: (['low', 'medium', 'high'].includes(t.priority as string) ? t.priority : 'medium') as 'low' | 'medium' | 'high',
-      confidence: typeof t.confidence === 'number' ? Math.min(Math.max(t.confidence, 0), 1) : 0.8,
-      original_fragment: String(t.original_fragment || '').trim().slice(0, 1000),
-      category: DEFAULT_CATEGORY_NAMES.includes(t.category as string) ? (t.category as string) : 'Admin',
-      category_confidence: typeof t.category_confidence === 'number' ? Math.min(Math.max(t.category_confidence, 0), 1) : 0.5,
-    }))
+    .map((t: Record<string, unknown>) => {
+      const priority = (['low', 'medium', 'high'].includes(t.priority as string) ? t.priority : 'medium') as 'low' | 'medium' | 'high'
+      if (priority === 'medium' && t.priority && !['low', 'medium', 'high'].includes(t.priority as string)) {
+        console.error('[parseBrainDump] Invalid priority from AI, falling back to "medium":', t.priority)
+      }
+
+      const category = DEFAULT_CATEGORY_NAMES.includes(t.category as string) ? (t.category as string) : 'Admin'
+      if (category === 'Admin' && t.category && !DEFAULT_CATEGORY_NAMES.includes(t.category as string)) {
+        console.error('[parseBrainDump] Invalid category from AI, falling back to "Admin":', t.category)
+      }
+
+      return {
+        title: String(t.title || '').trim().slice(0, 500),
+        due_date: typeof t.due_date === 'string' && t.due_date ? t.due_date : null,
+        due_time: typeof t.due_time === 'string' && t.due_time ? t.due_time : null,
+        priority,
+        confidence: typeof t.confidence === 'number' ? Math.min(Math.max(t.confidence, 0), 1) : 0.8,
+        original_fragment: String(t.original_fragment || '').trim().slice(0, 1000),
+        category,
+        category_confidence: typeof t.category_confidence === 'number' ? Math.min(Math.max(t.category_confidence, 0), 1) : 0.5,
+      }
+    })
     .filter((t: ParsedTask) => t.title.length > 0)
 
   return { tasks }
@@ -50,7 +64,7 @@ export async function parseBrainDump(rawText: string): Promise<DumpParseResult> 
 export async function categorizeTask(taskTitle: string): Promise<{ category: string; confidence: number }> {
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: GEMINI_MODEL,
       generationConfig: {
         temperature: 0.2,
         maxOutputTokens: 256,
@@ -78,8 +92,8 @@ Return JSON: { "category": string, "confidence": number (0-1) }
     const confidence = typeof parsed.confidence === 'number' ? Math.min(Math.max(parsed.confidence, 0), 1) : 0.5
 
     return { category, confidence }
-  } catch {
-    // Fallback to Admin with low confidence on any error
+  } catch (err) {
+    console.error('[categorizeTask] AI categorization failed, falling back to "Admin":', err)
     return { category: 'Admin', confidence: 0.3 }
   }
 }

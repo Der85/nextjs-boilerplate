@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { suggestionsRateLimiter } from '@/lib/rateLimiter'
 
 // GET /api/suggestions
 // Returns pending and unsnoozed suggestions for the user
@@ -11,8 +13,12 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (suggestionsRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     const now = new Date().toISOString()
 
@@ -31,7 +37,7 @@ export async function GET() {
 
     if (error) {
       console.error('Suggestions fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load suggestions.' }, { status: 500 })
+      return apiError('Failed to load suggestions.', 500, 'INTERNAL_ERROR')
     }
 
     // Sort by suggestion_type priority and format response
@@ -55,9 +61,11 @@ export async function GET() {
         return orderA - orderB
       })
 
-    return NextResponse.json({ suggestions: sortedSuggestions })
+    return NextResponse.json({ suggestions: sortedSuggestions }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+    })
   } catch (error) {
     console.error('Suggestions GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

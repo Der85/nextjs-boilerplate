@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
 import type { SnoozeDuration } from '@/lib/types'
@@ -54,11 +55,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
 
     if (remindersRateLimiter.isLimited(user.id)) {
-      return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
     const { id } = await context.params
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Validate duration
     const validDurations: SnoozeDuration[] = ['10min', '30min', '1hour', 'after_lunch', 'tomorrow_morning']
     if (!validDurations.includes(duration)) {
-      return NextResponse.json({ error: 'Invalid snooze duration.' }, { status: 400 })
+      return apiError('Invalid snooze duration.', 400, 'VALIDATION_ERROR')
     }
 
     const snoozedUntil = calculateSnoozeUntil(duration)
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (error) {
       console.error('Reminder snooze error:', error)
-      return NextResponse.json({ error: 'Failed to snooze reminder.' }, { status: 500 })
+      return apiError('Failed to snooze reminder.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({
@@ -94,6 +95,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     console.error('Reminder snooze error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

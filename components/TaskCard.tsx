@@ -18,6 +18,28 @@ interface TaskCardProps {
   onDrop: (id: string) => void
 }
 
+const actionButtonStyle: React.CSSProperties = {
+  width: '44px',
+  height: '44px',
+  borderRadius: 'var(--radius-full)',
+  border: 'none',
+  background: 'none',
+  color: 'var(--color-text-tertiary)',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  margin: '-10px 0 -10px 0',
+  padding: 0,
+  opacity: 0.4,
+  transition: 'opacity 0.15s',
+}
+
+const handleActionHover = (e: React.MouseEvent<HTMLButtonElement>, opacity: string) => {
+  e.currentTarget.style.opacity = opacity
+}
+
 export default function TaskCard({ task, categories = [], onToggle, onUpdate, onDrop }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
@@ -291,25 +313,9 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
         <button
           onClick={() => setShowEditModal(true)}
           aria-label="Edit task"
-          style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-full)',
-            border: 'none',
-            background: 'none',
-            color: 'var(--color-text-tertiary)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            margin: '-10px 0 -10px 0',
-            padding: 0,
-            opacity: 0.4,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+          style={actionButtonStyle}
+          onMouseEnter={(e) => handleActionHover(e, '1')}
+          onMouseLeave={(e) => handleActionHover(e, '0.4')}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -324,25 +330,9 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
           onClick={() => onUpdate(task.id, { status: 'skipped' })}
           aria-label="Skip this occurrence"
           title={task.recurring_streak > 0 ? `Skip (will reset ${task.recurring_streak} day streak)` : 'Skip this occurrence'}
-          style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-full)',
-            border: 'none',
-            background: 'none',
-            color: 'var(--color-text-tertiary)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            margin: '-10px 0 -10px 0',
-            padding: 0,
-            opacity: 0.4,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+          style={actionButtonStyle}
+          onMouseEnter={(e) => handleActionHover(e, '1')}
+          onMouseLeave={(e) => handleActionHover(e, '0.4')}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="5 4 15 12 5 20 5 4" />
@@ -356,25 +346,9 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
         <button
           onClick={() => onDrop(task.id)}
           aria-label="Drop task"
-          style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-full)',
-            border: 'none',
-            background: 'none',
-            color: 'var(--color-text-tertiary)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            margin: '-10px -10px -10px 0',
-            padding: 0,
-            opacity: 0.4,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+          style={{ ...actionButtonStyle, margin: '-10px -10px -10px 0' }}
+          onMouseEnter={(e) => handleActionHover(e, '1')}
+          onMouseLeave={(e) => handleActionHover(e, '0.4')}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />

@@ -3,8 +3,11 @@
 // Score represents alignment between task activity and stated priorities
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { balanceRateLimiter } from '@/lib/rateLimiter'
 import { fetchRecentTasks, computeExtendedCategoryStats } from '@/lib/utils/taskStats'
+import { formatUTCDate } from '@/lib/utils/dates'
 import type { UserPriority, BalanceScore, DomainScore, BalanceScoreRow } from '@/lib/types'
 
 // ============================================
@@ -162,8 +165,12 @@ export async function POST(_request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (balanceRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // 1. Fetch user priorities
     const priorities = await fetchUserPriorities(supabase, user.id)
@@ -188,7 +195,7 @@ export async function POST(_request: NextRequest) {
     const balanceScore = computeBalanceScore(priorities, categoryStats, previousScore)
 
     // 6. Save to database
-    const today = new Date().toISOString().split('T')[0]
+    const today = formatUTCDate(new Date())
     const saved = await saveBalanceScore(supabase, user.id, balanceScore, today)
 
     return NextResponse.json({
@@ -197,6 +204,6 @@ export async function POST(_request: NextRequest) {
     })
   } catch (error) {
     console.error('Balance compute API error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }

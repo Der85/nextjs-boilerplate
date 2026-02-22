@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CategoryManager from '@/components/CategoryManager'
 import type { Category, ReminderPreferences } from '@/lib/types'
+import { apiFetch } from '@/lib/api-client'
 
 const COMMON_TIMEZONES = [
   'America/New_York',
@@ -77,7 +78,7 @@ export default function SettingsPage() {
     setSaveMessage(null)
 
     try {
-      const res = await fetch('/api/profile', {
+      const res = await apiFetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: displayName, timezone }),
@@ -106,7 +107,7 @@ export default function SettingsPage() {
 
   const handleCategoryUpdate = async (id: string, updates: Partial<Category>) => {
     try {
-      const res = await fetch(`/api/categories/${id}`, {
+      const res = await apiFetch(`/api/categories/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -123,7 +124,7 @@ export default function SettingsPage() {
 
   const handleCategoryCreate = async (category: { name: string; color: string; icon: string }) => {
     try {
-      const res = await fetch('/api/categories', {
+      const res = await apiFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(category),
@@ -140,7 +141,7 @@ export default function SettingsPage() {
 
   const handleCategoryDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/categories/${id}`, {
+      const res = await apiFetch(`/api/categories/${id}`, {
         method: 'DELETE',
       })
 
@@ -161,7 +162,7 @@ export default function SettingsPage() {
     setSavingReminders(true)
 
     try {
-      const res = await fetch('/api/reminders/preferences', {
+      const res = await apiFetch('/api/reminders/preferences', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: value }),

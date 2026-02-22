@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
+import { tasksRateLimiter } from '@/lib/rateLimiter'
+import { profilePatchSchema, parseBody } from '@/lib/validations'
 
 export async function GET() {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
     }
+    if (tasksRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
+    }
+
 
     // Try to fetch existing profile
     const { data: profile, error } = await supabase
@@ -26,21 +33,25 @@ export async function GET() {
 
       if (insertError) {
         console.error('Profile create error:', insertError)
-        return NextResponse.json({ error: 'Failed to create profile.' }, { status: 500 })
+        return apiError('Failed to create profile.', 500, 'INTERNAL_ERROR')
       }
 
-      return NextResponse.json({ profile: newProfile, email: user.email })
+      return NextResponse.json({ profile: newProfile, email: user.email }, {
+        headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+      })
     }
 
     if (error) {
       console.error('Profile fetch error:', error)
-      return NextResponse.json({ error: 'Failed to load profile.' }, { status: 500 })
+      return apiError('Failed to load profile.', 500, 'INTERNAL_ERROR')
     }
 
-    return NextResponse.json({ profile, email: user.email })
+    return NextResponse.json({ profile, email: user.email }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
+    })
   } catch (error) {
     console.error('Profile GET error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -49,17 +60,23 @@ export async function PATCH(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return apiError('Authentication required', 401, 'UNAUTHORIZED')
+    }
+    if (tasksRateLimiter.isLimited(user.id)) {
+      return apiError('Too many requests.', 429, 'RATE_LIMITED')
     }
 
+
     const body = await request.json()
+    const parsed = parseBody(profilePatchSchema, body)
+    if (!parsed.success) return parsed.response
 
     const updates: Record<string, unknown> = {}
-    if (typeof body.display_name === 'string') updates.display_name = body.display_name.trim() || null
-    if (typeof body.timezone === 'string') updates.timezone = body.timezone
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
+    if (parsed.data.display_name !== undefined) {
+      updates.display_name = parsed.data.display_name.trim() || null
+    }
+    if (parsed.data.timezone !== undefined) {
+      updates.timezone = parsed.data.timezone
     }
 
     const { data: profile, error } = await supabase
@@ -71,12 +88,12 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Profile update error:', error)
-      return NextResponse.json({ error: 'Failed to update profile.' }, { status: 500 })
+      return apiError('Failed to update profile.', 500, 'INTERNAL_ERROR')
     }
 
     return NextResponse.json({ profile })
   } catch (error) {
     console.error('Profile PATCH error:', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
   }
 }
