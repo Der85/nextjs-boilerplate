@@ -51,12 +51,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: true })
     }
 
-    // Accept: create categories and assign tasks
+    // Accept: claim the suggestion first (prevents duplicate processing),
+    // then create categories, then finalize
+    const { error: claimError } = await supabase
+      .from('category_suggestions')
+      .update({ status: 'processing', resolved_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .eq('status', 'pending') // guard: only claim if still pending
+
+    if (claimError) {
+      return apiError('Suggestion already processed.', 409, 'CONFLICT')
+    }
+
     const suggestedCategories = suggestion.suggested_categories as SuggestedCategory[]
     const createdCategories: Record<string, unknown>[] = []
 
     for (const sc of suggestedCategories) {
-      // Create the category
       const { data: cat, error: catError } = await supabase
         .from('categories')
         .insert({
@@ -77,7 +88,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       createdCategories.push(cat)
 
-      // Assign tasks to this category
       if (sc.task_ids && sc.task_ids.length > 0) {
         await supabase
           .from('tasks')
@@ -87,14 +97,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Mark suggestion as accepted
+    if (createdCategories.length === 0) {
+      // All category creations failed — revert to pending so user can retry
+      await supabase
+        .from('category_suggestions')
+        .update({ status: 'pending', resolved_at: null })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+      return apiError('Failed to create categories.', 500, 'INTERNAL_ERROR')
+    }
+
+    // Finalize: mark accepted and update profile
     await supabase
       .from('category_suggestions')
-      .update({ status: 'accepted', resolved_at: new Date().toISOString() })
+      .update({ status: 'accepted' })
       .eq('id', id)
       .eq('user_id', user.id)
 
-    // Update user profile
     await supabase
       .from('user_profiles')
       .update({ category_suggestions_accepted: true })

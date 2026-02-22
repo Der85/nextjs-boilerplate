@@ -68,79 +68,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updates.skipped_at = null
     }
 
-    // Handle recurring task completion
-    let nextOccurrence = null
+    // Detect recurring task transitions
     const isCompletingRecurring = updates.status === 'done' &&
       currentTask.is_recurring &&
       currentTask.recurrence_rule
 
-    if (isCompletingRecurring) {
-      const rule = currentTask.recurrence_rule as RecurrenceRule
-      const nextDueDate = getNextOccurrenceDate(currentTask.due_date, rule)
-
-      if (nextDueDate) {
-        // Increment streak on the current task
-        updates.recurring_streak = (currentTask.recurring_streak || 0) + 1
-
-        // Create next occurrence
-        const { data: newTask, error: createError } = await supabase
-          .from('tasks')
-          .insert({
-            user_id: user.id,
-            title: currentTask.title,
-            status: 'active',
-            due_date: nextDueDate,
-            due_time: currentTask.due_time,
-            priority: currentTask.priority,
-            category_id: currentTask.category_id,
-            is_recurring: true,
-            recurrence_rule: currentTask.recurrence_rule,
-            recurrence_parent_id: currentTask.recurrence_parent_id || currentTask.id,
-            recurring_streak: (currentTask.recurring_streak || 0) + 1,
-          })
-          .select('*, category:categories(id, name, color, icon)')
-          .single()
-
-        if (!createError && newTask) {
-          nextOccurrence = newTask
-        }
-      }
-    }
-
-    // Handle skipping recurring task - also generate next occurrence
-    let skippedNextOccurrence = null
     const isSkippingRecurring = updates.status === 'skipped' &&
       currentTask.is_recurring &&
       currentTask.recurrence_rule
 
-    if (isSkippingRecurring) {
-      const rule = currentTask.recurrence_rule as RecurrenceRule
-      const nextDueDate = getNextOccurrenceDate(currentTask.due_date, rule)
-
-      if (nextDueDate) {
-        // Create next occurrence with reset streak
-        const { data: newTask, error: createError } = await supabase
-          .from('tasks')
-          .insert({
-            user_id: user.id,
-            title: currentTask.title,
-            status: 'active',
-            due_date: nextDueDate,
-            due_time: currentTask.due_time,
-            priority: currentTask.priority,
-            category_id: currentTask.category_id,
-            is_recurring: true,
-            recurrence_rule: currentTask.recurrence_rule,
-            recurrence_parent_id: currentTask.recurrence_parent_id || currentTask.id,
-            recurring_streak: 0, // Reset streak on skip
-          })
-          .select('*, category:categories(id, name, color, icon)')
-          .single()
-
-        if (!createError && newTask) {
-          skippedNextOccurrence = newTask
-        }
-      }
+    if (isCompletingRecurring) {
+      updates.recurring_streak = (currentTask.recurring_streak || 0) + 1
     }
 
     if (Object.keys(updates).length === 0) {
@@ -178,10 +116,44 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiError('Task not found.', 404, 'NOT_FOUND')
     }
 
-    return NextResponse.json({
-      task,
-      nextOccurrence: nextOccurrence || skippedNextOccurrence
-    })
+    // Create next occurrence AFTER parent update succeeds — prevents orphaned
+    // child tasks if the parent update is rejected by the duplicate guard
+    let nextOccurrence = null
+
+    if (isCompletingRecurring || isSkippingRecurring) {
+      const rule = currentTask.recurrence_rule as RecurrenceRule
+      const nextDueDate = getNextOccurrenceDate(currentTask.due_date, rule)
+
+      if (nextDueDate) {
+        const { data: newTask, error: createError } = await supabase
+          .from('tasks')
+          .insert({
+            user_id: user.id,
+            title: currentTask.title,
+            status: 'active',
+            due_date: nextDueDate,
+            due_time: currentTask.due_time,
+            priority: currentTask.priority,
+            category_id: currentTask.category_id,
+            is_recurring: true,
+            recurrence_rule: currentTask.recurrence_rule,
+            recurrence_parent_id: currentTask.recurrence_parent_id || currentTask.id,
+            recurring_streak: isCompletingRecurring
+              ? (currentTask.recurring_streak || 0) + 1
+              : 0,
+          })
+          .select('*, category:categories(id, name, color, icon)')
+          .single()
+
+        if (createError) {
+          console.error('Next occurrence creation error:', createError)
+        } else if (newTask) {
+          nextOccurrence = newTask
+        }
+      }
+    }
+
+    return NextResponse.json({ task, nextOccurrence })
   } catch (error) {
     console.error('Task PATCH error:', error)
     return apiError('Something went wrong.', 500, 'INTERNAL_ERROR')
