@@ -50,6 +50,7 @@ interface TaskListProps {
   onDrop: (id: string) => void
   onReorder?: (groupLabel: string, orderedIds: string[]) => void
   sortMode?: SortMode
+  newOccurrenceIds?: Set<string>
 }
 
 export default function TaskList({
@@ -60,6 +61,7 @@ export default function TaskList({
   onDrop,
   onReorder,
   sortMode = 'manual',
+  newOccurrenceIds,
 }: TaskListProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
@@ -136,6 +138,80 @@ export default function TaskList({
   if (visibleGroups.length === 0) return null
 
   const isDragEnabled = sortMode === 'manual' && !!onReorder
+  const showHeaders = visibleGroups.length > 1
+
+  const renderGroupTasks = (group: TaskGroup) => (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={(e) => handleDragEnd(e, group.label, group.tasks)}
+    >
+      <SortableContext
+        items={group.tasks.map(t => t.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div
+          style={{
+            borderTop: showHeaders ? '1px solid var(--color-border)' : undefined,
+          }}
+          role="list"
+          aria-label={`${group.label} tasks`}
+        >
+          {group.tasks.map((task, index) => (
+            <div
+              key={task.id}
+              className={newOccurrenceIds?.has(task.id) ? 'new-occurrence' : undefined}
+            >
+              <SortableTaskItem
+                task={task}
+                categories={categories}
+                onToggle={onToggle}
+                onUpdate={onUpdate}
+                onDrop={onDrop}
+                isDragDisabled={!isDragEnabled || task.status === 'done'}
+                onMoveUp={
+                  isDragEnabled && index > 0
+                    ? () => handleKeyboardMove(group.label, group.tasks, task.id, 'up')
+                    : undefined
+                }
+                onMoveDown={
+                  isDragEnabled && index < group.tasks.length - 1
+                    ? () => handleKeyboardMove(group.label, group.tasks, task.id, 'down')
+                    : undefined
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </SortableContext>
+
+      {/* Drag Overlay - shows the dragged item */}
+      <DragOverlay>
+        {activeTask ? (
+          <div style={{
+            background: 'var(--color-bg)',
+            boxShadow: 'var(--shadow-lg)',
+            borderRadius: 'var(--radius-md)',
+            opacity: 0.95,
+          }}>
+            <TaskCard
+              task={activeTask}
+              categories={categories}
+              onToggle={() => {}}
+              onUpdate={() => {}}
+              onDrop={() => {}}
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  )
+
+  // When only one group has tasks, render flat without headers
+  if (!showHeaders) {
+    return <div>{renderGroupTasks(visibleGroups[0])}</div>
+  }
 
   return (
     <div>
@@ -188,69 +264,7 @@ export default function TaskList({
             </svg>
           </button>
 
-          {!collapsed[group.label] && (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={(e) => handleDragEnd(e, group.label, group.tasks)}
-            >
-              <SortableContext
-                items={group.tasks.map(t => t.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div
-                  style={{
-                    borderTop: '1px solid var(--color-border)',
-                  }}
-                  role="list"
-                  aria-label={`${group.label} tasks`}
-                >
-                  {group.tasks.map((task, index) => (
-                    <SortableTaskItem
-                      key={task.id}
-                      task={task}
-                      categories={categories}
-                      onToggle={onToggle}
-                      onUpdate={onUpdate}
-                      onDrop={onDrop}
-                      isDragDisabled={!isDragEnabled || task.status === 'done'}
-                      onMoveUp={
-                        isDragEnabled && index > 0
-                          ? () => handleKeyboardMove(group.label, group.tasks, task.id, 'up')
-                          : undefined
-                      }
-                      onMoveDown={
-                        isDragEnabled && index < group.tasks.length - 1
-                          ? () => handleKeyboardMove(group.label, group.tasks, task.id, 'down')
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-
-              {/* Drag Overlay - shows the dragged item */}
-              <DragOverlay>
-                {activeTask ? (
-                  <div style={{
-                    background: 'var(--color-bg)',
-                    boxShadow: 'var(--shadow-lg)',
-                    borderRadius: 'var(--radius-md)',
-                    opacity: 0.95,
-                  }}>
-                    <TaskCard
-                      task={activeTask}
-                      categories={categories}
-                      onToggle={() => {}}
-                      onUpdate={() => {}}
-                      onDrop={() => {}}
-                    />
-                  </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
-          )}
+          {!collapsed[group.label] && renderGroupTasks(group)}
         </div>
       ))}
     </div>

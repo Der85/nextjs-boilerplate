@@ -121,6 +121,17 @@ a:hover { text-decoration: underline; }
   }
 }
 
+/* New occurrence highlight for recurring tasks */
+@keyframes new-occurrence {
+  from { background-color: var(--color-accent-light); }
+  to { background-color: transparent; }
+}
+
+.new-occurrence {
+  animation: new-occurrence 1.5s ease-out;
+  border-radius: var(--radius-sm);
+}
+
 /* Skeleton loading */
 .skeleton {
   background: linear-gradient(90deg, var(--color-surface) 25%, #f0f0f0 50%, var(--color-surface) 75%);

@@ -122,6 +122,7 @@ function TasksPageContent() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [newOccurrenceIds, setNewOccurrenceIds] = useState<Set<string>>(new Set())
   const moreMenuRef = useRef<HTMLDivElement>(null)
 
   // Close more menu on outside click
@@ -179,6 +180,22 @@ function TasksPageContent() {
     fetchData()
   }, [fetchData])
 
+  // Add a recurring task's next occurrence with delay + highlight
+  const addNextOccurrence = useCallback((task: TaskWithCategory) => {
+    setTimeout(() => {
+      setTasks(prev => [...prev, task])
+      setNewOccurrenceIds(prev => new Set(prev).add(task.id))
+      // Clear highlight after animation
+      setTimeout(() => {
+        setNewOccurrenceIds(prev => {
+          const next = new Set(prev)
+          next.delete(task.id)
+          return next
+        })
+      }, 1500)
+    }, 800)
+  }, [])
+
   // Optimistic toggle — capture pre-toggle state for accurate revert
   const handleToggle = async (id: string, done: boolean) => {
     let previousTask: TaskWithCategory | undefined
@@ -200,7 +217,7 @@ function TasksPageContent() {
       if (res.ok) {
         const data = await res.json()
         if (data.nextOccurrence) {
-          setTasks(prev => [...prev, data.nextOccurrence])
+          addNextOccurrence(data.nextOccurrence)
         }
       } else if (previousTask) {
         setTasks(prev => prev.map(t => t.id === id ? previousTask! : t))
@@ -225,9 +242,9 @@ function TasksPageContent() {
       })
       if (res.ok) {
         const data = await res.json()
-        // If a next occurrence was created (recurring task skipped), add it to the list
+        // If a next occurrence was created (recurring task skipped), add with delay
         if (data.nextOccurrence) {
-          setTasks(ts => [...ts, data.nextOccurrence])
+          addNextOccurrence(data.nextOccurrence)
         }
       } else if (prev) {
         setTasks(ts => ts.map(t => t.id === id ? prev : t))
@@ -531,6 +548,7 @@ function TasksPageContent() {
           onDrop={handleDrop}
           onReorder={handleReorder}
           sortMode={sortMode}
+          newOccurrenceIds={newOccurrenceIds}
         />
       ) : tasks.length > 0 ? (
         // Has tasks but filters return no results
