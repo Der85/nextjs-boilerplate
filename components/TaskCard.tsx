@@ -19,9 +19,8 @@ interface TaskCardProps {
 }
 
 const actionButtonStyle: React.CSSProperties = {
-  width: '44px',
-  height: '44px',
-  borderRadius: 'var(--radius-full)',
+  height: '36px',
+  borderRadius: 'var(--radius-sm)',
   border: 'none',
   background: 'none',
   color: 'var(--color-text-tertiary)',
@@ -30,9 +29,8 @@ const actionButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   flexShrink: 0,
-  margin: '-10px 0 -10px 0',
-  padding: 0,
-  opacity: 0.4,
+  padding: '0 8px',
+  opacity: 0.7,
   transition: 'opacity 0.15s',
 }
 
@@ -46,6 +44,7 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -130,8 +129,17 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
         </span>
       </button>
 
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Content — tap to expand actions */}
+      <div
+        style={{ flex: 1, minWidth: 0, cursor: !isDone && !isEditing ? 'pointer' : 'default' }}
+        onClick={(e) => {
+          // Don't toggle expand if clicking interactive elements or editing
+          if (isDone || isEditing) return
+          const target = e.target as HTMLElement
+          if (target.closest('button') || target.closest('input') || target.closest('select')) return
+          setExpanded(prev => !prev)
+        }}
+      >
         {isEditing ? (
           <input
             ref={inputRef}
@@ -157,12 +165,11 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
           />
         ) : (
           <p
-            onClick={() => !isDone && setIsEditing(true)}
+            onDoubleClick={() => !isDone && setIsEditing(true)}
             style={{
               fontSize: 'var(--text-body)',
               color: 'var(--color-text-primary)',
               textDecoration: isDone ? 'line-through' : 'none',
-              cursor: isDone ? 'default' : 'text',
               lineHeight: 1.4,
               wordBreak: 'break-word',
             }}
@@ -306,56 +313,67 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
             />
           )}
         </div>
+
+        {/* Expanded action row */}
+        {expanded && !isDone && (
+          <div
+            className="task-actions-row"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              marginTop: '8px',
+              paddingTop: '8px',
+              borderTop: '1px solid var(--color-border)',
+            }}
+          >
+            <button
+              onClick={() => setShowEditModal(true)}
+              aria-label="Edit task"
+              style={actionButtonStyle}
+              onMouseEnter={(e) => handleActionHover(e, '1')}
+              onMouseLeave={(e) => handleActionHover(e, '0.7')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              <span style={{ fontSize: 'var(--text-small)', marginLeft: '4px', color: 'var(--color-text-secondary)' }}>Edit</span>
+            </button>
+
+            {task.is_recurring && (
+              <button
+                onClick={() => onUpdate(task.id, { status: 'skipped' })}
+                aria-label="Skip this occurrence"
+                title={task.recurring_streak > 0 ? `Skip (will reset ${task.recurring_streak} day streak)` : 'Skip this occurrence'}
+                style={actionButtonStyle}
+                onMouseEnter={(e) => handleActionHover(e, '1')}
+                onMouseLeave={(e) => handleActionHover(e, '0.7')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="5 4 15 12 5 20 5 4" />
+                  <line x1="19" y1="5" x2="19" y2="19" />
+                </svg>
+                <span style={{ fontSize: 'var(--text-small)', marginLeft: '4px', color: 'var(--color-text-secondary)' }}>Skip</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => onDrop(task.id)}
+              aria-label="Drop task"
+              style={actionButtonStyle}
+              onMouseEnter={(e) => handleActionHover(e, '1')}
+              onMouseLeave={(e) => handleActionHover(e, '0.7')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              <span style={{ fontSize: 'var(--text-small)', marginLeft: '4px', color: 'var(--color-text-secondary)' }}>Drop</span>
+            </button>
+          </div>
+        )}
       </div>
-
-      {/* Edit button */}
-      {!isDone && (
-        <button
-          onClick={() => setShowEditModal(true)}
-          aria-label="Edit task"
-          style={actionButtonStyle}
-          onMouseEnter={(e) => handleActionHover(e, '1')}
-          onMouseLeave={(e) => handleActionHover(e, '0.4')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-        </button>
-      )}
-
-      {/* Skip button (for recurring tasks only) */}
-      {!isDone && task.is_recurring && (
-        <button
-          onClick={() => onUpdate(task.id, { status: 'skipped' })}
-          aria-label="Skip this occurrence"
-          title={task.recurring_streak > 0 ? `Skip (will reset ${task.recurring_streak} day streak)` : 'Skip this occurrence'}
-          style={actionButtonStyle}
-          onMouseEnter={(e) => handleActionHover(e, '1')}
-          onMouseLeave={(e) => handleActionHover(e, '0.4')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polygon points="5 4 15 12 5 20 5 4" />
-            <line x1="19" y1="5" x2="19" y2="19" />
-          </svg>
-        </button>
-      )}
-
-      {/* Drop (soft delete) button */}
-      {!isDone && (
-        <button
-          onClick={() => onDrop(task.id)}
-          aria-label="Drop task"
-          style={{ ...actionButtonStyle, margin: '-10px -10px -10px 0' }}
-          onMouseEnter={(e) => handleActionHover(e, '1')}
-          onMouseLeave={(e) => handleActionHover(e, '0.4')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      )}
 
       {/* Edit Modal */}
       <TaskEditModal
@@ -375,6 +393,15 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
           0% { transform: scale(1); }
           50% { transform: scale(1.2); }
           100% { transform: scale(1); }
+        }
+
+        .task-actions-row {
+          animation: fadeIn 0.15s ease-out;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         /* Hide verbose recurrence text on mobile - icon + tooltip is enough */
