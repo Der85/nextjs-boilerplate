@@ -20,6 +20,7 @@ import {
   applyFilters,
   searchParamsToFilters,
   filtersToSearchParams,
+  hasActiveFilters,
 } from '@/lib/utils/filters'
 import { apiFetch } from '@/lib/api-client'
 
@@ -123,6 +124,7 @@ function TasksPageContent() {
   const [loading, setLoading] = useState(true)
   const [sortMode, setSortMode] = useState<SortMode>('manual')
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
   const [suggestions, setSuggestions] = useState<TaskSuggestionWithCategory[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [hasPriorities, setHasPriorities] = useState(false)
@@ -131,6 +133,9 @@ function TasksPageContent() {
   useEffect(() => {
     const urlFilters = searchParamsToFilters(searchParams)
     setFilters(urlFilters)
+    if (hasActiveFilters(urlFilters)) {
+      setShowFilters(true)
+    }
   }, [searchParams])
 
   // Load sort preference from localStorage on mount
@@ -440,6 +445,41 @@ function TasksPageContent() {
             <NotificationBell />
           </div>
 
+          {/* Filter toggle */}
+          <button
+            onClick={() => setShowFilters(prev => !prev)}
+            aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+            aria-expanded={showFilters}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              border: `1px solid ${hasActiveFilters(filters) ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              borderRadius: 'var(--radius-sm)',
+              background: hasActiveFilters(filters) ? 'var(--color-accent-light)' : 'var(--color-bg)',
+              color: hasActiveFilters(filters) ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            {hasActiveFilters(filters) && (
+              <span style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'var(--color-accent)',
+              }} />
+            )}
+          </button>
+
           {/* Template button */}
           <button
             onClick={() => setShowTemplatePicker(true)}
@@ -510,14 +550,16 @@ function TasksPageContent() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <FilterBar
-        categories={categories}
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        totalCount={tasks.length}
-        filteredCount={filteredCount}
-      />
+      {/* Filter Bar — collapsed by default */}
+      {showFilters && (
+        <FilterBar
+          categories={categories}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          totalCount={tasks.length}
+          filteredCount={filteredCount}
+        />
+      )}
 
       {/* Priority prompt or summary */}
       <PriorityPrompt taskCount={tasks.length} variant="banner" />
