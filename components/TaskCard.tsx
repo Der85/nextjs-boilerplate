@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import type { TaskWithCategory, Category } from '@/lib/types'
 import { formatRelativeDate, isOverdue, isToday } from '@/lib/utils/dates'
 import { getRecurrenceDescription } from '@/lib/utils/recurrence'
@@ -39,17 +39,10 @@ const handleActionHover = (e: React.MouseEvent<HTMLButtonElement>, opacity: stri
 }
 
 export default function TaskCard({ task, categories = [], onToggle, onUpdate, onDrop }: TaskCardProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState(task.title)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (isEditing) inputRef.current?.focus()
-  }, [isEditing])
 
   const handleToggle = () => {
     const newDone = task.status !== 'done'
@@ -63,16 +56,6 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
     } else {
       onToggle(task.id, newDone)
     }
-  }
-
-  const handleTitleSave = () => {
-    const trimmed = editTitle.trim()
-    if (trimmed && trimmed !== task.title) {
-      onUpdate(task.id, { title: trimmed })
-    } else {
-      setEditTitle(task.title)
-    }
-    setIsEditing(false)
   }
 
   const isDone = task.status === 'done' || justCompleted
@@ -136,52 +119,39 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
 
       {/* Content — tap to expand actions */}
       <div
-        style={{ flex: 1, minWidth: 0, cursor: !isDone && !isEditing ? 'pointer' : 'default' }}
+        style={{ flex: 1, minWidth: 0, cursor: !isDone ? 'pointer' : 'default' }}
         onClick={(e) => {
-          // Don't toggle expand if clicking interactive elements or editing
-          if (isDone || isEditing) return
+          if (isDone) return
           const target = e.target as HTMLElement
           if (target.closest('button') || target.closest('input') || target.closest('select')) return
           setExpanded(prev => !prev)
         }}
       >
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            type="text"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            onBlur={handleTitleSave}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleTitleSave()
-              if (e.key === 'Escape') { setEditTitle(task.title); setIsEditing(false) }
-            }}
-            style={{
-              width: '100%',
-              border: 'none',
-              outline: 'none',
-              fontSize: 'var(--text-body)',
-              color: 'var(--color-text-primary)',
-              background: 'var(--color-surface)',
-              padding: '2px 6px',
-              borderRadius: 'var(--radius-sm)',
-              fontFamily: 'inherit',
-            }}
-          />
-        ) : (
-          <p
-            onDoubleClick={() => !isDone && setIsEditing(true)}
-            style={{
-              fontSize: 'var(--text-body)',
-              color: 'var(--color-text-primary)',
-              textDecoration: isDone ? 'line-through' : 'none',
-              lineHeight: 1.4,
-              wordBreak: 'break-word',
-            }}
-          >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+          <p style={{
+            flex: 1,
+            fontSize: 'var(--text-body)',
+            color: 'var(--color-text-primary)',
+            textDecoration: isDone ? 'line-through' : 'none',
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+          }}>
             {task.title}
           </p>
-        )}
+          {!isDone && (
+            <span style={{
+              fontSize: '10px',
+              color: 'var(--color-text-tertiary)',
+              opacity: 0.5,
+              flexShrink: 0,
+              marginTop: '5px',
+              transition: 'transform 0.15s',
+              transform: expanded ? 'rotate(90deg)' : 'none',
+            }}>
+              ▸
+            </span>
+          )}
+        </div>
 
         {/* Metadata row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
@@ -392,30 +362,6 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
         }}
       />
 
-      {/* Responsive styles for cleaner mobile view */}
-      <style>{`
-        @keyframes check-pop {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.2); }
-          100% { transform: scale(1); }
-        }
-
-        .task-actions-row {
-          animation: fadeIn 0.15s ease-out;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Hide verbose recurrence text on mobile - icon + tooltip is enough */
-        @media (max-width: 480px) {
-          .recurrence-text {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   )
 }
