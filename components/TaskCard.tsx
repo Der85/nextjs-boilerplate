@@ -55,12 +55,11 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
     const newDone = task.status !== 'done'
     if (newDone) {
       setJustCompleted(true)
-      // Delay the state update so the checkmark animation plays before
-      // the task moves to the "Done Today" group
+      // Show the checkmark + strikethrough in place, then move to Done group
       setTimeout(() => {
         setJustCompleted(false)
         onToggle(task.id, newDone)
-      }, 400)
+      }, 600)
     } else {
       onToggle(task.id, newDone)
     }
@@ -76,7 +75,7 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
     setIsEditing(false)
   }
 
-  const isDone = task.status === 'done'
+  const isDone = task.status === 'done' || justCompleted
   const dateColor = task.due_date && isOverdue(task.due_date) && !isDone
     ? 'var(--color-danger)'
     : task.due_date && isToday(task.due_date)
