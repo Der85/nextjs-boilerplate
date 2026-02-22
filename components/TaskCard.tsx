@@ -55,9 +55,15 @@ export default function TaskCard({ task, categories = [], onToggle, onUpdate, on
     const newDone = task.status !== 'done'
     if (newDone) {
       setJustCompleted(true)
-      setTimeout(() => setJustCompleted(false), 500)
+      // Delay the state update so the checkmark animation plays before
+      // the task moves to the "Done Today" group
+      setTimeout(() => {
+        setJustCompleted(false)
+        onToggle(task.id, newDone)
+      }, 400)
+    } else {
+      onToggle(task.id, newDone)
     }
-    onToggle(task.id, newDone)
   }
 
   const handleTitleSave = () => {
