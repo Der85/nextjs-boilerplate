@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
@@ -122,6 +122,20 @@ function TasksPageContent() {
   const [sortMode, setSortMode] = useState<SortMode>('manual')
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close more menu on outside click
+  useEffect(() => {
+    if (!showMoreMenu) return
+    function handleClick(e: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showMoreMenu])
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -382,72 +396,117 @@ function TasksPageContent() {
             )}
           </button>
 
-          {/* Template button */}
-          <button
-            onClick={() => setShowTemplatePicker(true)}
-            title="Create from template"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '32px',
-              height: '32px',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-bg)',
-              color: 'var(--color-text-secondary)',
-              cursor: 'pointer',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="12" y1="18" x2="12" y2="12" />
-              <line x1="9" y1="15" x2="15" y2="15" />
-            </svg>
-          </button>
-
-          {/* Sort dropdown */}
-          <div style={{ position: 'relative' }}>
-            <select
-              value={sortMode}
-              onChange={(e) => handleSortChange(e.target.value as SortMode)}
-              aria-label="Sort tasks by"
+          {/* More menu (template + sort) */}
+          <div ref={moreMenuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowMoreMenu(prev => !prev)}
+              aria-label="More options"
+              aria-expanded={showMoreMenu}
               style={{
-                appearance: 'none',
-                padding: '6px 28px 6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-sm)',
                 background: 'var(--color-bg)',
                 color: 'var(--color-text-secondary)',
-                fontSize: 'var(--text-small)',
                 cursor: 'pointer',
               }}
             >
-              {SORT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              style={{
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
+              </svg>
+            </button>
+
+            {showMoreMenu && (
+              <div style={{
                 position: 'absolute',
-                right: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                color: 'var(--color-text-tertiary)',
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: 'var(--shadow-lg)',
+                minWidth: '180px',
+                zIndex: 100,
+                overflow: 'hidden',
+              }}>
+                {/* From template */}
+                <button
+                  onClick={() => { setShowTemplatePicker(true); setShowMoreMenu(false) }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: 'none',
+                    background: 'none',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 'var(--text-body)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                  From template
+                </button>
+
+                {/* Sort divider */}
+                <div style={{ height: '1px', background: 'var(--color-border)', margin: '0 10px' }} />
+
+                {/* Sort label */}
+                <div style={{
+                  padding: '8px 14px 4px',
+                  fontSize: 'var(--text-small)',
+                  color: 'var(--color-text-tertiary)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
+                  Sort by
+                </div>
+
+                {/* Sort options */}
+                {SORT_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { handleSortChange(opt.value); setShowMoreMenu(false) }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 14px',
+                      border: 'none',
+                      background: sortMode === opt.value ? 'var(--color-accent-light)' : 'none',
+                      color: sortMode === opt.value ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                      fontSize: 'var(--text-body)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontWeight: sortMode === opt.value ? 600 : 400,
+                    }}
+                  >
+                    {sortMode === opt.value && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
