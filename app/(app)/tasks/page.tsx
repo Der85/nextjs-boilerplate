@@ -61,7 +61,7 @@ function groupTasks(allTasks: TaskWithCategory[]) {
     { label: 'Today', tasks: today, color: 'var(--color-accent)' },
     { label: 'This Week', tasks: thisWeek },
     { label: 'No Date', tasks: noDate },
-    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
+    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)' },
   ]
 }
 
