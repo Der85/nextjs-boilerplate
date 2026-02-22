@@ -7,10 +7,9 @@ import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import TemplatePicker from '@/components/TemplatePicker'
 import PriorityPrompt from '@/components/PriorityPrompt'
-import SuggestionsSection from '@/components/SuggestionsSection'
 import NotificationBell from '@/components/NotificationBell'
 import { useCategories } from '@/lib/contexts/CategoriesContext'
-import type { TaskWithCategory, TaskTemplateWithCategory, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
+import type { TaskWithCategory, TaskTemplateWithCategory } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
 import {
   type TaskFilters,
@@ -123,9 +122,6 @@ function TasksPageContent() {
   const [sortMode, setSortMode] = useState<SortMode>('manual')
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
-  const [suggestions, setSuggestions] = useState<TaskSuggestionWithCategory[]>([])
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [hasPriorities, setHasPriorities] = useState(false)
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -169,98 +165,6 @@ function TasksPageContent() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  // Fetch suggestions
-  const fetchSuggestions = useCallback(async () => {
-    try {
-      const res = await fetch('/api/suggestions')
-      if (res.ok) {
-        const data = await res.json()
-        setSuggestions(data.suggestions || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch suggestions:', err)
-    }
-  }, [])
-
-  // Check priorities and auto-generate suggestions if needed
-  useEffect(() => {
-    const checkAndFetchSuggestions = async () => {
-      try {
-        // Check if user has priorities set
-        const prioritiesRes = await fetch('/api/priorities')
-        if (prioritiesRes.ok) {
-          const data = await prioritiesRes.json()
-          const hasPrioritiesSet = data.priorities && data.priorities.length > 0
-          setHasPriorities(hasPrioritiesSet)
-
-          if (hasPrioritiesSet) {
-            // Fetch existing suggestions
-            await fetchSuggestions()
-          }
-        }
-      } catch (err) {
-        console.error('Error checking priorities:', err)
-      }
-    }
-
-    checkAndFetchSuggestions()
-  }, [fetchSuggestions])
-
-  // Generate new suggestions
-  const handleGenerateSuggestions = async () => {
-    setSuggestionsLoading(true)
-    try {
-      const res = await apiFetch('/api/suggestions/generate', { method: 'POST' })
-      if (res.ok) {
-        await fetchSuggestions()
-      }
-    } catch (err) {
-      console.error('Failed to generate suggestions:', err)
-    } finally {
-      setSuggestionsLoading(false)
-    }
-  }
-
-  // Accept suggestion (create task)
-  const handleAcceptSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
-    try {
-      const res = await apiFetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'POST' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.task) {
-          setTasks(prev => [data.task, ...prev])
-        }
-        setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
-      }
-    } catch (err) {
-      console.error('Failed to accept suggestion:', err)
-    }
-  }
-
-  // Dismiss suggestion
-  const handleDismissSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
-    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
-    try {
-      await apiFetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'POST' })
-    } catch (err) {
-      console.error('Failed to dismiss suggestion:', err)
-    }
-  }
-
-  // Snooze suggestion
-  const handleSnoozeSuggestion = async (suggestion: TaskSuggestionWithCategory, until: SnoozeOption) => {
-    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
-    try {
-      await apiFetch(`/api/suggestions/${suggestion.id}/snooze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ until }),
-      })
-    } catch (err) {
-      console.error('Failed to snooze suggestion:', err)
-    }
-  }
 
   // Optimistic toggle — capture pre-toggle state for accurate revert
   const handleToggle = async (id: string, done: boolean) => {
@@ -561,18 +465,6 @@ function TasksPageContent() {
 
       {/* Priority prompt */}
       <PriorityPrompt taskCount={tasks.length} variant="banner" />
-
-      {/* Suggestions section - only show if user has priorities */}
-      {hasPriorities && (
-        <SuggestionsSection
-          suggestions={suggestions}
-          suggestionsLoading={suggestionsLoading}
-          onGenerate={handleGenerateSuggestions}
-          onAccept={handleAcceptSuggestion}
-          onDismiss={handleDismissSuggestion}
-          onSnooze={handleSnoozeSuggestion}
-        />
-      )}
 
       {/* Task list or empty state */}
       {hasActiveTasks ? (

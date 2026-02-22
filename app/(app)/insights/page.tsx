@@ -6,7 +6,8 @@ import EmptyState from '@/components/EmptyState'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import InsightCard from '@/components/InsightCard'
 import BalanceScoreWidget from '@/components/BalanceScoreWidget'
-import type { InsightSummary, WeeklyTrend, CategoryBreakdown, InsightRow } from '@/lib/types'
+import SuggestionsSection from '@/components/SuggestionsSection'
+import type { InsightSummary, WeeklyTrend, CategoryBreakdown, InsightRow, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
 import { apiFetch } from '@/lib/api-client'
 
 // Lazy load charts with error fallback to prevent page crash
@@ -24,11 +25,94 @@ export default function InsightsPage() {
   const [generatedInsight, setGeneratedInsight] = useState<InsightRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [thresholdToast, setThresholdToast] = useState<{ threshold: number; visible: boolean } | null>(null)
+  const [suggestions, setSuggestions] = useState<TaskSuggestionWithCategory[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const [hasPriorities, setHasPriorities] = useState(false)
 
   const handleThresholdCrossed = useCallback((threshold: number) => {
     setThresholdToast({ threshold, visible: true })
     setTimeout(() => setThresholdToast(null), 4000)
   }, [])
+
+  // Fetch suggestions
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/suggestions')
+      if (res.ok) {
+        const data = await res.json()
+        setSuggestions(data.suggestions || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch suggestions:', err)
+    }
+  }, [])
+
+  // Check priorities and auto-fetch suggestions if needed
+  useEffect(() => {
+    const checkAndFetchSuggestions = async () => {
+      try {
+        const prioritiesRes = await fetch('/api/priorities')
+        if (prioritiesRes.ok) {
+          const data = await prioritiesRes.json()
+          const hasPrioritiesSet = data.priorities && data.priorities.length > 0
+          setHasPriorities(hasPrioritiesSet)
+          if (hasPrioritiesSet) {
+            await fetchSuggestions()
+          }
+        }
+      } catch (err) {
+        console.error('Error checking priorities:', err)
+      }
+    }
+    checkAndFetchSuggestions()
+  }, [fetchSuggestions])
+
+  const handleGenerateSuggestions = async () => {
+    setSuggestionsLoading(true)
+    try {
+      const res = await apiFetch('/api/suggestions/generate', { method: 'POST' })
+      if (res.ok) {
+        await fetchSuggestions()
+      }
+    } catch (err) {
+      console.error('Failed to generate suggestions:', err)
+    } finally {
+      setSuggestionsLoading(false)
+    }
+  }
+
+  const handleAcceptSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
+    try {
+      const res = await apiFetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'POST' })
+      if (res.ok) {
+        setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
+      }
+    } catch (err) {
+      console.error('Failed to accept suggestion:', err)
+    }
+  }
+
+  const handleDismissSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
+    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
+    try {
+      await apiFetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'POST' })
+    } catch (err) {
+      console.error('Failed to dismiss suggestion:', err)
+    }
+  }
+
+  const handleSnoozeSuggestion = async (suggestion: TaskSuggestionWithCategory, until: SnoozeOption) => {
+    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
+    try {
+      await apiFetch(`/api/suggestions/${suggestion.id}/snooze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ until }),
+      })
+    } catch (err) {
+      console.error('Failed to snooze suggestion:', err)
+    }
+  }
 
   useEffect(() => {
     async function fetchInsights() {
@@ -146,6 +230,18 @@ export default function InsightsPage() {
         <InsightCard
           insight={generatedInsight}
           onDismiss={() => setGeneratedInsight(null)}
+        />
+      )}
+
+      {/* AI Suggestions - only show if user has priorities */}
+      {hasPriorities && (
+        <SuggestionsSection
+          suggestions={suggestions}
+          suggestionsLoading={suggestionsLoading}
+          onGenerate={handleGenerateSuggestions}
+          onAccept={handleAcceptSuggestion}
+          onDismiss={handleDismissSuggestion}
+          onSnooze={handleSnoozeSuggestion}
         />
       )}
 
