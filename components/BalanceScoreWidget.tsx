@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BalanceBreakdown from './BalanceBreakdown'
 import BalanceSparkline from './BalanceSparkline'
@@ -14,12 +14,17 @@ interface BalanceScoreWidgetProps {
 export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreWidgetProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [hasPriorities, setHasPriorities] = useState(true)
   const [score, setScore] = useState<BalanceScoreRow | null>(null)
   const [trend, setTrend] = useState<BalanceScoreTrend[]>([])
   const [changeFromYesterday, setChangeFromYesterday] = useState<number | null>(null)
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
+
+  // Ref to hold latest callback without re-triggering the fetch effect
+  const thresholdRef = useRef(onThresholdCrossed)
+  useEffect(() => { thresholdRef.current = onThresholdCrossed })
 
   useEffect(() => {
     async function fetchBalance() {
@@ -41,7 +46,7 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
 
               for (const threshold of thresholds) {
                 if (prevScore < threshold && data.score.score >= threshold) {
-                  onThresholdCrossed?.(threshold, 'up')
+                  thresholdRef.current?.(threshold, 'up')
                   setShowCelebration(true)
                   setTimeout(() => setShowCelebration(false), 2000)
                   break
@@ -52,13 +57,14 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
         }
       } catch (err) {
         console.error('Failed to fetch balance:', err)
+        setError(true)
       } finally {
         setLoading(false)
       }
     }
 
     fetchBalance()
-  }, [onThresholdCrossed])
+  }, []) // stable: runs once on mount
 
   if (loading) {
     return (
@@ -69,6 +75,27 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
         marginBottom: '20px',
       }}>
         <div className="skeleton" style={{ height: '140px', borderRadius: 'var(--radius-md)' }} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        background: 'var(--color-surface)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '24px',
+        marginBottom: '20px',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚠️</div>
+        <p style={{
+          fontSize: 'var(--text-small)',
+          color: 'var(--color-text-secondary)',
+          margin: 0,
+        }}>
+          Couldn't load your balance score. Pull down to refresh.
+        </p>
       </div>
     )
   }
@@ -149,20 +176,23 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
           Life Balance
         </h3>
         {changeFromYesterday !== null && changeFromYesterday !== 0 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '4px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: changeFromYesterday > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-            color: changeFromYesterday > 0 ? '#10B981' : '#EF4444',
-            fontSize: 'var(--text-small)',
-            fontWeight: 600,
-            animation: showCelebration ? 'pulse 0.5s ease-in-out' : undefined,
-          }}>
+          <div
+            aria-label={`Balance score changed by ${changeFromYesterday > 0 ? '+' : ''}${changeFromYesterday} points`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 10px',
+              borderRadius: 'var(--radius-sm)',
+              background: changeFromYesterday > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+              color: changeFromYesterday > 0 ? '#10B981' : '#EF4444',
+              fontSize: 'var(--text-small)',
+              fontWeight: 600,
+              animation: showCelebration ? 'pulse 0.5s ease-in-out' : undefined,
+            }}
+          >
             {changeFromYesterday > 0 ? '+' : ''}{changeFromYesterday}
-            <span>{changeFromYesterday > 0 ? '↑' : '↓'}</span>
+            <span aria-hidden="true">{changeFromYesterday > 0 ? '↑' : '↓'}</span>
           </div>
         )}
       </div>
@@ -219,7 +249,7 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
             transform: 'translate(-50%, -50%)',
             textAlign: 'center',
           }}>
-            <div style={{
+            <div aria-hidden="true" style={{
               fontSize: '32px',
               fontWeight: 700,
               color: scoreColor,
@@ -227,13 +257,26 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
             }}>
               {score.score}
             </div>
-            <div style={{
+            <div aria-hidden="true" style={{
               fontSize: 'var(--text-caption)',
               color: 'var(--color-text-tertiary)',
               marginTop: '2px',
             }}>
               / 100
             </div>
+            <span style={{
+              position: 'absolute',
+              width: '1px',
+              height: '1px',
+              padding: 0,
+              margin: '-1px',
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)',
+              whiteSpace: 'nowrap',
+              borderWidth: 0,
+            }}>
+              Life balance score: {score.score} out of 100. {message}
+            </span>
           </div>
         </div>
 

@@ -32,9 +32,17 @@ export function getNextOccurrenceDate(
       nextDate.setDate(nextDate.getDate() + 14)
       break
 
-    case 'monthly':
-      nextDate.setMonth(nextDate.getMonth() + interval)
+    case 'monthly': {
+      // Clamp to last day of target month to avoid overflow
+      // (e.g. Jan 31 + 1 month → Feb 28, not Mar 3)
+      const targetMonth = nextDate.getMonth() + interval
+      const day = nextDate.getDate()
+      nextDate.setDate(1) // avoid overflow during setMonth
+      nextDate.setMonth(targetMonth)
+      const lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate()
+      nextDate.setDate(Math.min(day, lastDay))
       break
+    }
   }
 
   // Check if past end_date

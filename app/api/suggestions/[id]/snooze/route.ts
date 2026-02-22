@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { suggestionsRateLimiter } from '@/lib/rateLimiter'
+import { suggestionSnoozeSchema, parseBody } from '@/lib/validations'
 import type { SnoozeOption } from '@/lib/types'
 
 interface RouteContext {
@@ -47,11 +48,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const until: SnoozeOption = body.until
-
-    if (!['tomorrow', 'next_week', 'next_month'].includes(until)) {
-      return apiError('Invalid snooze duration.', 400, 'VALIDATION_ERROR')
-    }
+    const parsed = parseBody(suggestionSnoozeSchema, body)
+    if (!parsed.success) return parsed.response
+    const until: SnoozeOption = parsed.data.until
 
     const snoozedUntil = calculateSnoozeUntil(until)
 

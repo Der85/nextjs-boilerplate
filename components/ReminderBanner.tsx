@@ -1,22 +1,13 @@
 'use client'
 
-import type { ReminderWithTask, SnoozeDuration } from '@/lib/types'
+import { useRemindersContext } from '@/lib/contexts/RemindersContext'
 
 interface ReminderBannerProps {
-  reminders: ReminderWithTask[]
-  onDismiss: (id: string) => Promise<void>
-  onSnooze: (id: string, duration: SnoozeDuration) => Promise<void>
-  onCompleteTask: (taskId: string) => Promise<void>
   onViewAll: () => void
 }
 
-export default function ReminderBanner({
-  reminders,
-  onDismiss,
-  onSnooze,
-  onCompleteTask,
-  onViewAll,
-}: ReminderBannerProps) {
+export default function ReminderBanner({ onViewAll }: ReminderBannerProps) {
+  const { reminders, dismiss, snooze, completeTask } = useRemindersContext()
   // Only show important/overdue reminders as banners, max 2
   const importantReminders = reminders
     .filter(r => r.reminder_type === 'overdue' || r.priority === 'important')
@@ -90,7 +81,7 @@ export default function ReminderBanner({
                 flexShrink: 0,
               }}>
                 <button
-                  onClick={() => onCompleteTask(reminder.task_id)}
+                  onClick={() => completeTask(reminder.task_id)}
                   style={{
                     padding: '6px 12px',
                     borderRadius: 'var(--radius-sm)',
@@ -105,7 +96,7 @@ export default function ReminderBanner({
                   Done
                 </button>
                 <button
-                  onClick={() => onSnooze(reminder.id, '30min')}
+                  onClick={() => snooze(reminder.id, '30min')}
                   style={{
                     padding: '6px 10px',
                     borderRadius: 'var(--radius-sm)',
@@ -120,7 +111,7 @@ export default function ReminderBanner({
                   Later
                 </button>
                 <button
-                  onClick={() => onDismiss(reminder.id)}
+                  onClick={() => dismiss(reminder.id)}
                   aria-label="Dismiss"
                   style={{
                     width: '28px',

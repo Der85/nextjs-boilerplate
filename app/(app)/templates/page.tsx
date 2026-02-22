@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import TemplateCard from '@/components/TemplateCard'
 import EmptyState from '@/components/EmptyState'
+import { useCategories } from '@/lib/contexts/CategoriesContext'
 import type { TaskTemplateWithCategory, Category } from '@/lib/types'
 import { apiFetch } from '@/lib/api-client'
 
 export default function TemplatesPage() {
   const router = useRouter()
   const [templates, setTemplates] = useState<TaskTemplateWithCategory[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
+  const { categories } = useCategories()
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -19,18 +20,10 @@ export default function TemplatesPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [templatesRes, catsRes] = await Promise.all([
-        fetch('/api/templates'),
-        fetch('/api/categories'),
-      ])
-
+      const templatesRes = await fetch('/api/templates')
       if (templatesRes.ok) {
         const data = await templatesRes.json()
         setTemplates(data.templates || [])
-      }
-      if (catsRes.ok) {
-        const data = await catsRes.json()
-        setCategories(data.categories || [])
       }
     } catch (err) {
       console.error('Failed to fetch templates:', err)

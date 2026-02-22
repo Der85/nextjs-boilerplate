@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import type { Category } from '@/lib/types'
 
 interface CategoryDropdownProps {
@@ -11,7 +11,7 @@ interface CategoryDropdownProps {
   onManageCategories?: () => void
 }
 
-export default function CategoryDropdown({
+export default memo(function CategoryDropdown({
   categories,
   selectedId,
   confidence,
@@ -235,4 +235,4 @@ export default function CategoryDropdown({
       )}
     </div>
   )
-}
+})

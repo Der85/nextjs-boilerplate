@@ -4,15 +4,10 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { ReminderWithTask, SnoozeDuration, ReminderPriority } from '@/lib/types'
 import { getReminderPriorityColor } from '@/lib/theme'
+import { useRemindersContext } from '@/lib/contexts/RemindersContext'
 
 interface NotificationPanelProps {
-  reminders: ReminderWithTask[]
   onClose: () => void
-  onMarkAsRead: (id: string) => Promise<void>
-  onDismiss: (id: string) => Promise<void>
-  onSnooze: (id: string, duration: SnoozeDuration) => Promise<void>
-  onClearAll: () => Promise<void>
-  onCompleteTask: (taskId: string) => Promise<void>
 }
 
 const SNOOZE_OPTIONS: { value: SnoozeDuration; label: string }[] = [
@@ -335,15 +330,17 @@ function ReminderItem({
   )
 }
 
-export default function NotificationPanel({
-  reminders,
-  onClose,
-  onMarkAsRead,
-  onDismiss,
-  onSnooze,
-  onClearAll,
-  onCompleteTask,
-}: NotificationPanelProps) {
+export default function NotificationPanel({ onClose }: NotificationPanelProps) {
+  const {
+    reminders,
+    loading,
+    markAsRead,
+    dismiss,
+    snooze,
+    clearAll,
+    completeTask,
+  } = useRemindersContext()
+
   // Track which items are in the process of exiting
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
 
@@ -352,7 +349,7 @@ export default function NotificationPanel({
   }
 
   const handleClearAll = async () => {
-    await onClearAll()
+    await clearAll()
     onClose()
   }
 
@@ -414,16 +411,26 @@ export default function NotificationPanel({
         maxHeight: 'calc(70vh - 50px)',
         overflowY: 'auto',
       }}>
-        {reminders.length > 0 ? (
+        {loading ? (
+          <div style={{ padding: '12px' }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{ padding: '12px 0', borderBottom: '1px solid var(--color-border)' }}>
+                <div className="skeleton" style={{ height: '14px', width: '70%', marginBottom: '8px', borderRadius: 'var(--radius-sm)' }} />
+                <div className="skeleton" style={{ height: '12px', width: '90%', marginBottom: '6px', borderRadius: 'var(--radius-sm)' }} />
+                <div className="skeleton" style={{ height: '10px', width: '40%', borderRadius: 'var(--radius-sm)' }} />
+              </div>
+            ))}
+          </div>
+        ) : reminders.length > 0 ? (
           <AnimatePresence mode="popLayout">
             {reminders.map(reminder => (
               <ReminderItem
                 key={reminder.id}
                 reminder={reminder}
-                onMarkAsRead={onMarkAsRead}
-                onDismiss={onDismiss}
-                onSnooze={onSnooze}
-                onCompleteTask={onCompleteTask}
+                onMarkAsRead={markAsRead}
+                onDismiss={dismiss}
+                onSnooze={snooze}
+                onCompleteTask={completeTask}
                 onStartExit={handleStartExit}
                 isExiting={exitingIds.has(reminder.id)}
               />

@@ -2,28 +2,11 @@
 
 import { useState } from 'react'
 import NotificationPanel from './NotificationPanel'
-import type { ReminderWithTask, SnoozeDuration } from '@/lib/types'
+import { useRemindersContext } from '@/lib/contexts/RemindersContext'
 
-interface NotificationBellProps {
-  reminders: ReminderWithTask[]
-  unreadCount: number
-  onMarkAsRead: (id: string) => Promise<void>
-  onDismiss: (id: string) => Promise<void>
-  onSnooze: (id: string, duration: SnoozeDuration) => Promise<void>
-  onClearAll: () => Promise<void>
-  onCompleteTask: (taskId: string) => Promise<void>
-}
-
-export default function NotificationBell({
-  reminders,
-  unreadCount,
-  onMarkAsRead,
-  onDismiss,
-  onSnooze,
-  onClearAll,
-  onCompleteTask,
-}: NotificationBellProps) {
+export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
+  const { unreadCount } = useRemindersContext()
 
   const handleToggle = () => {
     setIsOpen(prev => !prev)
@@ -90,13 +73,7 @@ export default function NotificationBell({
       {/* Panel */}
       {isOpen && (
         <NotificationPanel
-          reminders={reminders}
           onClose={handleClose}
-          onMarkAsRead={onMarkAsRead}
-          onDismiss={onDismiss}
-          onSnooze={onSnooze}
-          onClearAll={onClearAll}
-          onCompleteTask={onCompleteTask}
         />
       )}
 

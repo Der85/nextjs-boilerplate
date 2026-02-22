@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { aiRateLimiter } from '@/lib/rateLimiter'
+import { categorySuggestionActionSchema, parseBody } from '@/lib/validations'
 import type { SuggestedCategory } from '@/lib/types'
 
 interface RouteContext {
@@ -22,11 +23,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const action = body.action
-
-    if (!['accept', 'dismiss'].includes(action)) {
-      return apiError('Action must be "accept" or "dismiss".', 400, 'VALIDATION_ERROR')
-    }
+    const parsed = parseBody(categorySuggestionActionSchema, body)
+    if (!parsed.success) return parsed.response
+    const { action } = parsed.data
 
     // Fetch the suggestion
     const { data: suggestion, error: fetchError } = await supabase
@@ -51,12 +50,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: true })
     }
 
-    // Accept: create categories and assign tasks
+    // Accept: claim the suggestion first (prevents duplicate processing),
+    // then create categories, then finalize
+    const { error: claimError } = await supabase
+      .from('category_suggestions')
+      .update({ status: 'processing', resolved_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .eq('status', 'pending') // guard: only claim if still pending
+
+    if (claimError) {
+      return apiError('Suggestion already processed.', 409, 'CONFLICT')
+    }
+
     const suggestedCategories = suggestion.suggested_categories as SuggestedCategory[]
     const createdCategories: Record<string, unknown>[] = []
 
     for (const sc of suggestedCategories) {
-      // Create the category
       const { data: cat, error: catError } = await supabase
         .from('categories')
         .insert({
@@ -77,7 +87,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       createdCategories.push(cat)
 
-      // Assign tasks to this category
       if (sc.task_ids && sc.task_ids.length > 0) {
         await supabase
           .from('tasks')
@@ -87,14 +96,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Mark suggestion as accepted
+    if (createdCategories.length === 0) {
+      // All category creations failed — revert to pending so user can retry
+      await supabase
+        .from('category_suggestions')
+        .update({ status: 'pending', resolved_at: null })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+      return apiError('Failed to create categories.', 500, 'INTERNAL_ERROR')
+    }
+
+    // Finalize: mark accepted and update profile
     await supabase
       .from('category_suggestions')
-      .update({ status: 'accepted', resolved_at: new Date().toISOString() })
+      .update({ status: 'accepted' })
       .eq('id', id)
       .eq('user_id', user.id)
 
-    // Update user profile
     await supabase
       .from('user_profiles')
       .update({ category_suggestions_accepted: true })

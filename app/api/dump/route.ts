@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         dump,
         tasks: [],
         ai_error: 'Could not parse your dump automatically. You can add tasks manually.',
-      }, { status: 200 })
+      }, { status: 207 })
     }
 
     const aiLatency = Date.now() - startTime

@@ -1,23 +1,12 @@
 'use client'
 
 import NotificationBell from './NotificationBell'
-import { useReminders } from '@/lib/hooks/useReminders'
 
 interface AppHeaderProps {
   title?: string
 }
 
 export default function AppHeader({ title }: AppHeaderProps) {
-  const {
-    reminders,
-    unreadCount,
-    markAsRead,
-    dismiss,
-    snooze,
-    clearAll,
-    completeTask,
-  } = useReminders()
-
   return (
     <header style={{
       display: 'flex',
@@ -41,15 +30,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
       </div>
 
       {/* Notification bell */}
-      <NotificationBell
-        reminders={reminders}
-        unreadCount={unreadCount}
-        onMarkAsRead={markAsRead}
-        onDismiss={dismiss}
-        onSnooze={snooze}
-        onClearAll={clearAll}
-        onCompleteTask={completeTask}
-      />
+      <NotificationBell />
     </header>
   )
 }

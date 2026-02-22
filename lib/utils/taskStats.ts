@@ -134,84 +134,30 @@ export function computeCategoryStats(tasks: TaskWithCategory[]): CategoryStats[]
 
 // ============================================
 // Extended Category Stats (with recency)
+// Delegates to computeCategoryStats and adds lastCompletedDaysAgo
 // ============================================
 export function computeExtendedCategoryStats(tasks: TaskWithCategory[]): ExtendedCategoryStats[] {
+  const baseStats = computeCategoryStats(tasks)
   const now = new Date()
-  const statsMap = new Map<string, {
-    id: string
-    name: string
-    icon: string
-    color: string
-    total: number
-    completed: number
-    dropped: number
-    skipped: number
-    completionDays: number[]
-    lastCompletedAt: Date | null
-  }>()
 
+  // Single pass to find last completion date per category
+  const lastCompletedMap = new Map<string, Date>()
   for (const task of tasks) {
-    if (!task.category_id || !task.category) continue
-
-    const cat = task.category
-    let stat = statsMap.get(cat.id)
-    if (!stat) {
-      stat = {
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        color: cat.color,
-        total: 0,
-        completed: 0,
-        dropped: 0,
-        skipped: 0,
-        completionDays: [],
-        lastCompletedAt: null,
-      }
-      statsMap.set(cat.id, stat)
-    }
-
-    stat.total++
-
-    if (task.status === 'done' && task.completed_at) {
-      stat.completed++
-      const created = new Date(task.created_at)
-      const completed = new Date(task.completed_at)
-      const days = Math.ceil((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
-      stat.completionDays.push(days)
-
-      // Track most recent completion
-      if (!stat.lastCompletedAt || completed > stat.lastCompletedAt) {
-        stat.lastCompletedAt = completed
-      }
-    } else if (task.status === 'dropped') {
-      stat.dropped++
-    } else if (task.status === 'skipped') {
-      stat.skipped++
+    if (!task.category_id || task.status !== 'done' || !task.completed_at) continue
+    const completed = new Date(task.completed_at)
+    const prev = lastCompletedMap.get(task.category_id)
+    if (!prev || completed > prev) {
+      lastCompletedMap.set(task.category_id, completed)
     }
   }
 
-  return Array.from(statsMap.values()).map(s => {
-    // Calculate days since last completion
-    let lastCompletedDaysAgo: number | null = null
-    if (s.lastCompletedAt) {
-      lastCompletedDaysAgo = Math.floor((now.getTime() - s.lastCompletedAt.getTime()) / (1000 * 60 * 60 * 24))
-    }
-
+  return baseStats.map(stat => {
+    const lastCompleted = lastCompletedMap.get(stat.categoryId)
     return {
-      categoryId: s.id,
-      categoryName: s.name,
-      categoryIcon: s.icon,
-      categoryColor: s.color,
-      totalTasks: s.total,
-      completedTasks: s.completed,
-      completionRate: s.total > 0 ? s.completed / s.total : 0,
-      droppedCount: s.dropped,
-      skippedCount: s.skipped,
-      avgDaysToComplete: s.completionDays.length > 0
-        ? s.completionDays.reduce((a, b) => a + b, 0) / s.completionDays.length
+      ...stat,
+      lastCompletedDaysAgo: lastCompleted
+        ? Math.floor((now.getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24))
         : null,
-      lastCompletedDaysAgo,
     }
   })
 }

@@ -1,18 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import TemplatePicker from '@/components/TemplatePicker'
 import PriorityPrompt from '@/components/PriorityPrompt'
-import PrioritySummary from '@/components/PrioritySummary'
-import SuggestionCard from '@/components/SuggestionCard'
 import NotificationBell from '@/components/NotificationBell'
-import ReminderBanner from '@/components/ReminderBanner'
-import { useReminders } from '@/lib/hooks/useReminders'
-import type { TaskWithCategory, Category, TaskTemplateWithCategory, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
+import { useCategories } from '@/lib/contexts/CategoriesContext'
+import type { TaskWithCategory, TaskTemplateWithCategory } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
 import {
   type TaskFilters,
@@ -20,6 +17,7 @@ import {
   applyFilters,
   searchParamsToFilters,
   filtersToSearchParams,
+  hasActiveFilters,
 } from '@/lib/utils/filters'
 import { apiFetch } from '@/lib/api-client'
 
@@ -28,6 +26,63 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'due_date', label: 'Due Date' },
   { value: 'created_date', label: 'Created' },
 ]
+
+// Pure functions at file scope to enable stable useMemo references
+function groupTasks(allTasks: TaskWithCategory[]) {
+  const overdue: TaskWithCategory[] = []
+  const today: TaskWithCategory[] = []
+  const thisWeek: TaskWithCategory[] = []
+  const noDate: TaskWithCategory[] = []
+  const doneToday: TaskWithCategory[] = []
+
+  for (const task of allTasks) {
+    if (task.status === 'dropped' || task.status === 'skipped') continue
+
+    if (task.status === 'done') {
+      if (task.completed_at && isToday(task.completed_at.split('T')[0])) {
+        doneToday.push(task)
+      }
+      continue
+    }
+
+    if (task.due_date && isOverdue(task.due_date)) {
+      overdue.push(task)
+    } else if (task.due_date && isToday(task.due_date)) {
+      today.push(task)
+    } else if (task.due_date && isThisWeek(task.due_date)) {
+      thisWeek.push(task)
+    } else {
+      noDate.push(task)
+    }
+  }
+
+  return [
+    { label: 'Overdue', tasks: overdue, color: 'var(--color-danger)' },
+    { label: 'Today', tasks: today, color: 'var(--color-accent)' },
+    { label: 'This Week', tasks: thisWeek },
+    { label: 'No Date', tasks: noDate },
+    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
+  ]
+}
+
+function sortTasks(taskList: TaskWithCategory[], sortMode: SortMode): TaskWithCategory[] {
+  const sorted = [...taskList]
+  switch (sortMode) {
+    case 'manual':
+      return sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
+    case 'due_date':
+      return sorted.sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1
+        if (!b.due_date) return -1
+        return a.due_date.localeCompare(b.due_date)
+      })
+    case 'created_date':
+      return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
+    default:
+      return sorted
+  }
+}
 
 // Wrapper to provide Suspense boundary for useSearchParams
 export default function TasksPage() {
@@ -61,30 +116,34 @@ function TasksPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<TaskWithCategory[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
+  const { categories } = useCategories()
   const [filters, setFilters] = useState<TaskFilters>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(true)
   const [sortMode, setSortMode] = useState<SortMode>('manual')
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
-  const [suggestions, setSuggestions] = useState<TaskSuggestionWithCategory[]>([])
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [hasPriorities, setHasPriorities] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
 
-  // Reminders hook
-  const {
-    reminders,
-    unreadCount,
-    markAsRead,
-    dismiss: dismissReminder,
-    snooze: snoozeReminder,
-    clearAll: clearAllReminders,
-    completeTask: completeReminderTask,
-  } = useReminders()
+  // Close more menu on outside click
+  useEffect(() => {
+    if (!showMoreMenu) return
+    function handleClick(e: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showMoreMenu])
 
   // Load filters from URL on mount
   useEffect(() => {
     const urlFilters = searchParamsToFilters(searchParams)
     setFilters(urlFilters)
+    if (hasActiveFilters(urlFilters)) {
+      setShowFilters(true)
+    }
   }, [searchParams])
 
   // Load sort preference from localStorage on mount
@@ -105,19 +164,10 @@ function TasksPageContent() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch all tasks (filtering happens client-side)
-      const [tasksRes, catsRes] = await Promise.all([
-        fetch('/api/tasks'),
-        fetch('/api/categories'),
-      ])
-
+      const tasksRes = await fetch('/api/tasks')
       if (tasksRes.ok) {
         const data = await tasksRes.json()
         setTasks(data.tasks || [])
-      }
-      if (catsRes.ok) {
-        const data = await catsRes.json()
-        setCategories(data.categories || [])
       }
     } catch (err) {
       console.error('Failed to fetch tasks:', err)
@@ -130,143 +180,17 @@ function TasksPageContent() {
     fetchData()
   }, [fetchData])
 
-  // Fetch suggestions
-  const fetchSuggestions = useCallback(async () => {
-    try {
-      const res = await fetch('/api/suggestions')
-      if (res.ok) {
-        const data = await res.json()
-        setSuggestions(data.suggestions || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch suggestions:', err)
-    }
-  }, [])
-
-  // Check priorities and auto-generate suggestions if needed
-  useEffect(() => {
-    const checkAndFetchSuggestions = async () => {
-      try {
-        // Check if user has priorities set
-        const prioritiesRes = await fetch('/api/priorities')
-        if (prioritiesRes.ok) {
-          const data = await prioritiesRes.json()
-          const hasPrioritiesSet = data.priorities && data.priorities.length > 0
-          setHasPriorities(hasPrioritiesSet)
-
-          if (hasPrioritiesSet) {
-            // Fetch existing suggestions
-            await fetchSuggestions()
-          }
-        }
-      } catch (err) {
-        console.error('Error checking priorities:', err)
-      }
-    }
-
-    checkAndFetchSuggestions()
-  }, [fetchSuggestions])
-
-  // Generate new suggestions
-  const handleGenerateSuggestions = async () => {
-    setSuggestionsLoading(true)
-    try {
-      const res = await apiFetch('/api/suggestions/generate', { method: 'POST' })
-      if (res.ok) {
-        await fetchSuggestions()
-      }
-    } catch (err) {
-      console.error('Failed to generate suggestions:', err)
-    } finally {
-      setSuggestionsLoading(false)
-    }
-  }
-
-  // Accept suggestion (create task)
-  const handleAcceptSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
-    try {
-      const res = await apiFetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'POST' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.task) {
-          setTasks(prev => [data.task, ...prev])
-        }
-        setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
-      }
-    } catch (err) {
-      console.error('Failed to accept suggestion:', err)
-    }
-  }
-
-  // Dismiss suggestion
-  const handleDismissSuggestion = async (suggestion: TaskSuggestionWithCategory) => {
-    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
-    try {
-      await apiFetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'POST' })
-    } catch (err) {
-      console.error('Failed to dismiss suggestion:', err)
-    }
-  }
-
-  // Snooze suggestion
-  const handleSnoozeSuggestion = async (suggestion: TaskSuggestionWithCategory, until: SnoozeOption) => {
-    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
-    try {
-      await apiFetch(`/api/suggestions/${suggestion.id}/snooze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ until }),
-      })
-    } catch (err) {
-      console.error('Failed to snooze suggestion:', err)
-    }
-  }
-
-  const groupTasks = (allTasks: TaskWithCategory[]) => {
-    const overdue: TaskWithCategory[] = []
-    const today: TaskWithCategory[] = []
-    const thisWeek: TaskWithCategory[] = []
-    const noDate: TaskWithCategory[] = []
-    const doneToday: TaskWithCategory[] = []
-
-    for (const task of allTasks) {
-      if (task.status === 'dropped' || task.status === 'skipped') continue
-
-      if (task.status === 'done') {
-        if (task.completed_at && isToday(task.completed_at.split('T')[0])) {
-          doneToday.push(task)
-        }
-        continue
-      }
-
-      // Active tasks
-      if (task.due_date && isOverdue(task.due_date)) {
-        overdue.push(task)
-      } else if (task.due_date && isToday(task.due_date)) {
-        today.push(task)
-      } else if (task.due_date && isThisWeek(task.due_date)) {
-        thisWeek.push(task)
-      } else {
-        noDate.push(task)
-      }
-    }
-
-    return [
-      { label: 'Overdue', tasks: overdue, color: 'var(--color-danger)' },
-      { label: 'Today', tasks: today, color: 'var(--color-accent)' },
-      { label: 'This Week', tasks: thisWeek },
-      { label: 'No Date', tasks: noDate },
-      { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
-    ]
-  }
-
-  // Optimistic toggle
+  // Optimistic toggle — capture pre-toggle state for accurate revert
   const handleToggle = async (id: string, done: boolean) => {
-    setTasks(prev => prev.map(t =>
-      t.id === id
-        ? { ...t, status: done ? 'done' : 'active', completed_at: done ? new Date().toISOString() : null }
-        : t
-    ))
+    let previousTask: TaskWithCategory | undefined
+    setTasks(prev => {
+      previousTask = prev.find(t => t.id === id)
+      return prev.map(t =>
+        t.id === id
+          ? { ...t, status: done ? 'done' : 'active', completed_at: done ? new Date().toISOString() : null }
+          : t
+      )
+    })
 
     try {
       const res = await apiFetch(`/api/tasks/${id}`, {
@@ -276,25 +200,16 @@ function TasksPageContent() {
       })
       if (res.ok) {
         const data = await res.json()
-        // If a next occurrence was created (recurring task), add it to the list
         if (data.nextOccurrence) {
           setTasks(prev => [...prev, data.nextOccurrence])
         }
-      } else {
-        // Revert on failure
-        setTasks(prev => prev.map(t =>
-          t.id === id
-            ? { ...t, status: done ? 'active' : 'done', completed_at: done ? null : t.completed_at }
-            : t
-        ))
+      } else if (previousTask) {
+        setTasks(prev => prev.map(t => t.id === id ? previousTask! : t))
       }
     } catch {
-      // Revert
-      setTasks(prev => prev.map(t =>
-        t.id === id
-          ? { ...t, status: done ? 'active' : 'done', completed_at: done ? null : t.completed_at }
-          : t
-      ))
+      if (previousTask) {
+        setTasks(prev => prev.map(t => t.id === id ? previousTask! : t))
+      }
     }
   }
 
@@ -359,20 +274,22 @@ function TasksPageContent() {
     }
   }
 
-  // Handle reorder (drag-and-drop)
+  // Handle reorder (drag-and-drop) — capture previous positions for revert
   const handleReorder = async (_groupLabel: string, orderedIds: string[]) => {
-    // Optimistic update: reorder tasks locally
     const positionMap = new Map(orderedIds.map((id, idx) => [id, idx * 1000]))
 
+    // Capture previous positions before optimistic update
+    let previousPositions: Map<string, number> | undefined
     setTasks(prev => {
-      const updated = prev.map(t => {
+      previousPositions = new Map(
+        prev.filter(t => positionMap.has(t.id)).map(t => [t.id, t.position])
+      )
+      return prev.map(t => {
         const newPosition = positionMap.get(t.id)
         return newPosition !== undefined ? { ...t, position: newPosition } : t
       })
-      return updated
     })
 
-    // Send to API
     try {
       const tasksToUpdate = orderedIds.map((id, idx) => ({ id, position: idx * 1000 }))
       await apiFetch('/api/tasks/reorder', {
@@ -382,33 +299,23 @@ function TasksPageContent() {
       })
     } catch (err) {
       console.error('Failed to reorder tasks:', err)
-      // Could refetch here to revert, but optimistic update is usually fine
+      // Revert to previous positions
+      if (previousPositions) {
+        const prevPos = previousPositions
+        setTasks(prev => prev.map(t => {
+          const oldPosition = prevPos.get(t.id)
+          return oldPosition !== undefined ? { ...t, position: oldPosition } : t
+        }))
+      }
     }
   }
 
-  // Sort tasks within groups based on sortMode
-  const sortTasks = (taskList: TaskWithCategory[]): TaskWithCategory[] => {
-    const sorted = [...taskList]
-    switch (sortMode) {
-      case 'manual':
-        return sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
-      case 'due_date':
-        return sorted.sort((a, b) => {
-          if (!a.due_date && !b.due_date) return 0
-          if (!a.due_date) return 1
-          if (!b.due_date) return -1
-          return a.due_date.localeCompare(b.due_date)
-        })
-      case 'created_date':
-        return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
-      default:
-        return sorted
-    }
-  }
-
-  // Apply filters then group
-  const filteredTasks = applyFilters(tasks, filters)
-  const groups = groupTasks(filteredTasks).map(g => ({ ...g, tasks: sortTasks(g.tasks) }))
+  // Memoize the filter → group → sort pipeline
+  const filteredCount = useMemo(() => applyFilters(tasks, filters).length, [tasks, filters])
+  const groups = useMemo(() => {
+    const filtered = applyFilters(tasks, filters)
+    return groupTasks(filtered).map(g => ({ ...g, tasks: sortTasks(g.tasks, sortMode) }))
+  }, [tasks, filters, sortMode])
   const hasActiveTasks = groups.some(g => g.tasks.length > 0)
 
   if (loading) {
@@ -451,209 +358,172 @@ function TasksPageContent() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Notification bell */}
           <div>
-            <NotificationBell
-              reminders={reminders}
-              unreadCount={unreadCount}
-              onMarkAsRead={markAsRead}
-              onDismiss={dismissReminder}
-              onSnooze={snoozeReminder}
-              onClearAll={clearAllReminders}
-              onCompleteTask={completeReminderTask}
-            />
+            <NotificationBell />
           </div>
 
-          {/* Template button */}
+          {/* Filter toggle */}
           <button
-            onClick={() => setShowTemplatePicker(true)}
-            title="Create from template"
+            onClick={() => setShowFilters(prev => !prev)}
+            aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+            aria-expanded={showFilters}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               width: '32px',
               height: '32px',
-              border: '1px solid var(--color-border)',
+              border: `1px solid ${hasActiveFilters(filters) ? 'var(--color-accent)' : 'var(--color-border)'}`,
               borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-bg)',
-              color: 'var(--color-text-secondary)',
+              background: hasActiveFilters(filters) ? 'var(--color-accent-light)' : 'var(--color-bg)',
+              color: hasActiveFilters(filters) ? 'var(--color-accent)' : 'var(--color-text-secondary)',
               cursor: 'pointer',
+              position: 'relative',
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="12" y1="18" x2="12" y2="12" />
-              <line x1="9" y1="15" x2="15" y2="15" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
             </svg>
+            {hasActiveFilters(filters) && (
+              <span style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'var(--color-accent)',
+              }} />
+            )}
           </button>
 
-          {/* Sort dropdown */}
-          <div style={{ position: 'relative' }}>
-            <select
-              value={sortMode}
-              onChange={(e) => handleSortChange(e.target.value as SortMode)}
-              aria-label="Sort tasks by"
+          {/* More menu (template + sort) */}
+          <div ref={moreMenuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowMoreMenu(prev => !prev)}
+              aria-label="More options"
+              aria-expanded={showMoreMenu}
               style={{
-                appearance: 'none',
-                padding: '6px 28px 6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-sm)',
                 background: 'var(--color-bg)',
                 color: 'var(--color-text-secondary)',
-                fontSize: 'var(--text-small)',
                 cursor: 'pointer',
               }}
             >
-              {SORT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              style={{
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
+              </svg>
+            </button>
+
+            {showMoreMenu && (
+              <div style={{
                 position: 'absolute',
-                right: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                color: 'var(--color-text-tertiary)',
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: 'var(--shadow-lg)',
+                minWidth: '180px',
+                zIndex: 100,
+                overflow: 'hidden',
+              }}>
+                {/* From template */}
+                <button
+                  onClick={() => { setShowTemplatePicker(true); setShowMoreMenu(false) }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: 'none',
+                    background: 'none',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 'var(--text-body)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                  From template
+                </button>
+
+                {/* Sort divider */}
+                <div style={{ height: '1px', background: 'var(--color-border)', margin: '0 10px' }} />
+
+                {/* Sort label */}
+                <div style={{
+                  padding: '8px 14px 4px',
+                  fontSize: 'var(--text-small)',
+                  color: 'var(--color-text-tertiary)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
+                  Sort by
+                </div>
+
+                {/* Sort options */}
+                {SORT_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { handleSortChange(opt.value); setShowMoreMenu(false) }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 14px',
+                      border: 'none',
+                      background: sortMode === opt.value ? 'var(--color-accent-light)' : 'none',
+                      color: sortMode === opt.value ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                      fontSize: 'var(--text-body)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontWeight: sortMode === opt.value ? 600 : 400,
+                    }}
+                  >
+                    {sortMode === opt.value && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <FilterBar
-        categories={categories}
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        totalCount={tasks.length}
-        filteredCount={filteredTasks.length}
-      />
-
-      {/* Priority prompt or summary */}
-      <PriorityPrompt taskCount={tasks.length} variant="banner" />
-      <PrioritySummary />
-
-      {/* Reminder banners for urgent/overdue tasks */}
-      <ReminderBanner
-        reminders={reminders}
-        onDismiss={dismissReminder}
-        onSnooze={snoozeReminder}
-        onCompleteTask={completeReminderTask}
-        onViewAll={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      />
-
-      {/* Suggestions section - only show if user has priorities */}
-      {hasPriorities && (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '12px',
-          }}>
-            <h2 style={{
-              fontSize: 'var(--text-subheading)',
-              fontWeight: 600,
-              color: 'var(--color-text-primary)',
-              margin: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}>
-              <span>✨</span>
-              Suggestions for You
-            </h2>
-            <button
-              onClick={handleGenerateSuggestions}
-              disabled={suggestionsLoading}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg)',
-                color: 'var(--color-text-secondary)',
-                fontSize: 'var(--text-small)',
-                cursor: suggestionsLoading ? 'wait' : 'pointer',
-                opacity: suggestionsLoading ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              {suggestionsLoading ? (
-                <>
-                  <span style={{
-                    width: '12px',
-                    height: '12px',
-                    border: '2px solid var(--color-border)',
-                    borderTopColor: 'var(--color-accent)',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite',
-                  }} />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-                  </svg>
-                  Get New Ideas
-                </>
-              )}
-            </button>
-          </div>
-
-          {suggestions.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {suggestions.slice(0, 3).map(suggestion => (
-                <SuggestionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onAccept={handleAcceptSuggestion}
-                  onDismiss={handleDismissSuggestion}
-                  onSnooze={handleSnoozeSuggestion}
-                  isLoading={suggestionsLoading}
-                />
-              ))}
-            </div>
-          ) : (
-            <div style={{
-              padding: '24px',
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              textAlign: 'center',
-            }}>
-              <p style={{
-                fontSize: 'var(--text-body)',
-                color: 'var(--color-text-secondary)',
-                margin: '0 0 12px 0',
-              }}>
-                No suggestions right now.
-              </p>
-              <p style={{
-                fontSize: 'var(--text-small)',
-                color: 'var(--color-text-tertiary)',
-                margin: 0,
-              }}>
-                Click &quot;Get New Ideas&quot; to generate task suggestions based on your priorities.
-              </p>
-            </div>
-          )}
-        </div>
+      {/* Filter Bar — collapsed by default */}
+      {showFilters && (
+        <FilterBar
+          categories={categories}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          totalCount={tasks.length}
+          filteredCount={filteredCount}
+        />
       )}
+
+      {/* Priority prompt */}
+      <PriorityPrompt taskCount={tasks.length} variant="banner" />
 
       {/* Task list or empty state */}
       {hasActiveTasks ? (

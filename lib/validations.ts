@@ -176,6 +176,10 @@ export const suggestionSnoozeSchema = z.object({
   until: z.enum(['tomorrow', 'next_week', 'next_month']),
 })
 
+export const categorySuggestionActionSchema = z.object({
+  action: z.enum(['accept', 'dismiss']),
+})
+
 // ============================
 // Profile schema
 // ============================

@@ -43,7 +43,9 @@ export function isThisWeek(dateStr: string): boolean {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const endOfWeek = new Date(today)
-  endOfWeek.setDate(endOfWeek.getDate() + (7 - endOfWeek.getDay()))
+  // getDay() returns 0 for Sunday — treat Sunday as end of week (7)
+  const dayOfWeek = endOfWeek.getDay() || 7
+  endOfWeek.setDate(endOfWeek.getDate() + (7 - dayOfWeek))
   return d >= today && d <= endOfWeek
 }
 

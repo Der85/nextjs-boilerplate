@@ -110,12 +110,19 @@ export default function BalanceBreakdown({ breakdown }: BalanceBreakdownProps) {
             </div>
 
             {/* Progress bar */}
-            <div style={{
-              height: '8px',
-              background: 'var(--color-border)',
-              borderRadius: '4px',
-              overflow: 'hidden',
-            }}>
+            <div
+              role="progressbar"
+              aria-valuenow={domain.score}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${domain.domain} score: ${domain.score} out of 100${domain.score < 30 ? ' - Needs attention' : domain.score >= 80 ? ' - On track' : ''}`}
+              style={{
+                height: '8px',
+                background: 'var(--color-border)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}
+            >
               <div style={{
                 height: '100%',
                 width: `${domain.score}%`,
