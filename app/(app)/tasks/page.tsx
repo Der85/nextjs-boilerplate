@@ -6,7 +6,6 @@ import TaskList, { type SortMode } from '@/components/TaskList'
 import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import TemplatePicker from '@/components/TemplatePicker'
-import PriorityPrompt from '@/components/PriorityPrompt'
 import NotificationBell from '@/components/NotificationBell'
 import { useCategories } from '@/lib/contexts/CategoriesContext'
 import type { TaskWithCategory, TaskTemplateWithCategory } from '@/lib/types'
@@ -61,7 +60,7 @@ function groupTasks(allTasks: TaskWithCategory[]) {
     { label: 'Today', tasks: today, color: 'var(--color-accent)' },
     { label: 'This Week', tasks: thisWeek },
     { label: 'No Date', tasks: noDate },
-    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)' },
+    { label: 'Done Today', tasks: doneToday, color: 'var(--color-success)', collapsedByDefault: true },
   ]
 }
 
@@ -521,9 +520,6 @@ function TasksPageContent() {
           filteredCount={filteredCount}
         />
       )}
-
-      {/* Priority prompt */}
-      <PriorityPrompt taskCount={tasks.length} variant="banner" />
 
       {/* Task list or empty state */}
       {hasActiveTasks ? (
