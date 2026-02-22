@@ -7,10 +7,8 @@ import FilterBar from '@/components/FilterBar'
 import EmptyState from '@/components/EmptyState'
 import TemplatePicker from '@/components/TemplatePicker'
 import PriorityPrompt from '@/components/PriorityPrompt'
-import PrioritySummary from '@/components/PrioritySummary'
 import SuggestionsSection from '@/components/SuggestionsSection'
 import NotificationBell from '@/components/NotificationBell'
-import ReminderBanner from '@/components/ReminderBanner'
 import { useCategories } from '@/lib/contexts/CategoriesContext'
 import type { TaskWithCategory, TaskTemplateWithCategory, TaskSuggestionWithCategory, SnoozeOption } from '@/lib/types'
 import { isToday, isThisWeek, isOverdue } from '@/lib/utils/dates'
@@ -561,14 +559,8 @@ function TasksPageContent() {
         />
       )}
 
-      {/* Priority prompt or summary */}
+      {/* Priority prompt */}
       <PriorityPrompt taskCount={tasks.length} variant="banner" />
-      <PrioritySummary />
-
-      {/* Reminder banners for urgent/overdue tasks */}
-      <ReminderBanner
-        onViewAll={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      />
 
       {/* Suggestions section - only show if user has priorities */}
       {hasPriorities && (
