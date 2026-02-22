@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { aiRateLimiter } from '@/lib/rateLimiter'
+import { categorySuggestionActionSchema, parseBody } from '@/lib/validations'
 import type { SuggestedCategory } from '@/lib/types'
 
 interface RouteContext {
@@ -22,11 +23,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const action = body.action
-
-    if (!['accept', 'dismiss'].includes(action)) {
-      return apiError('Action must be "accept" or "dismiss".', 400, 'VALIDATION_ERROR')
-    }
+    const parsed = parseBody(categorySuggestionActionSchema, body)
+    if (!parsed.success) return parsed.response
+    const { action } = parsed.data
 
     // Fetch the suggestion
     const { data: suggestion, error: fetchError } = await supabase

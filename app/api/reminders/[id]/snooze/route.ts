@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-response'
 import { createClient } from '@/lib/supabase/server'
 import { remindersRateLimiter } from '@/lib/rateLimiter'
+import { reminderSnoozeSchema, parseBody } from '@/lib/validations'
 import type { SnoozeDuration } from '@/lib/types'
 
 interface RouteContext {
@@ -64,13 +65,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const duration: SnoozeDuration = body.duration
-
-    // Validate duration
-    const validDurations: SnoozeDuration[] = ['10min', '30min', '1hour', 'after_lunch', 'tomorrow_morning']
-    if (!validDurations.includes(duration)) {
-      return apiError('Invalid snooze duration.', 400, 'VALIDATION_ERROR')
-    }
+    const parsed = parseBody(reminderSnoozeSchema, body)
+    if (!parsed.success) return parsed.response
+    const duration: SnoozeDuration = parsed.data.duration
 
     const snoozedUntil = calculateSnoozeUntil(duration)
 
