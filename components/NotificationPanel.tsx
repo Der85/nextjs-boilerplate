@@ -333,6 +333,7 @@ function ReminderItem({
 export default function NotificationPanel({ onClose }: NotificationPanelProps) {
   const {
     reminders,
+    loading,
     markAsRead,
     dismiss,
     snooze,
@@ -410,7 +411,17 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
         maxHeight: 'calc(70vh - 50px)',
         overflowY: 'auto',
       }}>
-        {reminders.length > 0 ? (
+        {loading ? (
+          <div style={{ padding: '12px' }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{ padding: '12px 0', borderBottom: '1px solid var(--color-border)' }}>
+                <div className="skeleton" style={{ height: '14px', width: '70%', marginBottom: '8px', borderRadius: 'var(--radius-sm)' }} />
+                <div className="skeleton" style={{ height: '12px', width: '90%', marginBottom: '6px', borderRadius: 'var(--radius-sm)' }} />
+                <div className="skeleton" style={{ height: '10px', width: '40%', borderRadius: 'var(--radius-sm)' }} />
+              </div>
+            ))}
+          </div>
+        ) : reminders.length > 0 ? (
           <AnimatePresence mode="popLayout">
             {reminders.map(reminder => (
               <ReminderItem

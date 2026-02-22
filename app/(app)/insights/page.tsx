@@ -3,13 +3,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import EmptyState from '@/components/EmptyState'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import InsightCard from '@/components/InsightCard'
 import BalanceScoreWidget from '@/components/BalanceScoreWidget'
 import type { InsightSummary, WeeklyTrend, CategoryBreakdown, InsightRow } from '@/lib/types'
 import { apiFetch } from '@/lib/api-client'
 
-// Lazy load charts to keep bundle size small
-const InsightCharts = dynamic(() => import('@/components/InsightCharts'), { ssr: false })
+// Lazy load charts with error fallback to prevent page crash
+const InsightCharts = dynamic(() => import('@/components/InsightCharts'), {
+  ssr: false,
+  loading: () => (
+    <div className="skeleton" style={{ height: '300px', borderRadius: 'var(--radius-md)' }} />
+  ),
+})
 
 export default function InsightsPage() {
   const [summary, setSummary] = useState<InsightSummary | null>(null)
@@ -214,10 +220,23 @@ export default function InsightsPage() {
       </div>
 
       {/* Charts */}
-      <InsightCharts
-        weeklyTrend={weeklyTrend}
-        categoryBreakdown={categoryBreakdown}
-      />
+      <ErrorBoundary fallback={
+        <div style={{
+          padding: '24px',
+          textAlign: 'center',
+          background: 'var(--color-surface)',
+          borderRadius: 'var(--radius-md)',
+          color: 'var(--color-text-secondary)',
+          fontSize: 'var(--text-small)',
+        }}>
+          Charts failed to load. Try refreshing the page.
+        </div>
+      }>
+        <InsightCharts
+          weeklyTrend={weeklyTrend}
+          categoryBreakdown={categoryBreakdown}
+        />
+      </ErrorBoundary>
 
       <style>{`
         @keyframes slideDown {

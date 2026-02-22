@@ -14,6 +14,7 @@ interface BalanceScoreWidgetProps {
 export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreWidgetProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [hasPriorities, setHasPriorities] = useState(true)
   const [score, setScore] = useState<BalanceScoreRow | null>(null)
   const [trend, setTrend] = useState<BalanceScoreTrend[]>([])
@@ -56,6 +57,7 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
         }
       } catch (err) {
         console.error('Failed to fetch balance:', err)
+        setError(true)
       } finally {
         setLoading(false)
       }
@@ -73,6 +75,27 @@ export default function BalanceScoreWidget({ onThresholdCrossed }: BalanceScoreW
         marginBottom: '20px',
       }}>
         <div className="skeleton" style={{ height: '140px', borderRadius: 'var(--radius-md)' }} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        background: 'var(--color-surface)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '24px',
+        marginBottom: '20px',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚠️</div>
+        <p style={{
+          fontSize: 'var(--text-small)',
+          color: 'var(--color-text-secondary)',
+          margin: 0,
+        }}>
+          Couldn't load your balance score. Pull down to refresh.
+        </p>
       </div>
     )
   }
