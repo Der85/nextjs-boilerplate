@@ -259,13 +259,17 @@ function TasksPageContent() {
     }
   }
 
-  // Optimistic toggle
+  // Optimistic toggle — capture pre-toggle state for accurate revert
   const handleToggle = async (id: string, done: boolean) => {
-    setTasks(prev => prev.map(t =>
-      t.id === id
-        ? { ...t, status: done ? 'done' : 'active', completed_at: done ? new Date().toISOString() : null }
-        : t
-    ))
+    let previousTask: TaskWithCategory | undefined
+    setTasks(prev => {
+      previousTask = prev.find(t => t.id === id)
+      return prev.map(t =>
+        t.id === id
+          ? { ...t, status: done ? 'done' : 'active', completed_at: done ? new Date().toISOString() : null }
+          : t
+      )
+    })
 
     try {
       const res = await apiFetch(`/api/tasks/${id}`, {
@@ -275,25 +279,16 @@ function TasksPageContent() {
       })
       if (res.ok) {
         const data = await res.json()
-        // If a next occurrence was created (recurring task), add it to the list
         if (data.nextOccurrence) {
           setTasks(prev => [...prev, data.nextOccurrence])
         }
-      } else {
-        // Revert on failure
-        setTasks(prev => prev.map(t =>
-          t.id === id
-            ? { ...t, status: done ? 'active' : 'done', completed_at: done ? null : t.completed_at }
-            : t
-        ))
+      } else if (previousTask) {
+        setTasks(prev => prev.map(t => t.id === id ? previousTask! : t))
       }
     } catch {
-      // Revert
-      setTasks(prev => prev.map(t =>
-        t.id === id
-          ? { ...t, status: done ? 'active' : 'done', completed_at: done ? null : t.completed_at }
-          : t
-      ))
+      if (previousTask) {
+        setTasks(prev => prev.map(t => t.id === id ? previousTask! : t))
+      }
     }
   }
 
@@ -358,20 +353,22 @@ function TasksPageContent() {
     }
   }
 
-  // Handle reorder (drag-and-drop)
+  // Handle reorder (drag-and-drop) — capture previous positions for revert
   const handleReorder = async (_groupLabel: string, orderedIds: string[]) => {
-    // Optimistic update: reorder tasks locally
     const positionMap = new Map(orderedIds.map((id, idx) => [id, idx * 1000]))
 
+    // Capture previous positions before optimistic update
+    let previousPositions: Map<string, number> | undefined
     setTasks(prev => {
-      const updated = prev.map(t => {
+      previousPositions = new Map(
+        prev.filter(t => positionMap.has(t.id)).map(t => [t.id, t.position])
+      )
+      return prev.map(t => {
         const newPosition = positionMap.get(t.id)
         return newPosition !== undefined ? { ...t, position: newPosition } : t
       })
-      return updated
     })
 
-    // Send to API
     try {
       const tasksToUpdate = orderedIds.map((id, idx) => ({ id, position: idx * 1000 }))
       await apiFetch('/api/tasks/reorder', {
@@ -381,7 +378,14 @@ function TasksPageContent() {
       })
     } catch (err) {
       console.error('Failed to reorder tasks:', err)
-      // Could refetch here to revert, but optimistic update is usually fine
+      // Revert to previous positions
+      if (previousPositions) {
+        const prevPos = previousPositions
+        setTasks(prev => prev.map(t => {
+          const oldPosition = prevPos.get(t.id)
+          return oldPosition !== undefined ? { ...t, position: oldPosition } : t
+        }))
+      }
     }
   }
 

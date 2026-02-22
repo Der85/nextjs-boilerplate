@@ -27,6 +27,10 @@ export function useReminders(): UseRemindersReturn {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isVisibleRef = useRef(true)
 
+  // Keep a ref in sync with reminders to avoid stale closures in callbacks
+  const remindersRef = useRef<ReminderWithTask[]>([])
+  useEffect(() => { remindersRef.current = reminders }, [reminders])
+
   // Fetch reminders from API
   const fetchReminders = useCallback(async () => {
     try {
@@ -77,30 +81,29 @@ export function useReminders(): UseRemindersReturn {
 
   // Dismiss reminder
   const dismiss = useCallback(async (id: string) => {
-    // Optimistic update
+    // Optimistic update — read from ref to avoid stale closure
+    const reminder = remindersRef.current.find(r => r.id === id)
     setReminders(prev => prev.filter(r => r.id !== id))
-    setUnreadCount(prev => {
-      const reminder = reminders.find(r => r.id === id)
-      return reminder && !reminder.read_at ? Math.max(0, prev - 1) : prev
-    })
+    if (reminder && !reminder.read_at) {
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
 
     try {
       await apiFetch(`/api/reminders/${id}/dismiss`, { method: 'POST' })
     } catch (err) {
       console.error('Failed to dismiss reminder:', err)
-      // Refetch to restore state
       await fetchReminders()
     }
-  }, [reminders, fetchReminders])
+  }, [fetchReminders])
 
   // Snooze reminder
   const snooze = useCallback(async (id: string, duration: SnoozeDuration) => {
-    // Optimistic update
+    // Optimistic update — read from ref to avoid stale closure
+    const reminder = remindersRef.current.find(r => r.id === id)
     setReminders(prev => prev.filter(r => r.id !== id))
-    setUnreadCount(prev => {
-      const reminder = reminders.find(r => r.id === id)
-      return reminder && !reminder.read_at ? Math.max(0, prev - 1) : prev
-    })
+    if (reminder && !reminder.read_at) {
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
 
     try {
       await apiFetch(`/api/reminders/${id}/snooze`, {
@@ -110,10 +113,9 @@ export function useReminders(): UseRemindersReturn {
       })
     } catch (err) {
       console.error('Failed to snooze reminder:', err)
-      // Refetch to restore state
       await fetchReminders()
     }
-  }, [reminders, fetchReminders])
+  }, [fetchReminders])
 
   // Clear all reminders
   const clearAll = useCallback(async () => {
@@ -133,12 +135,13 @@ export function useReminders(): UseRemindersReturn {
   // Complete task (mark as done) - uses optimized endpoint that handles
   // both task completion and reminder dismissal in a single transaction
   const completeTask = useCallback(async (taskId: string) => {
-    // Optimistic update: remove reminders for this task from local state
-    const taskReminders = reminders.filter(r => r.task_id === taskId)
-    const unreadTaskReminders = taskReminders.filter(r => !r.read_at)
+    // Optimistic update — read from ref to avoid stale closure
+    const unreadCount = remindersRef.current.filter(r => r.task_id === taskId && !r.read_at).length
 
     setReminders(prev => prev.filter(r => r.task_id !== taskId))
-    setUnreadCount(prev => Math.max(0, prev - unreadTaskReminders.length))
+    if (unreadCount > 0) {
+      setUnreadCount(prev => Math.max(0, prev - unreadCount))
+    }
 
     try {
       const res = await apiFetch(`/api/tasks/${taskId}/complete`, {
@@ -146,15 +149,13 @@ export function useReminders(): UseRemindersReturn {
       })
 
       if (!res.ok) {
-        // Revert optimistic update on failure
         await fetchReminders()
       }
     } catch (err) {
       console.error('Failed to complete task:', err)
-      // Revert optimistic update on error
       await fetchReminders()
     }
-  }, [reminders, fetchReminders])
+  }, [fetchReminders])
 
   // Handle visibility change
   useEffect(() => {
