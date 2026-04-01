@@ -34,7 +34,7 @@ export default function SignupPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/dump')
+      router.push('/local')
     }
   }
 
@@ -52,7 +52,7 @@ export default function SignupPage() {
           ADHDer.io
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-caption)' }}>
-          Your brain dumps, organized by AI.
+          Location-gated microblogging. Join the conversation.
         </p>
       </div>
 

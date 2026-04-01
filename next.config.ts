@@ -14,8 +14,8 @@ const cspDirectives = [
   // Next.js next/font self-hosts fonts at build time
   "font-src 'self'",
   "img-src 'self' data: blob:",
-  // Supabase client makes requests from the browser
-  `connect-src 'self' ${supabaseUrl}`.trim(),
+  // Supabase client makes requests from the browser; include wildcard for all supabase projects
+  `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co`.trim(),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
