@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  /* v2 Color Palette */
+  /* Color Palette — early Twitter minimalism with warm teal accent */
   --color-bg: #FFFFFF;
   --color-surface: #F9FAFB;
   --color-text-primary: #111827;
   --color-text-secondary: #6B7280;
   --color-text-tertiary: #9CA3AF;
-  --color-accent: #3B82F6;
-  --color-accent-hover: #2563EB;
-  --color-accent-light: rgba(59, 130, 246, 0.08);
+  --color-accent: #0D9488;        /* warm teal */
+  --color-accent-hover: #0F766E;
+  --color-accent-light: rgba(13, 148, 136, 0.08);
   --color-success: #10B981;
   --color-success-light: rgba(16, 185, 129, 0.1);
   --color-warning: #F59E0B;
@@ -35,12 +35,11 @@
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
 
   /* Layout */
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --tab-bar-height: 56px;
   --content-max-width: 640px;
+  --header-height: 56px;
 }
 
 * {
@@ -62,14 +61,12 @@ body {
 a { color: var(--color-accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* Focus styles */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 :focus:not(:focus-visible) { outline: none; }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -78,64 +75,24 @@ a:hover { text-decoration: underline; }
 }
 
 /* Animations */
-@keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slide-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-@keyframes pop-in {
-  0% { transform: scale(0.95); opacity: 0; }
-  70% { transform: scale(1.02); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes check-pop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.task-actions-row {
-  animation: fadeIn 0.15s ease-out;
-}
-
-/* Hide verbose recurrence text on mobile - icon + tooltip is enough */
-@media (max-width: 480px) {
-  .recurrence-text {
-    display: none;
-  }
-}
-
-/* New occurrence highlight for recurring tasks */
-@keyframes new-occurrence {
-  from { background-color: var(--color-accent-light); }
-  to { background-color: transparent; }
-}
-
-.new-occurrence {
-  animation: new-occurrence 1.5s ease-out;
-  border-radius: var(--radius-sm);
-}
-
-/* Skeleton loading */
 .skeleton {
   background: linear-gradient(90deg, var(--color-surface) 25%, #f0f0f0 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
   border-radius: var(--radius-sm);
+}
+
+/* Post separator — simple 1px border, early Twitter style */
+.post-border {
+  border-bottom: 1px solid var(--color-border);
 }
