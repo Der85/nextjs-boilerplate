@@ -27,14 +27,19 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({ email, password })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signUp({ email, password })
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+      } else {
+        router.push('/local')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect. Please try again.')
+    } finally {
       setLoading(false)
-    } else {
-      router.push('/local')
     }
   }
 
