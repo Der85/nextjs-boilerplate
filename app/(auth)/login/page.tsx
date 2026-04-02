@@ -22,7 +22,11 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error) {
-        setError(error.message)
+        if (error.message === 'Failed to fetch') {
+          setError('Cannot reach the server. The Supabase project may be paused or unreachable — check your Supabase dashboard.')
+        } else {
+          setError(error.message)
+        }
       } else {
         router.push('/local')
       }
