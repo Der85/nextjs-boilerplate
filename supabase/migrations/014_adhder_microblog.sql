@@ -3,17 +3,41 @@
 -- Location-gated posts, zones, follows
 -- ============================
 
--- 1. Extend user_profiles for microblogging
-ALTER TABLE user_profiles
-  ADD COLUMN IF NOT EXISTS handle text UNIQUE,
-  ADD COLUMN IF NOT EXISTS bio text,
-  ADD COLUMN IF NOT EXISTS avatar_url text;
+-- 1. User profiles for microblogging
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  handle text UNIQUE,
+  display_name text,
+  bio text,
+  avatar_url text,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT handle_format CHECK (handle ~ '^[a-z0-9_]{3,20}$'),
+  CONSTRAINT bio_length CHECK (char_length(bio) <= 160)
+);
 
-ALTER TABLE user_profiles
-  ADD CONSTRAINT handle_format CHECK (handle ~ '^[a-z0-9_]{3,20}$'),
-  ADD CONSTRAINT bio_length CHECK (char_length(bio) <= 160);
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Profiles are publicly readable" ON user_profiles FOR SELECT
+  USING (auth.role() = 'authenticated');
+CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE
+  USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
 CREATE INDEX IF NOT EXISTS idx_profiles_handle ON user_profiles(handle);
+
+-- Auto-create profile on signup
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id)
+  VALUES (NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- 2. Zones — H3 hex cells with human-readable labels
 CREATE TABLE zones (
