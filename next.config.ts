@@ -2,20 +2,30 @@ import type { NextConfig } from "next";
 
 // Build CSP connect-src from Supabase URL (available at build time via NEXT_PUBLIC_)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+// Supabase Realtime uses WebSockets — derive wss:// from the https:// URL
+const supabaseWsUrl = supabaseUrl.replace(/^https:\/\//, 'wss://');
+
+const isProduction = process.env.NODE_ENV === 'production';
 
 const cspDirectives = [
   "default-src 'self'",
   // Next.js requires 'unsafe-eval' in dev for Fast Refresh; production uses 'self' only
-  process.env.NODE_ENV === 'development'
-    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-    : "script-src 'self' 'unsafe-inline'",
+  isProduction
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
   // Inline styles are used extensively via React style props
   "style-src 'self' 'unsafe-inline'",
   // Next.js next/font self-hosts fonts at build time
   "font-src 'self'",
   "img-src 'self' data: blob:",
-  // Supabase client makes requests from the browser
-  `connect-src 'self' ${supabaseUrl}`.trim(),
+  // Supabase REST + Auth (https) and Realtime (wss)
+  [
+    "connect-src 'self'",
+    supabaseUrl,
+    supabaseWsUrl,
+    // Vercel preview toolbar (non-prod only)
+    !isProduction ? 'https://*.vercel.live wss://*.vercel.live' : '',
+  ].filter(Boolean).join(' '),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
