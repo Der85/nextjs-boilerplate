@@ -194,7 +194,7 @@ export function LocalFeed() {
               opacity: followLoading ? 0.5 : 1,
             }}
           >
-            {isFollowed ? 'Following' : 'Follow'}
+            {followLoading ? '…' : isFollowed ? 'Following' : 'Follow'}
           </button>
         )}
       </div>
@@ -207,6 +207,8 @@ export function LocalFeed() {
         newPostIds={newPostIds}
         currentUserId={currentUserId}
         onDelete={handleDelete}
+        emptyMessage={`Nothing posted in ${zoneLabel ?? 'this zone'} yet.`}
+        emptySubMessage="Be the first — use the box above to post."
       />
     </div>
   )

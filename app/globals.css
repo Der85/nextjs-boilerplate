@@ -24,6 +24,12 @@
   /* Shadows */
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
 
+  /* Typography scale */
+  --text-heading: 1.5rem;
+  --font-heading: 700;
+  --text-body: 1rem;
+  --text-caption: 0.875rem;
+
   /* Layout */
   --content-max-width: 600px;
 }

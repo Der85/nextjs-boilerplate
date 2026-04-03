@@ -11,9 +11,11 @@ interface FeedProps {
   newPostIds?: Set<string>
   currentUserId?: string | null
   onDelete?: (postId: string) => void
+  emptyMessage?: string
+  emptySubMessage?: string
 }
 
-export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds, currentUserId, onDelete }: FeedProps) {
+export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds, currentUserId, onDelete, emptyMessage, emptySubMessage }: FeedProps) {
   if (loading && posts.length === 0) {
     return (
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
@@ -31,9 +33,14 @@ export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds, currentU
   if (!loading && posts.length === 0) {
     return (
       <div style={{ padding: '48px 16px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.875rem' }}>
-          No posts here yet. Be the first.
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', fontWeight: 500 }}>
+          {emptyMessage ?? 'No posts here yet.'}
         </p>
+        {emptySubMessage && (
+          <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.8rem', marginTop: '6px' }}>
+            {emptySubMessage}
+          </p>
+        )}
       </div>
     )
   }
