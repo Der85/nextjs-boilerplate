@@ -48,10 +48,58 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const zoneId = searchParams.get('zoneId')
   const cursor = searchParams.get('cursor')
+  const feed = searchParams.get('feed')
 
   // Validate cursor is a real timestamp before using in query
   const cursorDate = cursor ? new Date(cursor) : null
   const validCursor = cursorDate && !isNaN(cursorDate.getTime()) ? cursor : null
+
+  // For the following feed, get the zones the user subscribes to
+  if (feed === 'following') {
+    const { data: follows } = await supabase
+      .from('location_follows')
+      .select('zone_id')
+      .eq('user_id', user.id)
+
+    const followedZoneIds = (follows ?? []).map((f) => f.zone_id)
+    if (followedZoneIds.length === 0) {
+      return NextResponse.json({ posts: [], nextCursor: null, noFollows: true })
+    }
+
+    let followQuery = supabase
+      .from('posts')
+      .select('*')
+      .is('parent_id', null)
+      .in('zone_id', followedZoneIds)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (validCursor) followQuery = followQuery.lt('created_at', validCursor)
+
+    const { data: followPosts, error: followError } = await followQuery
+    if (followError) return apiError('Failed to fetch posts', 500, 'DB_ERROR')
+    if (!followPosts || followPosts.length === 0) {
+      return NextResponse.json({ posts: [], nextCursor: null })
+    }
+
+    const fAuthorIds = [...new Set(followPosts.map((p) => p.author_id))]
+    const { data: fProfiles } = await supabase
+      .from('profiles')
+      .select('id, handle, display_name')
+      .in('id', fAuthorIds)
+    const fProfileMap = Object.fromEntries((fProfiles ?? []).map((p) => [p.id, p]))
+    const fPostIds = followPosts.map((p) => p.id)
+    const { replyCounts, repostCounts } = await fetchCounts(supabase, fPostIds)
+
+    const fResult: PostWithAuthor[] = followPosts.map((p) => ({
+      ...p,
+      author: fProfileMap[p.author_id] ?? null,
+      reply_count: replyCounts[p.id] ?? 0,
+      repost_count: repostCounts[p.id] ?? 0,
+    }))
+    const fNextCursor = followPosts.length === 20 ? followPosts[followPosts.length - 1].created_at : null
+    return NextResponse.json({ posts: fResult, nextCursor: fNextCursor })
+  }
 
   let query = supabase
     .from('posts')

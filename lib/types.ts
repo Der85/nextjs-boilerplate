@@ -41,6 +41,11 @@ export interface PostWithAuthor extends Post {
   repost_count: number
 }
 
+export interface ZoneWithMeta extends Zone {
+  post_count: number
+  is_followed: boolean
+}
+
 export interface LocationState {
   latitude: number | null
   longitude: number | null
