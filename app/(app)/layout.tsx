@@ -12,13 +12,34 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from('profiles')
     .select('handle, display_name')
     .eq('id', user.id)
     .maybeSingle<Pick<Profile, 'handle' | 'display_name'>>()
 
-  // Fallback if profile row hasn't been created yet (trigger race condition edge case)
+  // Profile missing — user signed up before the new schema was applied.
+  // Auto-create it now so all FK-dependent features (follows, posts) work.
+  if (!profile) {
+    const baseHandle = (user.email?.split('@')[0] ?? 'user')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .slice(0, 20)
+
+    // Try the base handle first; if taken, append the first 4 chars of the user id
+    const handle = baseHandle
+    const { data: created } = await supabase
+      .from('profiles')
+      .upsert(
+        { id: user.id, handle, display_name: handle },
+        { onConflict: 'id' }
+      )
+      .select('handle, display_name')
+      .maybeSingle<Pick<Profile, 'handle' | 'display_name'>>()
+
+    profile = created
+  }
+
   const handle = profile?.handle ?? user.email?.split('@')[0] ?? 'user'
 
   return (
