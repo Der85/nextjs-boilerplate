@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useLocation } from '@/lib/contexts/LocationContext'
 import { apiFetch } from '@/lib/utils/apiFetch'
-import { timeAgo } from '@/lib/utils/time'
+import { TimeAgo } from '@/components/TimeAgo'
 import type { PostWithAuthor } from '@/lib/types'
 
 interface PostCardProps {
   post: PostWithAuthor
+  isNew?: boolean
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, isNew }: PostCardProps) {
   const { currentZoneId, zoneLabel, latitude, longitude } = useLocation()
   const [repostCount, setRepostCount] = useState(post.repost_count)
   const [reposted, setReposted] = useState(false)
@@ -46,7 +47,10 @@ export function PostCard({ post }: PostCardProps) {
     : `You need to be in ${post.zone_label} to interact`
 
   return (
-    <article style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}>
+    <article
+      className={isNew ? 'post-enter' : undefined}
+      style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}
+    >
       {/* Repost badge */}
       {post.repost_of && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
@@ -62,14 +66,22 @@ export function PostCard({ post }: PostCardProps) {
         color: 'var(--color-text-secondary)',
         marginBottom: '6px',
         flexWrap: 'wrap',
+        alignItems: 'center',
       }}>
-        <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
-          @{post.author?.handle ?? 'unknown'}
-        </span>
+        {post.author?.handle ? (
+          <Link
+            href={`/profile/${post.author.handle}`}
+            style={{ fontWeight: 600, color: 'var(--color-text-primary)', textDecoration: 'none' }}
+          >
+            @{post.author.handle}
+          </Link>
+        ) : (
+          <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>@unknown</span>
+        )}
         <span>·</span>
         <span>{post.zone_label}</span>
         <span>·</span>
-        <span>{timeAgo(post.created_at)}</span>
+        <TimeAgo timestamp={post.created_at} />
       </div>
 
       {/* Content */}

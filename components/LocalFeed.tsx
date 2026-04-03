@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useLocation } from '@/lib/contexts/LocationContext'
 import { ComposeBox } from '@/components/ComposeBox'
 import { Feed } from '@/components/Feed'
 import { apiFetch } from '@/lib/utils/apiFetch'
+import { createClient } from '@/lib/supabase/client'
 import type { PostWithAuthor } from '@/lib/types'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 export function LocalFeed() {
   const { currentZoneId, zoneLabel } = useLocation()
@@ -16,6 +18,8 @@ export function LocalFeed() {
   const [hasMore, setHasMore] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [newPostIds, setNewPostIds] = useState<Set<string>>(new Set())
+  const channelRef = useRef<RealtimeChannel | null>(null)
 
   const fetchPosts = useCallback(async (zonId: string, cur: string | null, append: boolean) => {
     setLoading(true)
@@ -52,6 +56,64 @@ export function LocalFeed() {
       })
       .catch(() => {})
   }, [currentZoneId, fetchPosts])
+
+  // Realtime subscription — prepend new posts from other users as they arrive
+  useEffect(() => {
+    if (!currentZoneId) return
+
+    // Clean up any existing channel before subscribing to the new zone
+    if (channelRef.current) {
+      channelRef.current.unsubscribe()
+      channelRef.current = null
+    }
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`zone-posts:${currentZoneId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'posts',
+          filter: `zone_id=eq.${currentZoneId}`,
+        },
+        async (payload) => {
+          const newPost = payload.new as Record<string, unknown>
+          // Skip replies — they belong in thread view
+          if (newPost.parent_id) return
+
+          // Fetch author profile for the new post
+          const { data: author } = await supabase
+            .from('profiles')
+            .select('id, handle, display_name')
+            .eq('id', newPost.author_id as string)
+            .maybeSingle()
+
+          const postWithAuthor: PostWithAuthor = {
+            ...(newPost as Parameters<typeof Object.assign>[0]),
+            author: author ?? null,
+            reply_count: 0,
+            repost_count: 0,
+          } as PostWithAuthor
+
+          setPosts((prev) => {
+            // Deduplicate: the user's own new post may already be in the list
+            if (prev.some((p) => p.id === postWithAuthor.id)) return prev
+            setNewPostIds((ids) => new Set([...ids, postWithAuthor.id]))
+            return [postWithAuthor, ...prev]
+          })
+        }
+      )
+      .subscribe()
+
+    channelRef.current = channel
+
+    return () => {
+      channel.unsubscribe()
+      channelRef.current = null
+    }
+  }, [currentZoneId])
 
   async function toggleFollow() {
     if (!currentZoneId || !zoneLabel) return
@@ -132,6 +194,7 @@ export function LocalFeed() {
         onLoadMore={loadMore}
         hasMore={hasMore}
         loading={loading && initialLoading}
+        newPostIds={newPostIds}
       />
     </div>
   )
