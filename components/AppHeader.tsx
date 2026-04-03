@@ -1,36 +1,85 @@
 'use client'
 
-import NotificationBell from './NotificationBell'
+import { useRouter } from 'next/navigation'
+import { useLocation } from '@/lib/contexts/LocationContext'
+import { CSRF_COOKIE_NAME } from '@/lib/csrf'
 
 interface AppHeaderProps {
-  title?: string
+  handle: string
 }
 
-export default function AppHeader({ title }: AppHeaderProps) {
+export function AppHeader({ handle }: AppHeaderProps) {
+  const router = useRouter()
+  const { zoneLabel, isLoading } = useLocation()
+
+  async function handleLogout() {
+    const csrfToken =
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(`${CSRF_COOKIE_NAME}=`))
+        ?.split('=')[1] ?? ''
+
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrfToken },
+    })
+
+    router.push('/login')
+    router.refresh()
+  }
+
   return (
     <header style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+      background: '#fff',
+      borderBottom: '1px solid var(--color-border)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '12px 0',
-      marginBottom: '8px',
+      padding: '0 16px',
+      height: '52px',
+      gap: '12px',
     }}>
-      {/* Title or spacer */}
-      <div style={{ flex: 1 }}>
-        {title && (
-          <h1 style={{
-            fontSize: 'var(--text-heading)',
-            fontWeight: 'var(--font-heading)',
-            color: 'var(--color-text-primary)',
-            margin: 0,
-          }}>
-            {title}
-          </h1>
-        )}
+      {/* Logo */}
+      <div style={{ fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        🧠 ADHDer.io
       </div>
 
-      {/* Notification bell */}
-      <NotificationBell />
+      {/* Current zone — centred */}
+      <div style={{
+        flex: 1,
+        textAlign: 'center',
+        fontSize: '0.875rem',
+        color: isLoading ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
+        minWidth: 0,
+      }}>
+        📍 {zoneLabel ?? (isLoading ? 'Detecting location…' : 'Unknown zone')}
+      </div>
+
+      {/* Handle + logout */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+          @{handle}
+        </span>
+        <button
+          onClick={handleLogout}
+          style={{
+            fontSize: '0.75rem',
+            color: 'var(--color-text-tertiary)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '4px 8px',
+          }}
+        >
+          Log out
+        </button>
+      </div>
     </header>
   )
 }

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     default: 'ADHDer.io',
     template: '%s | ADHDer.io',
   },
-  description: 'Brain dump. Get tasks. Check them off. See your progress.',
+  description: 'Your location is your voice. Post, reply, and connect from where you stand.',
   applicationName: 'ADHDer.io',
 }
 

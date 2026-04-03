@@ -24,7 +24,7 @@ export default function LoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/dump')
+      router.push('/local')
     }
   }
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
           ADHDer.io
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-caption)' }}>
-          Welcome back. Let&apos;s get things done.
+          Welcome back.
         </p>
       </div>
 

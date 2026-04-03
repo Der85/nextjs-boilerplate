@@ -9,6 +9,10 @@ export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'INTERNAL_ERROR'
   | 'CSRF_ERROR'
+  | 'LOCATION_GATED'
+  | 'DB_ERROR'
+  | 'UNKNOWN_ZONE'
+  | 'INVALID_ACTION'
 
 interface ApiErrorBody {
   error: string
