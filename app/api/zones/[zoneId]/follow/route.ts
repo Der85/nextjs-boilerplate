@@ -33,7 +33,10 @@ export async function POST(
     .from('location_follows')
     .upsert({ user_id: user.id, zone_id: zoneId, zone_label: parsed.data.zoneLabel }, { onConflict: 'user_id,zone_id' })
 
-  if (error) return apiError('Failed to follow zone', 500, 'DB_ERROR')
+  if (error) {
+    console.error('[POST /api/zones/follow] upsert error:', error.message, error.details, error.hint, { userId: user.id, zoneId })
+    return apiError('Failed to follow zone', 500, 'DB_ERROR')
+  }
 
   return NextResponse.json({ followed: true })
 }
