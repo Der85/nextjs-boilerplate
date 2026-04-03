@@ -32,6 +32,8 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Remove tap highlight flash on iOS */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -42,10 +44,24 @@ body {
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent iOS rubber-band overscroll on the body */
+  overscroll-behavior-y: none;
 }
 
 a { color: var(--color-accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+/* Minimum 44×44px touch target for interactive elements on mobile */
+button, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Post action buttons are small by design — override to match their container */
+article button {
+  min-height: unset;
+  min-width: unset;
+}
 
 :focus-visible {
   outline: 2px solid var(--color-accent);
@@ -63,6 +79,10 @@ a:hover { text-decoration: underline; }
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.post-enter {
+  animation: fade-in 0.25s ease-out both;
 }
 
 .skeleton {

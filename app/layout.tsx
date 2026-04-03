@@ -15,13 +15,31 @@ export const metadata: Metadata = {
   },
   description: 'Your location is your voice. Post, reply, and connect from where you stand.',
   applicationName: 'ADHDer.io',
+  openGraph: {
+    type: 'website',
+    siteName: 'ADHDer.io',
+    title: 'ADHDer.io',
+    description: 'Your location is your voice. Post, reply, and connect from where you stand.',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'ADHDer.io',
+    description: 'Your location is your voice. Post, reply, and connect from where you stand.',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'ADHDer.io',
+  },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#3B82F6',
+  themeColor: '#0D9488',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

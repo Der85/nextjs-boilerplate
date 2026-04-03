@@ -8,9 +8,10 @@ interface FeedProps {
   onLoadMore: () => void
   hasMore: boolean
   loading: boolean
+  newPostIds?: Set<string>
 }
 
-export function Feed({ posts, onLoadMore, hasMore, loading }: FeedProps) {
+export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds }: FeedProps) {
   if (loading && posts.length === 0) {
     return (
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
@@ -38,7 +39,7 @@ export function Feed({ posts, onLoadMore, hasMore, loading }: FeedProps) {
   return (
     <div>
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard key={post.id} post={post} isNew={newPostIds?.has(post.id)} />
       ))}
 
       {hasMore && (
