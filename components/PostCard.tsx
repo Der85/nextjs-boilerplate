@@ -35,9 +35,11 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
 
   // User can interact only if they are physically in the same zone as the post
   const canInteract = Boolean(currentZoneId && currentZoneId === post.zone_id)
+  // Reposts of reposts are not allowed
+  const canRepost = canInteract && !post.repost_of && !reposted
 
   async function handleRepost() {
-    if (!canInteract || !latitude || !longitude || !currentZoneId || reposted) return
+    if (!canRepost || !latitude || !longitude || !currentZoneId) return
     setReposted(true)
     setRepostCount((n) => n + 1)
 
@@ -134,8 +136,12 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
         {/* Repost */}
         <button
           onClick={handleRepost}
-          disabled={!canInteract || reposted}
-          title={interactTitle}
+          disabled={!canRepost}
+          title={
+            post.repost_of
+              ? 'Cannot repost a repost'
+              : interactTitle
+          }
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -143,12 +149,12 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
             fontSize: '0.875rem',
             color: reposted
               ? 'var(--color-accent)'
-              : canInteract
+              : canRepost
               ? 'var(--color-text-secondary)'
               : 'var(--color-text-tertiary)',
             background: 'none',
             border: 'none',
-            cursor: canInteract && !reposted ? 'pointer' : 'default',
+            cursor: canRepost ? 'pointer' : 'default',
             padding: 0,
           }}
         >

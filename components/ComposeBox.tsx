@@ -14,6 +14,7 @@ export function ComposeBox({ onPost }: ComposeBoxProps) {
   const { currentZoneId, zoneLabel, latitude, longitude } = useLocation()
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const remaining = MAX - content.length
   const disabled = !currentZoneId || submitting || content.trim().length === 0
@@ -22,6 +23,7 @@ export function ComposeBox({ onPost }: ComposeBoxProps) {
     e.preventDefault()
     if (disabled || !latitude || !longitude || !currentZoneId) return
     setSubmitting(true)
+    setError(null)
 
     try {
       const res = await apiFetch('/api/posts', {
@@ -30,7 +32,6 @@ export function ComposeBox({ onPost }: ComposeBoxProps) {
           content: content.trim(),
           latitude,
           longitude,
-          // At resolution 8, zone_id IS the H3 cell index
           zoneId: currentZoneId,
           zoneLabel,
           h3_index: currentZoneId,
@@ -40,7 +41,16 @@ export function ComposeBox({ onPost }: ComposeBoxProps) {
       if (res.ok) {
         setContent('')
         onPost()
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        if (res.status === 429) {
+          setError('You\'re posting too fast. Wait a moment and try again.')
+        } else {
+          setError(data.error ?? 'Failed to post. Please try again.')
+        }
       }
+    } catch {
+      setError('Network error. Check your connection and try again.')
     } finally {
       setSubmitting(false)
     }
@@ -74,6 +84,12 @@ export function ComposeBox({ onPost }: ComposeBoxProps) {
           fontFamily: 'inherit',
         }}
       />
+
+      {error && (
+        <p style={{ fontSize: '0.8rem', color: 'var(--color-danger)', marginTop: '6px' }}>
+          {error}
+        </p>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
         <span style={{

@@ -54,7 +54,7 @@ CREATE TABLE public.posts (
   h3_index   TEXT            NOT NULL,  -- H3 cell at resolution 8
   zone_label TEXT            NOT NULL,
   zone_id    TEXT            NOT NULL REFERENCES public.zones(zone_id),
-  parent_id  UUID            REFERENCES public.posts(id) ON DELETE SET NULL,  -- NULL = top-level
+  parent_id  UUID            REFERENCES public.posts(id) ON DELETE CASCADE,   -- NULL = top-level; CASCADE deletes replies with parent
   repost_of  UUID            REFERENCES public.posts(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
