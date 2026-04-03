@@ -3,6 +3,27 @@
 -- Run this in the Supabase SQL editor
 
 -- ============================================================
+-- Drop old task-management schema (from previous app version)
+-- CASCADE handles FK dependencies automatically
+-- ============================================================
+
+DROP TABLE IF EXISTS public.weekly_reviews         CASCADE;
+DROP TABLE IF EXISTS public.balance_scores         CASCADE;
+DROP TABLE IF EXISTS public.smart_reminders        CASCADE;
+DROP TABLE IF EXISTS public.task_suggestions       CASCADE;
+DROP TABLE IF EXISTS public.user_priorities        CASCADE;
+DROP TABLE IF EXISTS public.task_templates         CASCADE;
+DROP TABLE IF EXISTS public.user_insights          CASCADE;
+DROP TABLE IF EXISTS public.ai_category_suggestions CASCADE;
+DROP TABLE IF EXISTS public.tasks                  CASCADE;
+DROP TABLE IF EXISTS public.categories             CASCADE;
+DROP TABLE IF EXISTS public.user_profiles          CASCADE;
+
+-- Drop old trigger + function if they exist
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
+
+-- ============================================================
 -- Tables
 -- ============================================================
 
