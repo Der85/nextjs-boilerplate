@@ -41,8 +41,15 @@ async function fetchCounts(
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  let supabase: Awaited<ReturnType<typeof createClient>>
+  try {
+    supabase = await createClient()
+  } catch (e) {
+    console.error('[GET /api/posts] createClient failed:', e)
+    return apiError('Server configuration error', 500, 'DB_ERROR')
+  }
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError) console.error('[GET /api/posts] auth error:', authError.message)
   if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
 
   const { searchParams } = request.nextUrl
@@ -77,7 +84,10 @@ export async function GET(request: NextRequest) {
     if (validCursor) followQuery = followQuery.lt('created_at', validCursor)
 
     const { data: followPosts, error: followError } = await followQuery
-    if (followError) return apiError('Failed to fetch posts', 500, 'DB_ERROR')
+    if (followError) {
+      console.error('[GET /api/posts] following feed error:', followError.message, followError.details, followError.hint)
+      return apiError('Failed to fetch posts', 500, 'DB_ERROR')
+    }
     if (!followPosts || followPosts.length === 0) {
       return NextResponse.json({ posts: [], nextCursor: null })
     }
@@ -112,7 +122,10 @@ export async function GET(request: NextRequest) {
   if (validCursor) query = query.lt('created_at', validCursor)
 
   const { data: posts, error } = await query
-  if (error) return apiError('Failed to fetch posts', 500, 'DB_ERROR')
+  if (error) {
+    console.error('[GET /api/posts] Supabase error:', error.message, error.details, error.hint, { zoneId, cursor })
+    return apiError('Failed to fetch posts', 500, 'DB_ERROR')
+  }
   if (!posts || posts.length === 0) {
     return NextResponse.json({ posts: [], nextCursor: null })
   }
