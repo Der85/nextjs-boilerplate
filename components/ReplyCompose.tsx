@@ -1,20 +1,20 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
 import { useLocation } from '@/lib/contexts/LocationContext'
 import { apiFetch } from '@/lib/utils/apiFetch'
+import type { PostWithAuthor } from '@/lib/types'
 
 interface ReplyComposeProps {
   postId: string
   postZoneId: string
   postZoneLabel: string
+  onReply?: (reply: PostWithAuthor) => void
 }
 
 const MAX = 280
 
-export function ReplyCompose({ postId, postZoneId, postZoneLabel }: ReplyComposeProps) {
-  const router = useRouter()
+export function ReplyCompose({ postId, postZoneId, postZoneLabel, onReply }: ReplyComposeProps) {
   const { currentZoneId, zoneLabel, latitude, longitude } = useLocation()
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -42,8 +42,9 @@ export function ReplyCompose({ postId, postZoneId, postZoneLabel }: ReplyCompose
       })
 
       if (res.ok) {
+        const data = await res.json() as { reply: PostWithAuthor }
         setContent('')
-        router.refresh()
+        onReply?.(data.reply)
       }
     } finally {
       setSubmitting(false)

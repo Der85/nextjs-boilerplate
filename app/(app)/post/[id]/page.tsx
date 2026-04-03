@@ -2,12 +2,13 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { PostCard } from '@/components/PostCard'
-import { ReplyCompose } from '@/components/ReplyCompose'
+import { ThreadReplies } from '@/components/ThreadReplies'
 import type { PostWithAuthor } from '@/lib/types'
 
 export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: post } = await supabase
     .from('posts')
@@ -74,22 +75,15 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Original post */}
-      <PostCard post={postWithAuthor} />
+      <PostCard post={postWithAuthor} currentUserId={user?.id ?? null} />
 
-      {/* Replies */}
-      {repliesWithAuthor.length > 0 && (
-        <div style={{ borderTop: '2px solid var(--color-border)' }}>
-          {repliesWithAuthor.map((reply) => (
-            <PostCard key={reply.id} post={reply} />
-          ))}
-        </div>
-      )}
-
-      {/* Reply compose */}
-      <ReplyCompose
+      {/* Replies + compose — client component handles Realtime and state */}
+      <ThreadReplies
+        initialReplies={repliesWithAuthor}
         postId={id}
         postZoneId={post.zone_id}
         postZoneLabel={post.zone_label}
+        currentUserId={user?.id ?? null}
       />
     </div>
   )
