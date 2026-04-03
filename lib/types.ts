@@ -35,6 +35,12 @@ export interface LocationFollow {
   created_at: string
 }
 
+export interface PostWithAuthor extends Post {
+  author: { handle: string; display_name: string } | null
+  reply_count: number
+  repost_count: number
+}
+
 export interface LocationState {
   latitude: number | null
   longitude: number | null
