@@ -36,10 +36,11 @@ export async function updateSession(request: NextRequest) {
 
   // Protected app routes — redirect to login if not authenticated
   const isAppRoute =
-    request.nextUrl.pathname.startsWith('/dump') ||
-    request.nextUrl.pathname.startsWith('/tasks') ||
-    request.nextUrl.pathname.startsWith('/insights') ||
-    request.nextUrl.pathname.startsWith('/settings') ||
+    request.nextUrl.pathname.startsWith('/local') ||
+    request.nextUrl.pathname.startsWith('/following') ||
+    request.nextUrl.pathname.startsWith('/explore') ||
+    request.nextUrl.pathname.startsWith('/zone') ||
+    request.nextUrl.pathname.startsWith('/post') ||
     request.nextUrl.pathname.startsWith('/api/')
 
   if (!user && isAppRoute) {
@@ -48,14 +49,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Auth routes — redirect to dump if already logged in
+  // Auth routes — redirect to local feed if already logged in
   const isAuthRoute =
     request.nextUrl.pathname === '/login' ||
     request.nextUrl.pathname === '/signup'
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dump'
+    url.pathname = '/local'
     return NextResponse.redirect(url)
   }
 

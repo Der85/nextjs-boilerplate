@@ -126,40 +126,12 @@ class RateLimiter {
   }
 }
 
-// v2 API Rate Limiters
+// Geo resolve API: 10 requests per minute per user
+// Location context calls this on movement >100m or every 60s — stays well under the limit
+export const geoRateLimiter = new RateLimiter(60_000, 10)
 
-// Dump API: 10 requests per minute (AI calls)
-export const dumpRateLimiter = new RateLimiter(60_000, 10)
-
-// Tasks API: 60 requests per minute (frequent CRUD)
-export const tasksRateLimiter = new RateLimiter(60_000, 60)
-
-// Categories API: 30 requests per minute
-export const categoriesRateLimiter = new RateLimiter(60_000, 30)
-
-// AI API: 10 requests per minute (Gemini calls)
-export const aiRateLimiter = new RateLimiter(60_000, 10)
-
-// Insights API: 15 requests per minute
-export const insightsRateLimiter = new RateLimiter(60_000, 15)
-
-// Templates API: 30 requests per minute
-export const templatesRateLimiter = new RateLimiter(60_000, 30)
-
-// Priorities API: 20 requests per minute (low frequency, questionnaire-based)
-export const prioritiesRateLimiter = new RateLimiter(60_000, 20)
-
-// Suggestions API: 10 requests per minute (AI-powered, expensive)
-export const suggestionsRateLimiter = new RateLimiter(60_000, 10)
-
-// Reminders API: 30 requests per minute (frequent polling + actions)
-export const remindersRateLimiter = new RateLimiter(60_000, 30)
-
-// Balance API: 20 requests per minute (score computation + reads)
-export const balanceRateLimiter = new RateLimiter(60_000, 20)
-
-// Weekly Review API: 10 requests per minute (AI generation + reads)
-export const weeklyReviewRateLimiter = new RateLimiter(60_000, 10)
+// General API limiter for routes that don't need a custom rate
+export const apiRateLimiter = new RateLimiter(60_000, 60)
 
 // Export the class for custom instances
 export { RateLimiter }
