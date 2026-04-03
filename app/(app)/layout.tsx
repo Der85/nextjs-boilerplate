@@ -24,19 +24,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const baseHandle = (user.email?.split('@')[0] ?? 'user')
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, '_')
-      .slice(0, 20)
+      .slice(0, 16)
 
-    // Try the base handle first; if taken, append the first 4 chars of the user id
-    const handle = baseHandle
-    const { data: created } = await supabase
+    // Append suffix from user ID to guarantee handle uniqueness across accounts
+    const handle = `${baseHandle}_${user.id.replace(/-/g, '').slice(0, 4)}`
+
+    const { data: created, error: profileError } = await supabase
       .from('profiles')
       .upsert(
-        { id: user.id, handle, display_name: handle },
+        { id: user.id, handle, display_name: baseHandle },
         { onConflict: 'id' }
       )
       .select('handle, display_name')
       .maybeSingle<Pick<Profile, 'handle' | 'display_name'>>()
 
+    if (profileError) console.error('[AppLayout] profile upsert error:', profileError.message, profileError.details)
     profile = created
   }
 
