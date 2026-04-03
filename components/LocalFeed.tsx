@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { PostWithAuthor } from '@/lib/types'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
+const supabase = createClient()
+
 export function LocalFeed() {
   const { currentZoneId, zoneLabel } = useLocation()
   const [isFollowed, setIsFollowed] = useState<boolean | null>(null)
@@ -19,7 +21,12 @@ export function LocalFeed() {
   const [cursor, setCursor] = useState<string | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
   const [newPostIds, setNewPostIds] = useState<Set<string>>(new Set())
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
+  }, [])
 
   const fetchPosts = useCallback(async (zonId: string, cur: string | null, append: boolean) => {
     setLoading(true)
@@ -67,7 +74,6 @@ export function LocalFeed() {
       channelRef.current = null
     }
 
-    const supabase = createClient()
     const channel = supabase
       .channel(`zone-posts:${currentZoneId}`)
       .on(
@@ -142,6 +148,10 @@ export function LocalFeed() {
     if (currentZoneId && cursor) fetchPosts(currentZoneId, cursor, true)
   }
 
+  function handleDelete(postId: string) {
+    setPosts((prev) => prev.filter((p) => p.id !== postId))
+  }
+
   // Zone still resolving
   if (!currentZoneId) {
     return (
@@ -195,6 +205,8 @@ export function LocalFeed() {
         hasMore={hasMore}
         loading={loading && initialLoading}
         newPostIds={newPostIds}
+        currentUserId={currentUserId}
+        onDelete={handleDelete}
       />
     </div>
   )

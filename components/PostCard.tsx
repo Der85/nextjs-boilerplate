@@ -10,12 +10,28 @@ import type { PostWithAuthor } from '@/lib/types'
 interface PostCardProps {
   post: PostWithAuthor
   isNew?: boolean
+  currentUserId?: string | null
+  onDelete?: (postId: string) => void
 }
 
-export function PostCard({ post, isNew }: PostCardProps) {
+export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps) {
   const { currentZoneId, zoneLabel, latitude, longitude } = useLocation()
   const [repostCount, setRepostCount] = useState(post.repost_count)
   const [reposted, setReposted] = useState(false)
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'loading'>('idle')
+
+  const isOwner = Boolean(currentUserId && currentUserId === post.author_id)
+
+  async function handleDelete() {
+    if (deleteState === 'idle') { setDeleteState('confirm'); return }
+    setDeleteState('loading')
+    const res = await apiFetch(`/api/posts/${post.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      onDelete?.(post.id)
+    } else {
+      setDeleteState('idle')
+    }
+  }
 
   // User can interact only if they are physically in the same zone as the post
   const canInteract = Boolean(currentZoneId && currentZoneId === post.zone_id)
@@ -97,7 +113,7 @@ export function PostCard({ post, isNew }: PostCardProps) {
       </p>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* Reply — navigates to thread */}
         <Link
           href={`/post/${post.id}`}
@@ -140,6 +156,44 @@ export function PostCard({ post, isNew }: PostCardProps) {
           <span>{repostCount}</span>
         </button>
       </div>
+
+      {/* Delete — owner only, 2-step confirm */}
+      {isOwner && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
+          {deleteState === 'confirm' && (
+            <button
+              onClick={() => setDeleteState('idle')}
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--color-text-tertiary)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleteState === 'loading'}
+            style={{
+              fontSize: '0.75rem',
+              color: deleteState === 'confirm' ? 'var(--color-danger)' : 'var(--color-text-tertiary)',
+              background: 'none',
+              border: 'none',
+              cursor: deleteState === 'loading' ? 'default' : 'pointer',
+              padding: 0,
+              opacity: deleteState === 'loading' ? 0.5 : 1,
+            }}
+          >
+            {deleteState === 'idle' && 'Delete'}
+            {deleteState === 'confirm' && 'Confirm delete'}
+            {deleteState === 'loading' && 'Deleting…'}
+          </button>
+        </div>
+      )}
     </article>
   )
 }

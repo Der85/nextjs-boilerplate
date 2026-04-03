@@ -101,6 +101,10 @@ CREATE POLICY "posts_authenticated_insert"
   ON public.posts FOR INSERT
   WITH CHECK (auth.uid() = author_id);
 
+CREATE POLICY "posts_self_delete"
+  ON public.posts FOR DELETE
+  USING (auth.uid() = author_id);
+
 -- Profiles: globally readable, users update their own row
 CREATE POLICY "profiles_public_read"
   ON public.profiles FOR SELECT

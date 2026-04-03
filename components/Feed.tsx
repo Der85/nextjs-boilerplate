@@ -9,9 +9,11 @@ interface FeedProps {
   hasMore: boolean
   loading: boolean
   newPostIds?: Set<string>
+  currentUserId?: string | null
+  onDelete?: (postId: string) => void
 }
 
-export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds }: FeedProps) {
+export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds, currentUserId, onDelete }: FeedProps) {
   if (loading && posts.length === 0) {
     return (
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
@@ -39,7 +41,7 @@ export function Feed({ posts, onLoadMore, hasMore, loading, newPostIds }: FeedPr
   return (
     <div>
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} isNew={newPostIds?.has(post.id)} />
+        <PostCard key={post.id} post={post} isNew={newPostIds?.has(post.id)} currentUserId={currentUserId} onDelete={onDelete} />
       ))}
 
       {hasMore && (

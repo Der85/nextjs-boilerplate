@@ -2,13 +2,21 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Feed } from '@/components/Feed'
+import { createClient } from '@/lib/supabase/client'
 import type { PostWithAuthor } from '@/lib/types'
+
+const supabase = createClient()
 
 export function ExploreFeed() {
   const [posts, setPosts] = useState<PostWithAuthor[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
+  }, [])
 
   const fetchPosts = useCallback(async (cur: string | null, append: boolean) => {
     setLoading(true)
@@ -40,6 +48,8 @@ export function ExploreFeed() {
         onLoadMore={() => fetchPosts(cursor, true)}
         hasMore={hasMore}
         loading={loading}
+        currentUserId={currentUserId}
+        onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
       />
     </div>
   )
