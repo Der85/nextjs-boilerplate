@@ -19,6 +19,8 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
   const { currentZoneId, zoneLabel, latitude, longitude } = useLocation()
   const [repostCount, setRepostCount] = useState(post.repost_count)
   const [reposted, setReposted] = useState(false)
+  const [likeCount, setLikeCount] = useState(post.like_count)
+  const [liked, setLiked] = useState(post.liked_by_me)
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'loading'>('idle')
 
   const isOwner = Boolean(currentUserId && currentUserId === post.author_id)
@@ -38,6 +40,25 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
   const canInteract = locationCanInteract(currentZoneId, post.zone_id)
   // Reposts of reposts are not allowed
   const canRepost = canInteract && !post.repost_of && !reposted
+
+  async function handleLike() {
+    const prevLiked = liked
+    const prevCount = likeCount
+    // Optimistic update
+    setLiked(!liked)
+    setLikeCount((n) => n + (liked ? -1 : 1))
+
+    const res = await apiFetch(`/api/posts/${post.id}/like`, { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      setLiked(data.liked)
+      setLikeCount(data.like_count)
+    } else {
+      // Revert on error
+      setLiked(prevLiked)
+      setLikeCount(prevCount)
+    }
+  }
 
   async function handleRepost() {
     if (!canRepost || !latitude || !longitude || !currentZoneId) return
@@ -191,6 +212,26 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
         >
           <span>🔁</span>
           <span>{repostCount}</span>
+        </button>
+
+        {/* Like */}
+        <button
+          onClick={handleLike}
+          title="Like"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            fontSize: '0.875rem',
+            color: liked ? 'var(--color-danger)' : 'var(--color-text-tertiary)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          <span>{liked ? '❤️' : '🤍'}</span>
+          <span>{likeCount}</span>
         </button>
       </div>
 

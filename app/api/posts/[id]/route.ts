@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
+import { fetchLikesForPosts } from '@/lib/utils/likesHelper'
 import type { PostWithAuthor } from '@/lib/types'
 
 export async function DELETE(
@@ -54,11 +55,15 @@ export async function GET(
     supabase.from('posts').select('id').eq('repost_of', id),
   ])
 
+  const { likeCounts, likedPostIds } = await fetchLikesForPosts(supabase, [id], user.id)
+
   const result: PostWithAuthor = {
     ...post,
     author,
     reply_count: replyRows?.length ?? 0,
     repost_count: repostRows?.length ?? 0,
+    like_count: likeCounts[id] ?? 0,
+    liked_by_me: likedPostIds.has(id),
   }
 
   return NextResponse.json({ post: result })

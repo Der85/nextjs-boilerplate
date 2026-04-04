@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <LocationProvider>
       <LocationGate />
-      <AppHeader handle={handle} />
+      <AppHeader handle={handle} userId={user.id} />
       <main style={{ paddingBottom: '68px', minHeight: '100dvh' }}>
         {children}
       </main>

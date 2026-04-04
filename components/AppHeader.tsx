@@ -1,14 +1,17 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLocation } from '@/lib/contexts/LocationContext'
 import { CSRF_COOKIE_NAME } from '@/lib/csrf'
+import { NotificationBell } from '@/components/NotificationBell'
 
 interface AppHeaderProps {
   handle: string
+  userId: string
 }
 
-export function AppHeader({ handle }: AppHeaderProps) {
+export function AppHeader({ handle, userId }: AppHeaderProps) {
   const router = useRouter()
   const { zoneLabel, isLoading } = useLocation()
 
@@ -63,6 +66,22 @@ export function AppHeader({ handle }: AppHeaderProps) {
 
       {/* Handle + logout */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <Link
+          href="/search"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none',
+            fontSize: '1.1rem',
+            width: '32px',
+            height: '32px',
+          }}
+          title="Search"
+        >
+          🔍
+        </Link>
+        <NotificationBell userId={userId} />
         <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
           @{handle}
         </span>

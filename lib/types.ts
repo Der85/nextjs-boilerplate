@@ -41,6 +41,20 @@ export interface PostWithAuthor extends Post {
   author: { handle: string; display_name: string } | null
   reply_count: number
   repost_count: number
+  like_count: number
+  liked_by_me: boolean
+}
+
+export interface Notification {
+  id: string
+  recipient_id: string
+  actor_id: string
+  type: 'reply' | 'repost' | 'mention' | 'like'
+  post_id: string | null
+  read: boolean
+  created_at: string
+  actor: { handle: string; display_name: string } | null
+  post: { content: string; zone_label: string } | null
 }
 
 export interface ZoneWithMeta extends Zone {

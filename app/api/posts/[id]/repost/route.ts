@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 import { apiRateLimiter } from '@/lib/rateLimiter'
 import { verifyZoneCoords, ipGeoMatchesGps } from '@/lib/utils/verifyLocation'
+import { createNotification } from '@/lib/utils/createNotification'
 import type { PostWithAuthor } from '@/lib/types'
 
 const RepostSchema = z.object({
@@ -83,6 +84,14 @@ export async function POST(
     .eq('id', user.id)
     .maybeSingle()
 
-  const result: PostWithAuthor = { ...repost, author, reply_count: 0, repost_count: 0 }
+  // Notify original post author
+  await createNotification(supabase, {
+    recipientId: original.author_id,
+    actorId: user.id,
+    type: 'repost',
+    postId: id,
+  })
+
+  const result: PostWithAuthor = { ...repost, author, reply_count: 0, repost_count: 0, like_count: 0, liked_by_me: false }
   return NextResponse.json({ post: result }, { status: 201 })
 }

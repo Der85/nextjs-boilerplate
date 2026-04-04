@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 import { apiRateLimiter } from '@/lib/rateLimiter'
 import { verifyZoneCoords, ipGeoMatchesGps } from '@/lib/utils/verifyLocation'
+import { fetchLikesForPosts } from '@/lib/utils/likesHelper'
+import { parseMentions } from '@/lib/utils/parseMentions'
+import { createNotification } from '@/lib/utils/createNotification'
 import type { PostWithAuthor } from '@/lib/types'
 
 const CreatePostSchema = z.object({
@@ -101,12 +104,15 @@ export async function GET(request: NextRequest) {
     const fProfileMap = Object.fromEntries((fProfiles ?? []).map((p) => [p.id, p]))
     const fPostIds = followPosts.map((p) => p.id)
     const { replyCounts, repostCounts } = await fetchCounts(supabase, fPostIds)
+    const { likeCounts: fLikeCounts, likedPostIds: fLikedPostIds } = await fetchLikesForPosts(supabase, fPostIds, user.id)
 
     const fResult: PostWithAuthor[] = followPosts.map((p) => ({
       ...p,
       author: fProfileMap[p.author_id] ?? null,
       reply_count: replyCounts[p.id] ?? 0,
       repost_count: repostCounts[p.id] ?? 0,
+      like_count: fLikeCounts[p.id] ?? 0,
+      liked_by_me: fLikedPostIds.has(p.id),
     }))
     const fNextCursor = followPosts.length === 20 ? followPosts[followPosts.length - 1].created_at : null
     return NextResponse.json({ posts: fResult, nextCursor: fNextCursor })
@@ -142,12 +148,15 @@ export async function GET(request: NextRequest) {
   // Fetch counts
   const postIds = posts.map((p) => p.id)
   const { replyCounts, repostCounts } = await fetchCounts(supabase, postIds)
+  const { likeCounts, likedPostIds } = await fetchLikesForPosts(supabase, postIds, user.id)
 
   const result: PostWithAuthor[] = posts.map((p) => ({
     ...p,
     author: profileMap[p.author_id] ?? null,
     reply_count: replyCounts[p.id] ?? 0,
     repost_count: repostCounts[p.id] ?? 0,
+    like_count: likeCounts[p.id] ?? 0,
+    liked_by_me: likedPostIds.has(p.id),
   }))
 
   const nextCursor = posts.length === 20 ? posts[posts.length - 1].created_at : null
@@ -203,6 +212,24 @@ export async function POST(request: NextRequest) {
     .eq('id', user.id)
     .maybeSingle()
 
-  const result: PostWithAuthor = { ...post, author, reply_count: 0, repost_count: 0 }
+  // Notify mentioned users
+  const mentionedHandles = parseMentions(content)
+  if (mentionedHandles.length > 0) {
+    const { data: mentionedProfiles } = await supabase
+      .from('profiles')
+      .select('id, handle')
+      .in('handle', mentionedHandles)
+
+    for (const mp of mentionedProfiles ?? []) {
+      await createNotification(supabase, {
+        recipientId: mp.id,
+        actorId: user.id,
+        type: 'mention',
+        postId: post.id,
+      })
+    }
+  }
+
+  const result: PostWithAuthor = { ...post, author, reply_count: 0, repost_count: 0, like_count: 0, liked_by_me: false }
   return NextResponse.json({ post: result }, { status: 201 })
 }
