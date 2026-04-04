@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useLocation } from '@/lib/contexts/LocationContext'
 import { apiFetch } from '@/lib/utils/apiFetch'
 import { TimeAgo } from '@/components/TimeAgo'
+import { canInteract as locationCanInteract } from '@/lib/location'
 import type { PostWithAuthor } from '@/lib/types'
 
 interface PostCardProps {
@@ -34,7 +35,7 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
   }
 
   // User can interact only if they are physically in the same zone as the post
-  const canInteract = Boolean(currentZoneId && currentZoneId === post.zone_id)
+  const canInteract = locationCanInteract(currentZoneId, post.zone_id)
   // Reposts of reposts are not allowed
   const canRepost = canInteract && !post.repost_of && !reposted
 
@@ -73,6 +74,36 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
       {post.repost_of && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
           🔁 Repost
+        </div>
+      )}
+
+      {/* Local Pulse badge — subtle indicator for AI-generated content */}
+      {post.is_ai_generated && (
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '0.7rem',
+          color: 'var(--color-text-tertiary)',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '2px 6px',
+          marginBottom: '6px',
+        }}>
+          <span>📡</span>
+          <span>Local Pulse</span>
+          {post.source_url && (
+            <a
+              href={post.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'none', marginLeft: '2px' }}
+              title="View source data"
+            >
+              ↗
+            </a>
+          )}
         </div>
       )}
 

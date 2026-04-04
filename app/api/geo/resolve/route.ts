@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
 
-  if (geoRateLimiter.isLimited(user.id)) {
+  const { success: geoAllowed } = await geoRateLimiter.limit(user.id)
+  if (!geoAllowed) {
     return apiError('Too many requests', 429, 'RATE_LIMITED')
   }
 

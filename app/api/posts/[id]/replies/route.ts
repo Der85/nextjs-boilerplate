@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 import { apiRateLimiter } from '@/lib/rateLimiter'
+import { verifyZoneCoords, ipGeoMatchesGps } from '@/lib/utils/verifyLocation'
 import type { PostWithAuthor } from '@/lib/types'
 
 const ReplySchema = z.object({
@@ -60,9 +61,8 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
 
-  if (apiRateLimiter.isLimited(user.id)) {
-    return apiError('Too many requests', 429, 'RATE_LIMITED')
-  }
+  const { success: allowed } = await apiRateLimiter.limit(user.id)
+  if (!allowed) return apiError('Too many requests', 429, 'RATE_LIMITED')
 
   const { data: parent } = await supabase.from('posts').select('*').eq('id', id).maybeSingle()
   if (!parent) return apiError('Post not found', 404, 'NOT_FOUND')
@@ -75,9 +75,17 @@ export async function POST(
 
   const { content, latitude, longitude, zoneId, zoneLabel, h3_index } = parsed.data
 
-  // Application-layer location gate: client sends their current zone, server verifies it
-  // matches the post's zone. This prevents cross-zone replies without trusting client coords.
-  // IP-based geo cross-check can be layered on here in a future phase.
+  // Hard check: coords must hash to the claimed zone
+  if (!verifyZoneCoords(latitude, longitude, zoneId)) {
+    return apiError('Coordinates do not match the claimed zone', 403, 'LOCATION_GATED')
+  }
+
+  // Soft IP-geo check
+  if (!ipGeoMatchesGps(request, latitude, longitude)) {
+    console.warn('[POST /api/posts/replies] IP geo mismatch', { userId: user.id, zoneId })
+  }
+
+  // Zone must match the parent post
   if (zoneId !== parent.zone_id) {
     return apiError(
       `You must be in ${parent.zone_label} to reply here`,
