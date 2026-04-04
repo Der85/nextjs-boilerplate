@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 import { apiRateLimiter } from '@/lib/rateLimiter'
 import { verifyZoneCoords, ipGeoMatchesGps } from '@/lib/utils/verifyLocation'
+import { fetchLikesForPosts } from '@/lib/utils/likesHelper'
+import { parseMentions } from '@/lib/utils/parseMentions'
+import { createNotification } from '@/lib/utils/createNotification'
 import type { PostWithAuthor } from '@/lib/types'
 
 const ReplySchema = z.object({
@@ -42,11 +45,16 @@ export async function GET(
     .in('id', authorIds)
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
 
+  const replyIds = replies.map((r) => r.id)
+  const { likeCounts, likedPostIds } = await fetchLikesForPosts(supabase, replyIds, user.id)
+
   const result: PostWithAuthor[] = replies.map((r) => ({
     ...r,
     author: profileMap[r.author_id] ?? null,
     reply_count: 0,
     repost_count: 0,
+    like_count: likeCounts[r.id] ?? 0,
+    liked_by_me: likedPostIds.has(r.id),
   }))
 
   return NextResponse.json({ replies: result })
@@ -117,6 +125,32 @@ export async function POST(
     .eq('id', user.id)
     .maybeSingle()
 
-  const result: PostWithAuthor = { ...reply, author, reply_count: 0, repost_count: 0 }
+  // Notify parent post author (type: reply)
+  await createNotification(supabase, {
+    recipientId: parent.author_id,
+    actorId: user.id,
+    type: 'reply',
+    postId: reply.id,
+  })
+
+  // Notify mentioned users
+  const mentionedHandles = parseMentions(content)
+  if (mentionedHandles.length > 0) {
+    const { data: mentionedProfiles } = await supabase
+      .from('profiles')
+      .select('id, handle')
+      .in('handle', mentionedHandles)
+
+    for (const mp of mentionedProfiles ?? []) {
+      await createNotification(supabase, {
+        recipientId: mp.id,
+        actorId: user.id,
+        type: 'mention',
+        postId: reply.id,
+      })
+    }
+  }
+
+  const result: PostWithAuthor = { ...reply, author, reply_count: 0, repost_count: 0, like_count: 0, liked_by_me: false }
   return NextResponse.json({ reply: result }, { status: 201 })
 }
