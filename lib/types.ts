@@ -27,6 +27,7 @@ export interface Post {
   created_at: string
   is_ai_generated: boolean   // true = posted by Local Pulse bot
   source_url: string | null  // provenance link for AI-generated posts
+  pulse_topic: string | null // beat category for AI posts: weather|air_quality|new_place|local_knowledge|daylight
 }
 
 export interface LocationFollow {

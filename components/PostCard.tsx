@@ -89,7 +89,11 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
   return (
     <article
       className={isNew ? 'post-enter' : undefined}
-      style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}
+      style={{
+        padding: '12px 16px',
+        borderBottom: '1px solid var(--color-border)',
+        background: post.is_ai_generated ? 'rgba(13,148,136,0.03)' : undefined,
+      }}
     >
       {/* Repost badge */}
       {post.repost_of && (
@@ -98,35 +102,48 @@ export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps
         </div>
       )}
 
-      {/* Local Pulse badge — subtle indicator for AI-generated content */}
-      {post.is_ai_generated && (
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px',
-          fontSize: '0.7rem',
-          color: 'var(--color-text-tertiary)',
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '2px 6px',
-          marginBottom: '6px',
-        }}>
-          <span>📡</span>
-          <span>Local Pulse</span>
-          {post.source_url && (
-            <a
-              href={post.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'inherit', textDecoration: 'none', marginLeft: '2px' }}
-              title="View source data"
-            >
-              ↗
-            </a>
-          )}
-        </div>
-      )}
+      {/* Local Pulse badge — topic-specific icon + source link */}
+      {post.is_ai_generated && (() => {
+        const TOPIC_ICONS: Record<string, string> = {
+          weather: '🌤',
+          air_quality: '🌬',
+          new_place: '📍',
+          local_knowledge: '📚',
+          daylight: '🌅',
+        }
+        const icon = post.pulse_topic ? (TOPIC_ICONS[post.pulse_topic] ?? '📡') : '📡'
+        const label = post.pulse_topic
+          ? { weather: 'Weather', air_quality: 'Air quality', new_place: 'New here', local_knowledge: 'Local history', daylight: 'Daylight' }[post.pulse_topic] ?? 'Local Pulse'
+          : 'Local Pulse'
+        return (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '0.7rem',
+            color: 'var(--color-text-tertiary)',
+            background: 'rgba(13,148,136,0.06)',
+            border: '1px solid rgba(13,148,136,0.15)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '2px 6px',
+            marginBottom: '6px',
+          }}>
+            <span>{icon}</span>
+            <span>{label}</span>
+            {post.source_url && (
+              <a
+                href={post.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'inherit', textDecoration: 'none', marginLeft: '2px' }}
+                title="View source data"
+              >
+                ↗
+              </a>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Header: handle · zone · time */}
       <div style={{

@@ -1,6 +1,7 @@
 // POST /api/cron/local-pulse
-// Called by Vercel Cron every 2 hours.
-// Finds zones with no recent activity, fetches open data, generates a Local Pulse post.
+// Called by Vercel Cron once daily (08:00 UTC on Hobby plan).
+// For each active zone: fetches open data from 5 sources, generates up to 3
+// topic-specific posts via Claude, inserts them under the Local Pulse bot account.
 //
 // Security: protected by CRON_SECRET header — only Vercel's cron runner should call this.
 // The bot user (LOCAL_PULSE_BOT_USER_ID) must exist as a row in public.profiles.
@@ -9,9 +10,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cellToLatLng } from 'h3-js'
 import { fetchZoneData } from '@/lib/local-pulse/dataFetcher'
-import { generateLocalPulsePost } from '@/lib/local-pulse/generator'
+import { generateLocalPulsePosts } from '@/lib/local-pulse/generator'
 
-// Supabase service-role client — bypasses RLS so the bot can post in any zone
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -19,14 +19,12 @@ function getServiceClient() {
   return createClient(url, key)
 }
 
-// Minimum hours between Local Pulse posts in the same zone
-const MIN_HOURS_BETWEEN_POSTS = 6
-// Max zones to seed per cron run (keeps the run under 30s Vercel limit)
-const MAX_ZONES_PER_RUN = 3
+// How many zones to seed per cron run (Vercel functions have a 30s max on Hobby)
+const MAX_ZONES_PER_RUN = 5
 
 export async function POST(request: NextRequest) {
-  // Verify Vercel cron secret
-  const secret = request.headers.get('x-cron-secret') ?? request.headers.get('authorization')?.replace('Bearer ', '')
+  const secret = request.headers.get('x-cron-secret')
+    ?? request.headers.get('authorization')?.replace('Bearer ', '')
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -38,11 +36,8 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getServiceClient()
-  const cutoff = new Date(Date.now() - MIN_HOURS_BETWEEN_POSTS * 60 * 60 * 1000).toISOString()
 
-  // Find active zones that haven't had a Local Pulse post recently.
-  // We pick zones that have at least one human post (active zones worth seeding)
-  // but no bot post in the last MIN_HOURS_BETWEEN_POSTS hours.
+  // Find the most recently active zones (have at least one post)
   const { data: activeZones, error: zoneError } = await supabase
     .from('zones')
     .select('zone_id, label')
@@ -50,46 +45,51 @@ export async function POST(request: NextRequest) {
     .limit(20)
 
   if (zoneError || !activeZones?.length) {
-    console.log('[LocalPulse cron] No active zones or error:', zoneError?.message)
-    return NextResponse.json({ seeded: 0 })
+    console.log('[LocalPulse cron] No active zones:', zoneError?.message)
+    return NextResponse.json({ posted: 0 })
   }
 
-  // Filter zones: exclude those where bot posted recently
+  // Exclude zones that already got a Local Pulse post today
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
   const zoneIds = activeZones.map((z) => z.zone_id)
-  const { data: recentBotPosts } = await supabase
+
+  const { data: todaysPosts } = await supabase
     .from('posts')
     .select('zone_id')
     .eq('author_id', botUserId)
     .eq('is_ai_generated', true)
-    .gte('created_at', cutoff)
+    .gte('created_at', todayStart.toISOString())
     .in('zone_id', zoneIds)
 
-  const recentlySeededZones = new Set((recentBotPosts ?? []).map((p) => p.zone_id))
-  const candidateZones = activeZones
-    .filter((z) => !recentlySeededZones.has(z.zone_id))
+  const alreadySeeded = new Set((todaysPosts ?? []).map((p) => p.zone_id))
+  const candidates = activeZones
+    .filter((z) => !alreadySeeded.has(z.zone_id))
     .slice(0, MAX_ZONES_PER_RUN)
 
-  if (candidateZones.length === 0) {
-    console.log('[LocalPulse cron] All zones recently seeded, skipping')
-    return NextResponse.json({ seeded: 0 })
+  if (candidates.length === 0) {
+    console.log('[LocalPulse cron] All zones seeded for today')
+    return NextResponse.json({ posted: 0 })
   }
 
-  const results: Array<{ zoneId: string; status: 'posted' | 'skipped' | 'error' }> = []
+  let totalPosted = 0
+  const results: Array<{ zone: string; posted: number; topics: string[] }> = []
 
-  for (const zone of candidateZones) {
+  for (const zone of candidates) {
     try {
       const snapshot = await fetchZoneData(zone.zone_id, zone.label)
-      const generated = await generateLocalPulsePost(snapshot)
+      const posts = await generateLocalPulsePosts(snapshot)
 
-      if (!generated) {
-        results.push({ zoneId: zone.zone_id, status: 'skipped' })
+      if (posts.length === 0) {
+        results.push({ zone: zone.label, posted: 0, topics: [] })
         continue
       }
 
       const [lat, lng] = cellToLatLng(zone.zone_id)
 
-      const { error: insertError } = await supabase.from('posts').insert({
-        content: generated.content,
+      // Insert all generated posts for this zone
+      const rows = posts.map((p) => ({
+        content: p.content,
         latitude: lat,
         longitude: lng,
         h3_index: zone.zone_id,
@@ -99,22 +99,26 @@ export async function POST(request: NextRequest) {
         parent_id: null,
         repost_of: null,
         is_ai_generated: true,
-        source_url: generated.sourceUrl,
-      })
+        source_url: p.sourceUrl,
+        pulse_topic: p.topic,
+      }))
+
+      const { error: insertError } = await supabase.from('posts').insert(rows)
 
       if (insertError) {
-        console.error('[LocalPulse cron] Insert error:', insertError.message, insertError.details)
-        results.push({ zoneId: zone.zone_id, status: 'error' })
+        console.error(`[LocalPulse cron] Insert error for ${zone.label}:`, insertError.message, insertError.details)
+        results.push({ zone: zone.label, posted: 0, topics: [] })
       } else {
-        console.log(`[LocalPulse cron] Posted to ${zone.label}: "${generated.content.slice(0, 60)}…"`)
-        results.push({ zoneId: zone.zone_id, status: 'posted' })
+        totalPosted += posts.length
+        const topics = posts.map((p) => p.topic)
+        console.log(`[LocalPulse cron] ${zone.label}: ${posts.length} posts (${topics.join(', ')})`)
+        results.push({ zone: zone.label, posted: posts.length, topics })
       }
     } catch (err) {
-      console.error('[LocalPulse cron] Unexpected error for zone', zone.zone_id, err)
-      results.push({ zoneId: zone.zone_id, status: 'error' })
+      console.error(`[LocalPulse cron] Error for zone ${zone.zone_id}:`, err)
+      results.push({ zone: zone.label, posted: 0, topics: [] })
     }
   }
 
-  const seeded = results.filter((r) => r.status === 'posted').length
-  return NextResponse.json({ seeded, results })
+  return NextResponse.json({ posted: totalPosted, results })
 }
