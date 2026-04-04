@@ -63,7 +63,7 @@ export function ZoneCard({ zone: initial }: ZoneCardProps) {
           transition: 'all 0.15s',
         }}
       >
-        {isFollowed ? 'Following' : 'Follow'}
+        {loading ? '…' : isFollowed ? 'Following' : 'Follow'}
       </button>
     </div>
   )

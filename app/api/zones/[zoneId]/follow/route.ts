@@ -17,7 +17,8 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
 
-  if (apiRateLimiter.isLimited(user.id)) return apiError('Too many requests', 429, 'RATE_LIMITED')
+  const { success: allowed } = await apiRateLimiter.limit(user.id)
+  if (!allowed) return apiError('Too many requests', 429, 'RATE_LIMITED')
 
   let body: unknown
   try { body = await request.json() } catch { return apiError('Invalid JSON', 400, 'BAD_REQUEST') }
@@ -50,7 +51,8 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
 
-  if (apiRateLimiter.isLimited(user.id)) return apiError('Too many requests', 429, 'RATE_LIMITED')
+  const { success: deleteAllowed } = await apiRateLimiter.limit(user.id)
+  if (!deleteAllowed) return apiError('Too many requests', 429, 'RATE_LIMITED')
 
   const { error } = await supabase
     .from('location_follows')

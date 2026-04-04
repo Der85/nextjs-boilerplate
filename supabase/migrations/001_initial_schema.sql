@@ -54,7 +54,7 @@ CREATE TABLE public.posts (
   h3_index   TEXT            NOT NULL,  -- H3 cell at resolution 8
   zone_label TEXT            NOT NULL,
   zone_id    TEXT            NOT NULL REFERENCES public.zones(zone_id),
-  parent_id  UUID            REFERENCES public.posts(id) ON DELETE SET NULL,  -- NULL = top-level
+  parent_id  UUID            REFERENCES public.posts(id) ON DELETE CASCADE,   -- NULL = top-level; CASCADE deletes replies with parent
   repost_of  UUID            REFERENCES public.posts(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
@@ -101,10 +101,18 @@ CREATE POLICY "posts_authenticated_insert"
   ON public.posts FOR INSERT
   WITH CHECK (auth.uid() = author_id);
 
+CREATE POLICY "posts_self_delete"
+  ON public.posts FOR DELETE
+  USING (auth.uid() = author_id);
+
 -- Profiles: globally readable, users update their own row
 CREATE POLICY "profiles_public_read"
   ON public.profiles FOR SELECT
   USING (true);
+
+CREATE POLICY "profiles_self_insert"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "profiles_self_update"
   ON public.profiles FOR UPDATE

@@ -3,6 +3,34 @@ import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 import type { PostWithAuthor } from '@/lib/types'
 
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
+
+  // Verify ownership before deleting (RLS policy also enforces this)
+  const { data: post } = await supabase
+    .from('posts')
+    .select('author_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!post) return apiError('Post not found', 404, 'NOT_FOUND')
+  if (post.author_id !== user.id) return apiError('Forbidden', 403, 'FORBIDDEN')
+
+  const { error } = await supabase.from('posts').delete().eq('id', id)
+  if (error) {
+    console.error('[DELETE /api/posts/:id] error:', error.message, error.details)
+    return apiError('Failed to delete post', 500, 'DB_ERROR')
+  }
+
+  return new NextResponse(null, { status: 204 })
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

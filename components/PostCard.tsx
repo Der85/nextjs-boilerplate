@@ -5,23 +5,42 @@ import { useState } from 'react'
 import { useLocation } from '@/lib/contexts/LocationContext'
 import { apiFetch } from '@/lib/utils/apiFetch'
 import { TimeAgo } from '@/components/TimeAgo'
+import { canInteract as locationCanInteract } from '@/lib/location'
 import type { PostWithAuthor } from '@/lib/types'
 
 interface PostCardProps {
   post: PostWithAuthor
   isNew?: boolean
+  currentUserId?: string | null
+  onDelete?: (postId: string) => void
 }
 
-export function PostCard({ post, isNew }: PostCardProps) {
+export function PostCard({ post, isNew, currentUserId, onDelete }: PostCardProps) {
   const { currentZoneId, zoneLabel, latitude, longitude } = useLocation()
   const [repostCount, setRepostCount] = useState(post.repost_count)
   const [reposted, setReposted] = useState(false)
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'loading'>('idle')
+
+  const isOwner = Boolean(currentUserId && currentUserId === post.author_id)
+
+  async function handleDelete() {
+    if (deleteState === 'idle') { setDeleteState('confirm'); return }
+    setDeleteState('loading')
+    const res = await apiFetch(`/api/posts/${post.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      onDelete?.(post.id)
+    } else {
+      setDeleteState('idle')
+    }
+  }
 
   // User can interact only if they are physically in the same zone as the post
-  const canInteract = Boolean(currentZoneId && currentZoneId === post.zone_id)
+  const canInteract = locationCanInteract(currentZoneId, post.zone_id)
+  // Reposts of reposts are not allowed
+  const canRepost = canInteract && !post.repost_of && !reposted
 
   async function handleRepost() {
-    if (!canInteract || !latitude || !longitude || !currentZoneId || reposted) return
+    if (!canRepost || !latitude || !longitude || !currentZoneId) return
     setReposted(true)
     setRepostCount((n) => n + 1)
 
@@ -55,6 +74,36 @@ export function PostCard({ post, isNew }: PostCardProps) {
       {post.repost_of && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
           🔁 Repost
+        </div>
+      )}
+
+      {/* Local Pulse badge — subtle indicator for AI-generated content */}
+      {post.is_ai_generated && (
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '0.7rem',
+          color: 'var(--color-text-tertiary)',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '2px 6px',
+          marginBottom: '6px',
+        }}>
+          <span>📡</span>
+          <span>Local Pulse</span>
+          {post.source_url && (
+            <a
+              href={post.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'none', marginLeft: '2px' }}
+              title="View source data"
+            >
+              ↗
+            </a>
+          )}
         </div>
       )}
 
@@ -97,7 +146,7 @@ export function PostCard({ post, isNew }: PostCardProps) {
       </p>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* Reply — navigates to thread */}
         <Link
           href={`/post/${post.id}`}
@@ -118,8 +167,12 @@ export function PostCard({ post, isNew }: PostCardProps) {
         {/* Repost */}
         <button
           onClick={handleRepost}
-          disabled={!canInteract || reposted}
-          title={interactTitle}
+          disabled={!canRepost}
+          title={
+            post.repost_of
+              ? 'Cannot repost a repost'
+              : interactTitle
+          }
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -127,12 +180,12 @@ export function PostCard({ post, isNew }: PostCardProps) {
             fontSize: '0.875rem',
             color: reposted
               ? 'var(--color-accent)'
-              : canInteract
+              : canRepost
               ? 'var(--color-text-secondary)'
               : 'var(--color-text-tertiary)',
             background: 'none',
             border: 'none',
-            cursor: canInteract && !reposted ? 'pointer' : 'default',
+            cursor: canRepost ? 'pointer' : 'default',
             padding: 0,
           }}
         >
@@ -140,6 +193,44 @@ export function PostCard({ post, isNew }: PostCardProps) {
           <span>{repostCount}</span>
         </button>
       </div>
+
+      {/* Delete — owner only, 2-step confirm */}
+      {isOwner && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
+          {deleteState === 'confirm' && (
+            <button
+              onClick={() => setDeleteState('idle')}
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--color-text-tertiary)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleteState === 'loading'}
+            style={{
+              fontSize: '0.75rem',
+              color: deleteState === 'confirm' ? 'var(--color-danger)' : 'var(--color-text-tertiary)',
+              background: 'none',
+              border: 'none',
+              cursor: deleteState === 'loading' ? 'default' : 'pointer',
+              padding: 0,
+              opacity: deleteState === 'loading' ? 0.5 : 1,
+            }}
+          >
+            {deleteState === 'idle' && 'Delete'}
+            {deleteState === 'confirm' && 'Confirm delete'}
+            {deleteState === 'loading' && 'Deleting…'}
+          </button>
+        </div>
+      )}
     </article>
   )
 }

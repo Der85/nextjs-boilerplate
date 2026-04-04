@@ -13,6 +13,7 @@ export type ApiErrorCode =
   | 'DB_ERROR'
   | 'UNKNOWN_ZONE'
   | 'INVALID_ACTION'
+  | 'FORBIDDEN'
 
 interface ApiErrorBody {
   error: string

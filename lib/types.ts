@@ -25,6 +25,8 @@ export interface Post {
   parent_id: string | null   // set = reply, null = top-level post
   repost_of: string | null   // set = repost
   created_at: string
+  is_ai_generated: boolean   // true = posted by Local Pulse bot
+  source_url: string | null  // provenance link for AI-generated posts
 }
 
 export interface LocationFollow {
@@ -46,6 +48,15 @@ export interface ZoneWithMeta extends Zone {
   is_followed: boolean
 }
 
+/** Client-side anomaly flags surfaced by LocationProvider.
+ *  These are informational — the app logs them and can later gate behaviour on them. */
+export interface SpoofFlags {
+  /** Last GPS transition was physically impossible (speed > 300 m/s) */
+  velocityAnomaly: boolean
+  /** All recent readings are pixel-perfect identical — likely a static fake position */
+  noJitter: boolean
+}
+
 export interface LocationState {
   latitude: number | null
   longitude: number | null
@@ -55,4 +66,5 @@ export interface LocationState {
   isLoading: boolean
   error: string | null
   permissionDenied: boolean
+  spoofFlags: SpoofFlags
 }

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 import { apiRateLimiter } from '@/lib/rateLimiter'
+import { verifyZoneCoords, ipGeoMatchesGps } from '@/lib/utils/verifyLocation'
 import type { PostWithAuthor } from '@/lib/types'
 
 const RepostSchema = z.object({
@@ -22,9 +23,8 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError('Unauthorized', 401, 'UNAUTHORIZED')
 
-  if (apiRateLimiter.isLimited(user.id)) {
-    return apiError('Too many requests', 429, 'RATE_LIMITED')
-  }
+  const { success: allowed } = await apiRateLimiter.limit(user.id)
+  if (!allowed) return apiError('Too many requests', 429, 'RATE_LIMITED')
 
   const { data: original } = await supabase.from('posts').select('*').eq('id', id).maybeSingle()
   if (!original) return apiError('Post not found', 404, 'NOT_FOUND')
@@ -40,7 +40,17 @@ export async function POST(
 
   const { latitude, longitude, zoneId, zoneLabel, h3_index } = parsed.data
 
-  // Application-layer location gate
+  // Hard check: coords must hash to the claimed zone
+  if (!verifyZoneCoords(latitude, longitude, zoneId)) {
+    return apiError('Coordinates do not match the claimed zone', 403, 'LOCATION_GATED')
+  }
+
+  // Soft IP-geo check
+  if (!ipGeoMatchesGps(request, latitude, longitude)) {
+    console.warn('[POST /api/posts/repost] IP geo mismatch', { userId: user.id, zoneId })
+  }
+
+  // Zone must match the original post
   if (zoneId !== original.zone_id) {
     return apiError(
       `You must be in ${original.zone_label} to repost this`,
