@@ -1,23 +1,16 @@
-'use client'
+import AppHeader from "@/components/AppHeader";
+import BottomNav from "@/components/BottomNav";
 
-import { LocationProvider } from '@/lib/contexts/LocationContext'
-import AppHeader from '@/components/AppHeader'
-import FeedTabs from '@/components/FeedTabs'
-
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+export default function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <LocationProvider>
-      <div style={{
-        maxWidth: 'var(--content-max-width)',
-        margin: '0 auto',
-        minHeight: '100vh',
-        borderLeft: '1px solid var(--color-border)',
-        borderRight: '1px solid var(--color-border)',
-      }}>
-        <AppHeader />
-        <FeedTabs />
-        <main>{children}</main>
-      </div>
-    </LocationProvider>
-  )
+    <div className="min-h-dvh">
+      <AppHeader />
+      <main className="mx-auto max-w-md px-4 pb-28 pt-4">{children}</main>
+      <BottomNav />
+    </div>
+  );
 }

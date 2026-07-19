@@ -1,32 +1,10 @@
-// Supabase Client for Client Components
-// Use this in 'use client' components
+import { createBrowserClient } from "@supabase/ssr";
 
-import { createBrowserClient } from '@supabase/ssr'
-
-/**
- * Creates a Supabase client for use in Client Components.
- * This client handles auth state in the browser and syncs with cookies.
- *
- * Usage:
- * ```tsx
- * 'use client'
- * import { createClient } from '@/lib/supabase/client'
- *
- * function MyComponent() {
- *   const supabase = createClient()
- *   // use supabase...
- * }
- * ```
- */
+// Browser (client-component) Supabase client. Uses the public anon key and the
+// user's auth cookie; all queries are constrained by RLS.
 export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing Supabase environment variables. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in Vercel.'
-    )
-  }
-
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
 }

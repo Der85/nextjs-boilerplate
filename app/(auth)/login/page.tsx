@@ -1,175 +1,102 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  return (
+    <Suspense fallback={<LoginForm initialError={null} />}>
+      <LoginFormWithParams />
+    </Suspense>
+  );
+}
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+function LoginFormWithParams() {
+  const params = useSearchParams();
+  const initialError =
+    params.get("error") === "not_allowed"
+      ? "This account isn't allowed to use this app."
+      : null;
+  return <LoginForm initialError={initialError} />;
+}
 
+function LoginForm({ initialError }: { initialError: string | null }) {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(initialError);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
       if (error) {
-        if (error.message === 'Failed to fetch') {
-          setError('Cannot reach the server. The Supabase project may be paused or unreachable — check your Supabase dashboard.')
-        } else {
-          setError(error.message)
-        }
-      } else {
-        router.push('/local')
+        setError(error.message || "Sign in failed.");
+        return;
       }
+      router.push("/dashboard");
+      router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect. Please try again.')
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <div style={{
-      width: '100%',
-      maxWidth: '400px',
-      background: 'var(--color-bg)',
-      borderRadius: 'var(--radius-lg)',
-      padding: '40px 32px',
-      boxShadow: 'var(--shadow-lg)',
-    }}>
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 'var(--font-heading)', marginBottom: '8px' }}>
-          ADHDer.io
-        </h1>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-caption)' }}>
-          Welcome back. Post from where you stand.
-        </p>
-      </div>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <label className="flex flex-col gap-1 text-sm text-muted">
+        Email
+        <input
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="rounded-xl border border-border bg-surface px-4 py-3 text-base text-text outline-none focus:border-accent"
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm text-muted">
+        Password
+        <input
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="rounded-xl border border-border bg-surface px-4 py-3 text-base text-text outline-none focus:border-accent"
+        />
+      </label>
 
       {error && (
-        <div style={{
-          background: 'var(--color-danger-light)',
-          color: 'var(--color-danger)',
-          padding: '12px 16px',
-          borderRadius: 'var(--radius-sm)',
-          fontSize: 'var(--text-caption)',
-          marginBottom: '20px',
-        }}>
+        <p className="rounded-lg bg-bad/15 px-3 py-2 text-sm text-bad">
           {error}
-        </div>
+        </p>
       )}
 
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div>
-          <label htmlFor="email" style={{
-            display: 'block',
-            fontSize: 'var(--text-caption)',
-            fontWeight: 500,
-            color: 'var(--color-text-secondary)',
-            marginBottom: '6px',
-          }}>
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              fontSize: 'var(--text-body)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--color-bg)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-              transition: 'border-color 0.15s',
-            }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--color-accent)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
-          />
-        </div>
+      <button
+        type="submit"
+        disabled={loading}
+        className="mt-2 rounded-xl bg-accent px-4 py-3 text-base font-semibold text-white active:scale-[0.99] disabled:opacity-60"
+      >
+        {loading ? "Signing in…" : "Sign in"}
+      </button>
 
-        <div>
-          <label htmlFor="password" style={{
-            display: 'block',
-            fontSize: 'var(--text-caption)',
-            fontWeight: 500,
-            color: 'var(--color-text-secondary)',
-            marginBottom: '6px',
-          }}>
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            placeholder="Your password"
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              fontSize: 'var(--text-body)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--color-bg)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-              transition: 'border-color 0.15s',
-            }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--color-accent)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: '100%',
-            height: '48px',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--color-accent)',
-            color: '#fff',
-            fontSize: 'var(--text-body)',
-            fontWeight: 600,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            transition: 'background 0.15s, opacity 0.15s',
-            marginTop: '8px',
-          }}
-        >
-          {loading ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
-
-      <p style={{
-        textAlign: 'center',
-        marginTop: '24px',
-        fontSize: 'var(--text-caption)',
-        color: 'var(--color-text-secondary)',
-      }}>
-        Don&apos;t have an account?{' '}
-        <Link href="/signup" style={{ color: 'var(--color-accent)', fontWeight: 500 }}>
+      <p className="mt-2 text-center text-sm text-muted">
+        No account yet?{" "}
+        <Link href="/signup" className="text-accent">
           Sign up
         </Link>
       </p>
-    </div>
-  )
+    </form>
+  );
 }

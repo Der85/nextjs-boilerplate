@@ -1,41 +1,39 @@
 import type { NextConfig } from "next";
 
-// Build CSP connect-src from Supabase URL (available at build time via NEXT_PUBLIC_)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const supabaseHost = supabaseUrl.replace(/^https?:\/\//, "");
 
-const cspDirectives = [
+const csp = [
   "default-src 'self'",
-  // Next.js requires 'unsafe-eval' in dev for Fast Refresh; production uses 'self' only
-  process.env.NODE_ENV === 'development'
-    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-    : "script-src 'self' 'unsafe-inline'",
-  // Inline styles are used extensively via React style props
-  "style-src 'self' 'unsafe-inline'",
-  // Next.js next/font self-hosts fonts at build time
-  "font-src 'self'",
   "img-src 'self' data: blob:",
-  // Supabase client makes requests from the browser; include wildcard for all supabase domains
-  `connect-src 'self' ${supabaseUrl} https://*.supabase.co https://*.supabase.com https://*.supabase.in wss://*.supabase.co wss://*.supabase.com`.trim(),
+  "style-src 'self' 'unsafe-inline'",
+  // Next.js dev/runtime needs inline + eval for some hydration paths
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  `connect-src 'self' ${supabaseUrl} ${supabaseHost ? `https://${supabaseHost} wss://${supabaseHost}` : ""}`.trim(),
+  "manifest-src 'self'",
+  "worker-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
-];
-
-const ContentSecurityPolicy = cspDirectives.join('; ');
+].join("; ");
 
 const nextConfig: NextConfig = {
-  headers: async () => [
-    {
-      source: '/(.*)',
-      headers: [
-        { key: 'X-Content-Type-Options', value: 'nosniff' },
-        { key: 'X-Frame-Options', value: 'DENY' },
-        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        { key: 'Content-Security-Policy', value: ContentSecurityPolicy },
-        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
-      ],
-    },
-  ],
+  // Pin the workspace root — a stray parent lockfile would otherwise be picked.
+  turbopack: {
+    root: import.meta.dirname,
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

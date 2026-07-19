@@ -1,78 +1,82 @@
-// ============================
-// ADHDer.io — Microblogging Types
-// ============================
+// Shared domain types mirroring the Supabase schema.
 
-export interface UserProfile {
-  id: string
-  handle: string | null
-  display_name: string | null
-  bio: string | null
-  avatar_url: string | null
-  timezone: string
-  created_at: string
-  updated_at: string
+export type Frequency = "daily" | "weekly";
+export type AccountType = "cash" | "investment" | "stock";
+export type ReminderType = "meds" | "weight" | "finance";
+
+export interface Medication {
+  id: string;
+  user_id: string;
+  name: string;
+  frequency: Frequency;
+  dose_unit: string | null;
+  days_per_unit: number;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
 }
 
-export interface Zone {
-  id: string           // H3 cell index string
-  label: string        // Human-readable name, e.g. "Temple Bar, Dublin"
-  h3_resolution: number
-  lat: number
-  lng: number
-  post_count: number
-  follower_count: number
-  created_at: string
+export interface MedicationProvider {
+  id: string;
+  user_id: string;
+  medication_id: string;
+  prescriber: string | null;
+  pharmacy: string | null;
+  contact: string | null;
+  notes: string | null;
 }
 
-export interface Post {
-  id: string
-  user_id: string
-  zone_id: string
-  body: string
-  parent_id: string | null   // null = top-level, set = reply
-  repost_of: string | null   // null = original, set = repost
-  reply_count: number
-  repost_count: number
-  lat: number | null
-  lng: number | null
-  created_at: string
+export interface MedicationOrder {
+  id: string;
+  user_id: string;
+  medication_id: string;
+  date_ordered: string | null;
+  quantity: number | null;
+  cost: number | null;
+  pharmacy: string | null;
+  date_collected: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
-export interface PostWithAuthor extends Post {
-  author: Pick<UserProfile, 'id' | 'handle' | 'display_name' | 'avatar_url'>
-  zone: Pick<Zone, 'id' | 'label'> | null
+export interface MedicationLog {
+  id: string;
+  user_id: string;
+  medication_id: string;
+  log_date: string;
+  amount_taken: number;
 }
 
-export interface LocationFollow {
-  id: string
-  user_id: string
-  zone_id: string
-  zone_label: string
-  created_at: string
+export interface WeightLog {
+  id: string;
+  user_id: string;
+  log_date: string;
+  weight_kg: number | null;
 }
 
-export type LocationPermission = 'granted' | 'denied' | 'prompt' | 'unsupported'
-
-export interface LocationState {
-  lat: number | null
-  lng: number | null
-  accuracy: number | null
-  currentZone: Zone | null
-  isLoading: boolean
-  error: string | null
-  permission: LocationPermission
+export interface FinanceAccount {
+  id: string;
+  user_id: string;
+  name: string;
+  account_type: AccountType;
+  sort_order: number;
+  active: boolean;
 }
 
-export type FeedType = 'local' | 'following' | 'explore'
-
-export interface GeoResolveResponse {
-  zone: Zone
-  h3_index: string
+export interface FinanceMonthlyEntry {
+  id: string;
+  user_id: string;
+  account_id: string;
+  month: string;
+  balance: number | null;
+  price_per_unit: number | null;
 }
 
-// Cursor-based pagination
-export interface PaginatedResponse<T> {
-  data: T[]
-  next_cursor: string | null
-  has_more: boolean
+// A medication enriched with derived stock info + today's log, for the meds UI.
+export interface MedicationWithStock extends Medication {
+  currentStock: number;
+  avgPerDay: number;
+  daysLeft: number | null;
+  stockRunsOut: string | null;
+  takenToday: number;
 }

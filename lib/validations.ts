@@ -1,72 +1,51 @@
-import { z } from 'zod'
-import { NextResponse } from 'next/server'
-import { apiError } from '@/lib/api-response'
+import { z } from "zod";
 
-// ============================
-// Post schemas
-// ============================
+// POST /api/meds — log today's dose for a medication.
+export const medLogSchema = z.object({
+  medication_id: z.string().uuid(),
+  amount_taken: z.number().min(0).max(50),
+  log_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
 
-export const postCreateSchema = z.object({
-  body: z.string().min(1, 'Post cannot be empty.').max(280, 'Post exceeds 280 characters.'),
-  zone_id: z.string().min(1, 'Zone is required.'),
-  parent_id: z.string().uuid().optional(),
-  repost_of: z.string().uuid().optional(),
-  lat: z.number().min(-90).max(90).optional(),
-  lng: z.number().min(-180).max(180).optional(),
-})
+// POST /api/weight — upsert today's weight.
+export const weightSchema = z.object({
+  weight_kg: z.number().positive().max(500),
+  log_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
 
-// ============================
-// Geo schemas
-// ============================
+// POST /api/finance — upsert this month's entry for an account.
+export const financeSchema = z.object({
+  account_id: z.string().uuid(),
+  month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  balance: z.number().nullable().optional(),
+  price_per_unit: z.number().nullable().optional(),
+});
 
-export const geoResolveSchema = z.object({
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-})
+// POST /api/providers — upsert provider info for a medication.
+export const providerSchema = z.object({
+  medication_id: z.string().uuid(),
+  prescriber: z.string().max(200).nullable().optional(),
+  pharmacy: z.string().max(200).nullable().optional(),
+  contact: z.string().max(200).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
 
-// ============================
-// Profile schemas
-// ============================
+// POST /api/orders — log a reorder.
+export const orderSchema = z.object({
+  medication_id: z.string().uuid(),
+  date_ordered: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  quantity: z.number().min(0).nullable().optional(),
+  cost: z.number().min(0).nullable().optional(),
+  pharmacy: z.string().max(200).nullable().optional(),
+  date_collected: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
 
-export const profilePatchSchema = z.object({
-  handle: z.string().regex(/^[a-z0-9_]{3,20}$/, 'Handle must be 3-20 chars: lowercase letters, numbers, underscores.').optional(),
-  display_name: z.string().max(100).optional(),
-  bio: z.string().max(160).optional(),
-  timezone: z.string().max(100).optional(),
-})
-
-// ============================
-// Location follow schemas
-// ============================
-
-export const locationFollowSchema = z.object({
-  zone_id: z.string().min(1, 'Zone ID is required.'),
-})
-
-// ============================
-// Validation helper
-// ============================
-
-/**
- * Parse and validate a request body with a Zod schema.
- * Returns the parsed data on success, or a NextResponse error on failure.
- */
-export function parseBody<T>(
-  schema: z.ZodType<T>,
-  data: unknown
-): { success: true; data: T } | { success: false; response: NextResponse } {
-  const result = schema.safeParse(data)
-  if (result.success) {
-    return { success: true, data: result.data }
-  }
-
-  const firstIssue = result.error.issues[0]
-  const message = firstIssue
-    ? `${firstIssue.path.join('.')}: ${firstIssue.message}`.replace(/^: /, '')
-    : 'Invalid request body.'
-
-  return {
-    success: false,
-    response: apiError(message, 400, 'VALIDATION_ERROR') as NextResponse,
-  }
-}
+// POST /api/push/subscribe — store a push subscription.
+export const pushSubscribeSchema = z.object({
+  endpoint: z.string().url(),
+  keys: z.object({
+    p256dh: z.string(),
+    auth: z.string(),
+  }),
+});

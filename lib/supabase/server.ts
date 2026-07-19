@@ -1,61 +1,44 @@
-// Supabase Client for Server Components and Server Actions
-// Use this in Server Components, Route Handlers, and Server Actions
+import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-/**
- * Creates a Supabase client for use in Server Components and Server Actions.
- * This client reads auth state from cookies (read-only for Server Components).
- *
- * Usage in Server Components:
- * ```tsx
- * import { createClient } from '@/lib/supabase/server'
- *
- * async function MyServerComponent() {
- *   const supabase = await createClient()
- *   const { data } = await supabase.from('table').select()
- *   // ...
- * }
- * ```
- *
- * Usage in Server Actions:
- * ```tsx
- * 'use server'
- * import { createClient } from '@/lib/supabase/server'
- *
- * async function myAction() {
- *   const supabase = await createClient()
- *   // ...
- * }
- * ```
- */
+// Cookie-based server client for Server Components and Route Handlers.
+// Reads/writes the auth cookie so RLS applies to the logged-in user.
 export async function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const cookieStore = await cookies();
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-
-  const cookieStore = await cookies()
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // Called from a Server Component where cookies are read-only.
+            // The proxy middleware refreshes the session cookie, so this is safe to ignore.
+          }
+        },
       },
     },
-  })
+  );
+}
+
+// Service-role client that bypasses RLS. Used ONLY by the cron route to read
+// every user's push subscriptions and write the reminder log. Never expose to
+// the browser — this key must stay server-side.
+export function createServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: { autoRefreshToken: false, persistSession: false },
+    },
+  );
 }

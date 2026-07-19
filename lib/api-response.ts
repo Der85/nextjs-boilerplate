@@ -1,28 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 
-export type ApiErrorCode =
-  | 'UNAUTHORIZED'
-  | 'RATE_LIMITED'
-  | 'NOT_FOUND'
-  | 'CONFLICT'
-  | 'VALIDATION_ERROR'
-  | 'BAD_REQUEST'
-  | 'INTERNAL_ERROR'
-  | 'CSRF_ERROR'
-
-interface ApiErrorBody {
-  error: string
-  code: ApiErrorCode
+export function apiError(message: string, status = 500, code?: string) {
+  return NextResponse.json({ error: message, code }, { status });
 }
 
-/**
- * Return a standardized JSON error response with an HTTP status and a
- * machine-readable `code` field clients can switch on without parsing strings.
- */
-export function apiError(
-  message: string,
-  status: number,
-  code: ApiErrorCode
-): NextResponse<ApiErrorBody> {
-  return NextResponse.json({ error: message, code }, { status })
+export function apiOk<T>(data: T, status = 200) {
+  return NextResponse.json(data, { status });
+}
+
+export function unauthorized() {
+  return apiError("Not authenticated", 401, "UNAUTHENTICATED");
 }

@@ -1,16 +1,5 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { redirect } from "next/navigation";
 
-// This page must be dynamic — it reads auth cookies
-export const dynamic = 'force-dynamic'
-
-export default async function Home() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (user) {
-    redirect('/local')
-  } else {
-    redirect('/login')
-  }
+export default function Home() {
+  redirect("/dashboard");
 }
